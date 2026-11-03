@@ -1,0 +1,148 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.os }}, ${{ matrix.editor }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+        editor: [classic, visage]
+        exclude:
+          - os: macos-14
+            editor: classic
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Fetch locked source dependencies
+        shell: bash
+        run: ./scripts/fetch_dependencies.sh
+
+      - name: Install Ubuntu dependencies
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo apt-get update
+          PACKAGES=(libogg-dev libvorbis-dev)
+          if [ "${{ matrix.editor }}" = "visage" ]; then
+            PACKAGES+=(
+              mesa-common-dev libx11-dev libxrandr-dev libxinerama-dev
+              libxcursor-dev libxcomposite-dev libglib2.0-0
+              libfontconfig1-dev mesa-vulkan-drivers libvulkan1
+              vulkan-tools vulkan-validationlayers
+            )
+          fi
+          sudo apt-get install -y "${PACKAGES[@]}"
+
+      - name: Install macOS codec dependencies
+        if: matrix.os == 'macos-14'
+        shell: bash
+        run: brew install libogg libvorbis
+
+      - name: Bootstrap pinned vcpkg
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          git clone --no-checkout https://github.com/microsoft/vcpkg.git tools/vcpkg
+          git -C tools/vcpkg checkout --detach afa249f12f52ed8a3b919f195495ba8b330288d1
+          ./tools/vcpkg/bootstrap-vcpkg.bat
+
+      - name: Install Windows codec dependencies
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/tools/vcpkg
+          VCPKG_DEFAULT_TRIPLET: x64-windows-static
+          VCPKG_FEATURE_FLAGS: manifests
+        run: ./tools/vcpkg/vcpkg install --triplet x64-windows-static
+
+      - name: Configure Release build
+        shell: bash
+        run: |
+          EDITOR_ARGS=()
+          if [ "${{ matrix.editor }}" = "visage" ]; then
+            EDITOR_ARGS+=(
+              -DNINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR=ON
+              -DNINJAMPLUGIN_ENABLE_VISAGE_PROTOTYPE=ON
+            )
+          fi
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/tools/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+              -DVCPKG_TARGET_TRIPLET=x64-windows-static \
+              "${EDITOR_ARGS[@]}"
+          else
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release "${EDITOR_ARGS[@]}"
+          fi
+
+      - name: Build plugins
+        shell: bash
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Run CTest
+        shell: bash
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Verify packaged formats
+        shell: bash
+        run: |
+          if [ "${{ matrix.editor }}" = "visage" ]; then
+            STEM='ninjamplugin_visage_spike'
+          else
+            STEM='ninjamplugin_clap'
+          fi
+          find build/plugin -name "$STEM.clap" -print -quit | grep .
+          find build/plugin -name "$STEM.vst3" -print -quit | grep .
+
+      - name: Reject source paths in packaged files
+        shell: bash
+        run: |
+          while IFS= read -r packaged_file; do
+            cmake -DARTIFACT="$packaged_file" \
+              -D"FORBIDDEN_PATHS=$GITHUB_WORKSPACE" \
+              -P scripts/check_artifact_paths.cmake
+          done < <(find build/plugin -type f)
+
+      - name: Build Steinberg VST3 validator
+        if: matrix.editor == 'visage' && matrix.os != 'ubuntu-latest'
+        shell: bash
+        run: cmake --build build --config Release --target vst3_validator --parallel 4
+
+      - name: Validate VST3 artifact
+        if: matrix.editor == 'visage' && matrix.os != 'ubuntu-latest'
+        shell: bash
+        run: |
+          VST3_PATH="$(find build/plugin -name 'ninjamplugin_visage_spike.vst3' | head -n 1)"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            VALIDATOR="$(find build/validator-build -type f -iname 'validator.exe' | head -n 1)"
+          else
+            VALIDATOR="$(find build/validator-build -type f -name 'validator' | head -n 1)"
+          fi
+          test -n "$VALIDATOR"
+          "$VALIDATOR" "$VST3_PATH"
+
+      - name: Re-check locked dependencies
+        shell: bash
+        run: ./scripts/check_submodule_clean.sh
+
+      - name: Upload private validation artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ninjamplugin-${{ matrix.editor }}-${{ matrix.os }}
+          path: build/plugin
+          if-no-files-found: error

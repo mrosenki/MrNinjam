@@ -1,0 +1,53 @@
+# Build and package output
+/build/
+/build-*/
+/out/
+/dist/
+/packages/
+/_install/
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Dependency checkouts are reconstructed from dependencies.lock.
+/deps/
+/external/
+/tools/vcpkg/
+
+# Runtime and diagnostic output
+/config/
+/logs/
+/recordings/
+/recovery/
+/exports/
+/captures/
+*.log
+*.dmp
+*.crash
+*.wav
+*.ogg
+*.ninjam
+
+# Generated validation and prototype output
+/verified_renders/
+**/verified_renders/
+Testing/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+
+# Secrets and local connection settings
+.env
+.env.*
+!.env.example
+/connection_config.*
+!/connection_config.example.*

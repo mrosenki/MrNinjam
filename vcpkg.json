@@ -1,0 +1,9 @@
+{
+  "name": "ninjamplugin",
+  "version-string": "0.1.132",
+  "license": "GPL-3.0-or-later",
+  "dependencies": [
+    "libogg",
+    "libvorbis"
+  ]
+}

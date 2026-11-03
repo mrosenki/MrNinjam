@@ -1,0 +1,7 @@
+PreSonus Plug-In Extensions
+
+Written and placed in the PUBLIC DOMAIN by PreSonus Software Ltd.
+
+The gain-reduction interface header is bundled by clap-wrapper from the
+PreSonus/Fender plugin-extension source.
+
