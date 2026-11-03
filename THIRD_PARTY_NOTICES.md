@@ -1,6 +1,6 @@
 # Third-party notices
 
-This is the reviewed source/build inventory for NinjamPlugin 0.1.132. It does
+This is the reviewed source/build inventory for NinjamPlugin 0.2.1. It does
 not replace the licence texts under `third_party/licenses/` or notices inside
 the locked upstream source. Exact revisions are documented in
 `docs/DEPENDENCIES.md`.

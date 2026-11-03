@@ -32,9 +32,24 @@ while the plugin target was macOS 11. This does not invalidate the local smoke
 result, but it is a packaging and reproducibility issue that must be resolved
 before release.
 
+The merged `0.2.0` baseline at
+`a448eb916c1439ac8ae90a59cb6b8c4324d1505f` subsequently passed all five
+private GitHub Actions jobs: macOS Visage, Windows Classic and Visage, and
+Linux Classic and Visage. This established a healthy cross-platform baseline
+before the `0.2.1` single-editor consolidation.
+
+For `0.2.1`, local macOS validation currently covers the single production
+configuration, 14 CTest cases (including UI layout, editor-shell, identity,
+audio-heartbeat, state-codec, bridge, and artifact-path checks), and both CLAP
+and VST3 products named `NinjamPlugin`. The CLAP validator completed with 15
+passes, no failures, five inapplicable skips, and one scan-time warning; the
+Steinberg VST3 validator passed all 47 tests and reported the permanent CID.
+Bundle metadata reports version `0.2.1` and the `.clap`/`.vst3` bundle IDs. The
+PR workflow remains the required Windows/Linux and clean-run confirmation.
+
 The migration completion review also confirmed:
 
-- no top-level `.git` directory was created;
+- the independent Git history contains no imported historical commits;
 - the non-generated source tree contains no historical absolute path, private
   tutorial/repository reference, symbolic link, `.DS_Store`, plugin binary,
   recording, crash artifact, or file larger than 5 MiB;
@@ -44,15 +59,14 @@ The migration completion review also confirmed:
   indirection needed for build-owned patched sources.
 
 The historical checkout remained at its recorded baseline with its pre-existing
-dirty state intact. This document makes no claim that clean clones, other
-operating systems, GitHub Actions, DAW hosts, or final release packages have
-been validated.
+dirty state intact. This document makes no claim that representative DAW hosts
+or final release packages have been validated.
 
-## Required after Git initialization
+## Remaining release validation
 
-- fresh-clone dependency reconstruction on all supported platforms;
-- macOS, Windows, and Linux CLAP/VST3 builds and CTest;
-- CI execution with reviewed dependency/tool pins;
+- repeat fresh-clone dependency reconstruction for the consolidated `0.2.1`
+  configuration on all supported platforms;
+- complete the `0.2.1` macOS, Windows, and Linux CI run;
 - CLAP and VST3 validators, package/runtime dependency inspection, and licence
   material checks;
 - secret, large-file, prohibited-path, and generated-file controls; and

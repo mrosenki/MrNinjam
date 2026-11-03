@@ -1,8 +1,8 @@
 # Dependencies and provenance
 
 `dependencies.lock` is the machine-readable source lock for direct and
-build-time checkouts. These pins preserve the reviewed `0.1.132` migration
-baseline; this phase does not upgrade them.
+build-time checkouts. The `0.2.1` consolidation preserves the reviewed source
+pins and does not upgrade dependencies.
 
 ## Direct source pins
 
@@ -68,11 +68,9 @@ components even when the project does not directly call every image format:
 | tinystl | BSD-2-Clause |
 
 The component licence texts or notices are retained under
-`third_party/licenses/`. A final binary-package scan must confirm the exact
-platform-specific object graph before public release. In particular, only the
-macOS graph has been built locally; Windows and Linux may activate additional
-bgfx backend headers or sources, so their exact notice closure remains
-unverified rather than inferred.
+`third_party/licenses/`. CI has built the Visage configuration on macOS,
+Windows, and Linux, but a final platform-specific binary-package scan must
+still confirm the exact object graph and notice closure before public release.
 
 ## Fonts and resources
 
@@ -118,14 +116,14 @@ The workflow currently pins:
 
 | Tool | Full commit | Reviewed tag |
 | --- | --- | --- |
-| actions/checkout | `11d5960a326750d5838078e36cf38b85af677262` | `v4.4.0` |
-| actions/upload-artifact | `ea165f8d65b6e75b540449e92b4886f43607fa02` | `v4.6.2` |
+| actions/checkout | `3d3c42e5aac5ba805825da76410c181273ba90b1` | `v7.0.1` |
+| actions/upload-artifact | `cf430e030ddbb5b0abf93d22962f4752f3646cd9` | `v7.0.2` |
 | vcpkg | `afa249f12f52ed8a3b919f195495ba8b330288d1` | immutable tooling baseline |
 
 The workflow grants only `contents: read` and checkout uses
-`persist-credentials: false`. It remains provisional and unverified:
-runner images, apt/Homebrew packages, compilers, CMake, and codec resolution
-float; macOS excludes the classic editor; Linux excludes the VST3 validator;
-there is no CLAP validator; and no clean-clone or GitHub Actions run has yet
-been completed for this source line. Uploaded artifacts must remain private
-until public-distribution gates are complete.
+`persist-credentials: false`. The pins are current full commits, but their
+major-version/runtime requirements and future update policy remain part of the
+provisional CI review. Runner images, apt/Homebrew packages, compilers, CMake,
+and codec resolution float; Linux excludes the VST3 validator; and there is no
+CLAP validator. Uploaded artifacts must remain private until
+public-distribution gates are complete.

@@ -27,7 +27,9 @@ foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
   Write-Host ("Plugin artifact: {0}" -f $ArtifactPath)
 }
 
-Get-ChildItem (Join-Path $BuildDir "plugin") -Recurse -File | ForEach-Object {
-  cmake "-DARTIFACT=$($_.FullName)" "-DFORBIDDEN_PATHS=$RootDir" `
-    -P (Join-Path $RootDir "scripts/check_artifact_paths.cmake")
+foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
+  Get-ChildItem $ArtifactPath -Recurse -File | ForEach-Object {
+    cmake "-DARTIFACT=$($_.FullName)" "-DFORBIDDEN_PATHS=$RootDir" `
+      -P (Join-Path $RootDir "scripts/check_artifact_paths.cmake")
+  }
 }

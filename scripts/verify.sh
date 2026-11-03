@@ -28,8 +28,10 @@ for artifact in "$CLAP_ARTIFACT" "$VST3_ARTIFACT"; do
   printf "Plugin artifact: %s\n" "$artifact"
 done
 
-while IFS= read -r packaged_file; do
-  cmake -DARTIFACT="$packaged_file" \
-    -D"FORBIDDEN_PATHS=$ROOT_DIR" \
-    -P "${ROOT_DIR}/scripts/check_artifact_paths.cmake"
-done < <(find "${BUILD_DIR}/plugin" -type f)
+for artifact in "$CLAP_ARTIFACT" "$VST3_ARTIFACT"; do
+  while IFS= read -r packaged_file; do
+    cmake -DARTIFACT="$packaged_file" \
+      -D"FORBIDDEN_PATHS=$ROOT_DIR" \
+      -P "${ROOT_DIR}/scripts/check_artifact_paths.cmake"
+  done < <(find "$artifact" -type f)
+done

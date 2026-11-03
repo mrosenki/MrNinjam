@@ -12,7 +12,8 @@ GPL-3.0-or-later. This statement excludes all third-party code and assets.
 | Core and state | `include/ninjamplugin/core/`, `src/core/` | Exported from the reviewed `0.1.132` baseline |
 | Plug-in adapter | `include/ninjamplugin/format/`, `src/format/clap/` | Exported unchanged except configurable dependency paths |
 | UI/controller | `include/ninjamplugin/ui/`, `src/ui/` | Exported from the baseline |
-| Visage mixer/editor | `prototypes/visage_mixer/` | Exported; dependency font path made configurable |
+| Production editor | `include/ninjamplugin/ui/visage/`, `src/ui/visage/`, `src/ui/editor_shell_visage.cpp` | Exported from the prototype tree, renamed, and made the sole production UI |
+| Standalone UI harness | `tools/ui_harness/` | Retained as optional development and layout-validation tooling |
 | Tests | `src/tests/` | Exported from the baseline |
 | Build/tooling | `CMakeLists.txt`, `cmake/`, `scripts/`, workflow files | Exported then revised for locked independent dependency preparation |
 | Documentation | `README.md`, `docs/` | Rewritten for the clean source line |

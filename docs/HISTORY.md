@@ -14,6 +14,8 @@ Useful verified conclusions from the final private baseline are summarized in
 `docs/VALIDATION.md`; private environment details were not copied.
 
 Active development in the independent repository begins at version `0.2.0`.
-The version transition does not change the CLAP plug-in IDs, VST3 class
-identifiers derived by clap-wrapper, parameter identities, or V1--V20 saved
-state decoding compatibility.
+Version `0.2.1` deliberately replaces the temporary private Classic and
+Visage-spike host identities with one permanent CLAP ID and explicit VST3 CID.
+Because those development builds were not publicly released, the project
+accepts this one-time DAW resolution break before establishing its public
+identity. Parameter identities and V1--V20 saved-state decoding remain intact.

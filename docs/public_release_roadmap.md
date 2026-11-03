@@ -59,6 +59,11 @@ limitations explicit.
 
 Exit gate: only the approved snapshot exists in the new private repository.
 
+Status: complete. The independent root commit and private
+`mrosenki/NinjamPlugin-Public` repository were created without importing the
+historical repository. Development continues with normal Git history (Option
+A); history will not be rewritten as part of the `0.2.1` consolidation.
+
 ## Phase 5 — Validate clean clones, builds, tests, dependencies, and CI
 
 - Clone the new private repository into fresh workspaces on macOS, Windows, and
@@ -86,11 +91,13 @@ Exit gate: normal work and CI occur only in the new repository.
 
 ## Phase 7 — Continue feature and reliability work
 
-Start with the deferred **Audio processing paused** warning, implemented in the
-shared CLAP-native core/UI path so CLAP and wrapped VST3 behave consistently.
-Then continue focused release safeguards:
+The shared CLAP/VST3 **Audio processing paused** warning was completed in
+`0.2.0`. Version `0.2.1` establishes the permanent plug-in identity and single
+production editor. Continue with focused release safeguards:
 
+- blocking audio callback audit;
 - steady-state audio callback allocation audit and regression test;
+- routing-state race audit and audio-thread logging removal;
 - explicit server-licence consent;
 - reconnect, participant slot reuse, and host bus-layout regressions;
 - routing, capture, recovery, RAW import, and WAV export reliability; and

@@ -7,9 +7,10 @@ NinjamPlugin has one CLAP-native implementation and two packaged formats:
 - CLAP
 - VST3 through clap-wrapper
 
-`NINJAMPLUGIN_ENABLE_VST3` defaults to `ON`. The Visage editor is enabled for
-the intended product build with `NINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR=ON`.
-The classic editor remains a comparison path during migration.
+`NINJAMPLUGIN_ENABLE_VST3` defaults to `ON`. The Visage-backed editor is the
+single production editor on every platform. `NINJAMPLUGIN_BUILD_UI_HARNESS`
+optionally builds its standalone test harness; it does not select a different
+production UI.
 
 ## Requirements
 
@@ -18,8 +19,7 @@ The classic editor remains a comparison path during migration.
 - A C++20 compiler and a supported build backend
 - Ogg and Vorbis headers and libraries
 - Platform graphics and window-system dependencies required by Visage
-- Windows: the provisional workflow is configured for vcpkg's static x64
-  triplet; this source line has not yet completed a Windows CI run
+- Windows: the workflow uses vcpkg's static x64 triplet
 
 The source dependencies and exact commits are recorded in `dependencies.lock`.
 Ogg/Vorbis package resolution is not yet equally pinned across all platforms.
@@ -58,8 +58,7 @@ top-level Git submodules.
 ```bash
 cmake -S . -B build/Release \
   -DCMAKE_BUILD_TYPE=Release \
-  -DNINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR=ON \
-  -DNINJAMPLUGIN_ENABLE_VISAGE_PROTOTYPE=ON \
+  -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON \
   -DNINJAMPLUGIN_ENABLE_VST3=ON
 cmake --build build/Release --config Release --parallel 4
 ctest --test-dir build/Release -C Release --output-on-failure
@@ -68,13 +67,13 @@ ctest --test-dir build/Release -C Release --output-on-failure
 Or run `./scripts/verify.sh Release` to perform the dependency check, build,
 CTest run, artifact existence checks, and packaged-file path scan.
 
-Expected Visage products are under `build/Release/plugin`:
+Expected products are under `build/Release/plugin`:
 
-- `ninjamplugin_visage_spike.clap`
-- `ninjamplugin_visage_spike.vst3`
+- `NinjamPlugin.clap`
+- `NinjamPlugin.vst3`
 
-Those filenames and the corresponding internal IDs are intentionally preserved
-for saved-project compatibility.
+The permanent CLAP ID is `io.github.mrosenki.ninjamplugin`; the explicit VST3
+CID is `CF3108E94031432BAEC75E1A03E0978F`.
 
 ## Dependency patching
 
@@ -104,11 +103,12 @@ The migration tree must not be described as reproducible or release-ready
 until clean-clone, cross-platform, and CI validation have actually passed. See
 `docs/VALIDATION.md` for the results recorded so far.
 
-The checked-in GitHub Actions configuration is also provisional. Its Action
-and vcpkg references are full-commit pins and its permissions are restricted,
-but runner images, system packages, Homebrew packages, compilers, CMake, and
-codec resolution still float. No GitHub Actions run has yet validated this
-source line.
+The checked-in GitHub Actions configuration remains provisional. It builds the
+single production configuration on macOS, Windows, and Linux. Its Action and
+vcpkg references are full-commit pins and its permissions are restricted, but
+runner images, system packages, Homebrew packages, compilers, CMake, and codec
+resolution still float. The preceding `0.2.0` configuration passed all five
+matrix jobs; the consolidated `0.2.1` workflow still requires its PR run.
 
 ## Live connection probes
 
