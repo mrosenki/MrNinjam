@@ -190,6 +190,10 @@ ninjamplugin_apply_warnings(ninjamplugin_ninjam_bridge)
 
 if(NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME)
   target_include_directories(ninjamplugin_ninjam_bridge
+    SYSTEM BEFORE PRIVATE
+      "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}"
+  )
+  target_include_directories(ninjamplugin_ninjam_bridge
     SYSTEM PRIVATE
       "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}/WDL"
       "${NINJAMPLUGIN_VORBIS_INCLUDE_DIR}"
@@ -207,6 +211,7 @@ if(NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME)
 
   target_include_directories(ninjamplugin_ninjam_runtime
     SYSTEM PUBLIC
+      "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}"
       "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}/ninjam"
       "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}/WDL"
       "${NINJAMPLUGIN_VORBIS_INCLUDE_DIR}"

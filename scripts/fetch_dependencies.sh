@@ -70,6 +70,9 @@ prepare_checkout() {
 
 while IFS='|' read -r name repository commit relative_path; do
   case "$name" in ''|'#'*) continue ;; esac
+  # Remain safe when invoked from a checkout created before the lock file's
+  # LF-only Git attribute was introduced.
+  relative_path="${relative_path%$'\r'}"
   prepare_checkout "$name" "$repository" "$commit" "$relative_path"
 done < "$LOCK_FILE"
 
