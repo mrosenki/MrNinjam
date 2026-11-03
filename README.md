@@ -4,11 +4,12 @@ NinjamPlugin is a cross-platform NINJAM client that runs inside a DAW. Its
 native plugin implementation is CLAP; the same implementation is packaged as
 VST3 through clap-wrapper.
 
-The current migration baseline is version `0.1.132`. This source tree is a
-private, pre-publication staging tree and is not yet release-ready. The
-project licence has been selected; complete packaged notices, reproducible
-codec resolution, clean-clone validation, and the remaining public-release
-checks are still open.
+The current development baseline is version `0.2.0`. The independent Git
+history began with the reviewed `0.1.132` migration snapshot; that historical
+baseline remains preserved in the initial commit. This source tree is private,
+pre-publication, and not yet release-ready. The project licence has been
+selected; complete packaged notices, reproducible codec resolution,
+clean-clone validation, and the remaining public-release checks are still open.
 
 ## Implemented product
 
@@ -65,10 +66,10 @@ commands. Exact source pins and provenance are in
 
 ## Status and compatibility
 
-This migration preserves the `0.1.132` source implementation, plugin IDs,
-internal artifact names, and state formats. Temporary names such as
-`visage-spike` are retained where changing them could prevent existing DAW
-projects from resolving the plugin.
+The `0.2.x` development series preserves the plug-in IDs, internal artifact
+names, and V1--V20 state compatibility established by the `0.1.132` migration
+snapshot. Temporary names such as `visage-spike` are retained where changing
+them could prevent existing DAW projects from resolving the plug-in.
 
 The old development history and private test artifacts are deliberately not
 part of this tree. Verified historical conclusions and the limitations of the
