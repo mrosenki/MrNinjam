@@ -164,6 +164,7 @@ struct SessionUiState {
   std::vector<RemoteChannelState> remote_channels;
   std::string session_feed_text;
   bool chat_send_enabled = false;
+  bool audio_processing_paused = false;
   double remote_return_level = 1.0;
   double remote_return_activity = 0.0;
   double local_monitor_master = 1.0;

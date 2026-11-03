@@ -116,13 +116,15 @@ diff --git a/ninjam/njclient.h b/ninjam/njclient.h
 index 8df9dd1a..6803c85d 100644
 --- a/ninjam/njclient.h
 +++ b/ninjam/njclient.h
-@@ -16,5 +16,8 @@
+@@ -16,5 +16,10 @@
      along with NINJAM; if not, write to the Free Software
      Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 +
 +/* Modified by Micah Rosenkind for NinjamPlugin on 2026-07-27:
 +   add decoded remote-channel audio callback integration. */
++
++#define NINJAMPLUGIN_NJCLIENT_REMOTE_CHANNEL_AUDIO_PATCH 1
  
  /*
 @@ -200,6 +203,14 @@ public:

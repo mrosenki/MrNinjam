@@ -12,3 +12,8 @@ maintained in the canonical documents in this tree.
 
 Useful verified conclusions from the final private baseline are summarized in
 `docs/VALIDATION.md`; private environment details were not copied.
+
+Active development in the independent repository begins at version `0.2.0`.
+The version transition does not change the CLAP plug-in IDs, VST3 class
+identifiers derived by clap-wrapper, parameter identities, or V1--V20 saved
+state decoding compatibility.

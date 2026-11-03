@@ -1,6 +1,37 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(NinjamPlugin VERSION 0.1.132 LANGUAGES C CXX)
+project(NinjamPlugin VERSION 0.2.0 LANGUAGES C CXX)
+
+# Keep the host-visible CLAP version (also consumed by clap-wrapper for VST3)
+# and vcpkg package metadata aligned with the authoritative project version.
+file(READ
+  "${CMAKE_CURRENT_SOURCE_DIR}/include/ninjamplugin/format/clap/plugin_config.h"
+  NINJAMPLUGIN_PLUGIN_CONFIG_CONTENTS
+)
+string(REGEX MATCHALL
+  "kPluginVersion\\[\\][^;]*\"${PROJECT_VERSION}\""
+  NINJAMPLUGIN_MATCHING_PLUGIN_VERSIONS
+  "${NINJAMPLUGIN_PLUGIN_CONFIG_CONTENTS}"
+)
+list(LENGTH NINJAMPLUGIN_MATCHING_PLUGIN_VERSIONS
+  NINJAMPLUGIN_MATCHING_PLUGIN_VERSION_COUNT
+)
+if(NOT NINJAMPLUGIN_MATCHING_PLUGIN_VERSION_COUNT EQUAL 2)
+  message(FATAL_ERROR
+    "Both CLAP editor variants must report project version ${PROJECT_VERSION}."
+  )
+endif()
+
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json" NINJAMPLUGIN_VCPKG_JSON)
+string(JSON NINJAMPLUGIN_VCPKG_VERSION GET "${NINJAMPLUGIN_VCPKG_JSON}"
+  version-string
+)
+if(NOT NINJAMPLUGIN_VCPKG_VERSION STREQUAL PROJECT_VERSION)
+  message(FATAL_ERROR
+    "vcpkg version ${NINJAMPLUGIN_VCPKG_VERSION} does not match project version "
+    "${PROJECT_VERSION}."
+  )
+endif()
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)

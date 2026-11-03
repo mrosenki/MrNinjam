@@ -3,7 +3,7 @@
 // Build upstream NJClient in this translation unit so the project-owned
 // subclass below can inspect the decoder objects, whose definitions are kept
 // private to njclient.cpp by upstream.
-#include <njclient.cpp>
+#include <ninjam/njclient.cpp>
 
 int NinjamPluginNJClient::GetUserChannelCount(const int user_index,
                                               const int channel_index) {

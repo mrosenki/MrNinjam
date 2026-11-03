@@ -14,6 +14,7 @@ function(ninjamplugin_prepare_patched_dependency output_variable dependency_name
   set(staged_directory
     "${CMAKE_BINARY_DIR}/_patched_dependencies/${dependency_name}"
   )
+  get_filename_component(staging_root "${staged_directory}" DIRECTORY)
   file(REMOVE_RECURSE "${staged_directory}")
   file(MAKE_DIRECTORY "${staged_directory}")
   file(COPY "${source_directory}/"
@@ -23,7 +24,13 @@ function(ninjamplugin_prepare_patched_dependency output_variable dependency_name
   )
 
   execute_process(
-    COMMAND "${GIT_EXECUTABLE}" apply --check --whitespace=nowarn "${patch_file}"
+    # The staged copy lives inside the project's ignored build tree. Once the
+    # project itself has Git metadata, plain `git apply` discovers that parent
+    # repository and can report success without modifying ignored files.
+    COMMAND "${CMAKE_COMMAND}" -E env
+            "GIT_CEILING_DIRECTORIES=${staging_root}"
+            "${GIT_EXECUTABLE}" apply --no-index --check --whitespace=nowarn
+            "${patch_file}"
     WORKING_DIRECTORY "${staged_directory}"
     RESULT_VARIABLE patch_check_result
     ERROR_VARIABLE patch_check_error
@@ -36,7 +43,10 @@ function(ninjamplugin_prepare_patched_dependency output_variable dependency_name
   endif()
 
   execute_process(
-    COMMAND "${GIT_EXECUTABLE}" apply --whitespace=nowarn "${patch_file}"
+    COMMAND "${CMAKE_COMMAND}" -E env
+            "GIT_CEILING_DIRECTORIES=${staging_root}"
+            "${GIT_EXECUTABLE}" apply --no-index --whitespace=nowarn
+            "${patch_file}"
     WORKING_DIRECTORY "${staged_directory}"
     RESULT_VARIABLE patch_result
     ERROR_VARIABLE patch_error

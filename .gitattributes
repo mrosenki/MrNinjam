@@ -1,2 +1,4 @@
-*.patch -whitespace
+*.patch text eol=lf -whitespace
 third_party/licenses/** -whitespace
+*.sh text eol=lf
+dependencies.lock text eol=lf

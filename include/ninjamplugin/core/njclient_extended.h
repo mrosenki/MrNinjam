@@ -1,6 +1,10 @@
 #pragma once
 
-#include "njclient.h"
+#include <ninjam/njclient.h>
+
+#if !defined(NINJAMPLUGIN_NJCLIENT_REMOTE_CHANNEL_AUDIO_PATCH)
+#error "NinjamPlugin requires its patched, build-owned NJClient headers"
+#endif
 
 // Small project-owned extension of the pinned upstream client.  NINJAM's
 // channel list protocol does not carry mono/stereo metadata; that information

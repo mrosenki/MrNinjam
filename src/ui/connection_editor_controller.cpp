@@ -393,6 +393,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   state.transmit_bitrate_text = snapshot.transmit_bitrate_text;
   state.recording_status_text = snapshot.recording_status_text;
   state.multitrack_status_text = snapshot.multitrack_status_text;
+  state.audio_processing_paused = snapshot.audio_processing_paused;
   state.target_session_bpm_value = snapshot.target_session_bpm_value;
   state.target_session_bpi_value = snapshot.target_session_bpi_value;
   state.remote_return_value = snapshot.remote_return_value;

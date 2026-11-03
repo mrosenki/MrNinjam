@@ -1475,7 +1475,8 @@ public:
         centered_interval_x, button_width + 12.0f,
         std::max(button_width + 12.0f,
                  metronomeButtonX() - interval_width - 4.0f));
-    interval_.setBounds(interval_x, 0.0f, interval_width, height());
+    interval_.setBounds(interval_x, 0.0f, interval_width,
+                        std::min(height(), 60.0f));
   }
 
   bool metronomeButtonVisible() const {
@@ -1575,6 +1576,26 @@ private:
   SessionUiState state_;
   bool session_open_ = false;
   bool recording_open_ = false;
+};
+
+class AudioProcessingWarning : public visage::Frame {
+public:
+  AudioProcessingWarning() : Frame("audio-processing-warning") {
+    setIgnoresMouseEvents(true, true);
+  }
+
+  void draw(visage::Canvas& canvas) override {
+    canvas.setColor(kPanelRaised);
+    canvas.roundedRectangle(0.0f, 0.0f, width(), height(), 8.0f);
+    canvas.setColor(kAmber);
+    canvas.roundedRectangleBorder(0.5f, 0.5f, width() - 1.0f,
+                                  height() - 1.0f, 8.0f, 1.0f);
+    DrawText(canvas, "Audio processing paused", 11.0f, kAmber,
+             12.0f, 5.0f, width() - 24.0f, 16.0f);
+    DrawText(canvas,
+             "The DAW audio engine may be stopped. Audio and metronome are inactive.",
+             9.0f, kTextMuted, 12.0f, 22.0f, width() - 24.0f, 16.0f);
+  }
 };
 
 class ConnectionDrawer : public visage::Frame {
@@ -4440,10 +4461,18 @@ public:
     layout().setPadding(10_px);
     layout().setFlexGap(8_px);
 
-    addChild(header_);
+    addChild(header_area_);
     addChild(workspace_);
+    header_area_.setFlexLayout(true);
+    header_area_.layout().setHeight(60_px);
+    header_area_.layout().setFlexShrink(0.0f);
+    header_area_.layout().setFlexGap(0_px);
+    header_area_.addChild(header_);
+    header_area_.addChild(audio_processing_warning_);
     header_.layout().setHeight(60_px);
     header_.layout().setFlexShrink(0.0f);
+    audio_processing_warning_.layout().setHeight(44_px);
+    audio_processing_warning_.layout().setFlexShrink(0.0f);
     header_.onSession = [this]() { toggleSessionPanel(); };
     header_.onIo = [this]() { showPluginIoMenu(); };
     header_.onRecord = [this]() { toggleRecordingPanel(); };
@@ -4660,7 +4689,14 @@ public:
   }
 
   void updateSessionUiState(const SessionUiState& state) {
+    const bool warning_visibility_changed =
+        session_ui_state_.audio_processing_paused !=
+        state.audio_processing_paused;
     session_ui_state_ = state;
+    header_area_.layout().setHeight(
+        state.audio_processing_paused ? 108_px : 60_px);
+    header_area_.layout().setFlexGap(
+        state.audio_processing_paused ? 4_px : 0_px);
     header_.setState(state);
     session_panel_.setState(state);
     notes_panel_.setState(state);
@@ -4858,6 +4894,12 @@ public:
             if (ui_callbacks_.on_remote_channel_output_pair_changed)
               ui_callbacks_.on_remote_channel_output_pair_changed(index, value);
           });
+    }
+    if (warning_visibility_changed) {
+      computeLayout();
+      applyPanelLayout(false);
+      audio_processing_warning_.redraw();
+      redrawAll();
     }
   }
 
@@ -5129,7 +5171,10 @@ public:
         errors.push_back(child.name() + " escapes " + parent.name());
     };
 
-    checkContained(*this, header_);
+    checkContained(*this, header_area_);
+    checkContained(header_area_, header_);
+    if (session_ui_state_.audio_processing_paused)
+      checkContained(header_area_, audio_processing_warning_);
     checkContained(*this, workspace_);
     if (left_column_.isVisible())
       checkContained(workspace_, left_column_);
@@ -5149,6 +5194,9 @@ public:
 
     if (!header_.metronomeButtonVisible())
       errors.emplace_back("metronome toggle is hidden at this window width");
+    if (session_ui_state_.audio_processing_paused &&
+        audio_processing_warning_.height() < 43.0f)
+      errors.emplace_back("audio processing warning is not visible");
 
     if (left_column_.isVisible() && left_column_.width() < 120.0f)
       errors.emplace_back("visible session column is too narrow");
@@ -5385,7 +5433,9 @@ private:
     input_panel_.showAddPopup(std::move(menu));
   }
 
+  visage::Frame header_area_{"header-area"};
   TopBar header_;
+  AudioProcessingWarning audio_processing_warning_;
   visage::Frame workspace_;
   SidePanelColumn left_column_{"left-column", kCyan};
   visage::Frame right_column_;

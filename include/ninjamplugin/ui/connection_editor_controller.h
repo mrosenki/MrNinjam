@@ -59,6 +59,7 @@ struct ConnectionEditorRuntimeSnapshot {
   bool multitrack_capture_active = false;
   bool multitrack_wav_clips_enabled = false;
   bool connect_requested = false;
+  bool audio_processing_paused = false;
   bool session_interval_progress_valid = false;
   std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_route_configured{true, true};

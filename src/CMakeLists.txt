@@ -190,6 +190,10 @@ ninjamplugin_apply_warnings(ninjamplugin_ninjam_bridge)
 
 if(NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME)
   target_include_directories(ninjamplugin_ninjam_bridge
+    SYSTEM BEFORE PRIVATE
+      "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}"
+  )
+  target_include_directories(ninjamplugin_ninjam_bridge
     SYSTEM PRIVATE
       "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}/WDL"
       "${NINJAMPLUGIN_VORBIS_INCLUDE_DIR}"
@@ -207,6 +211,7 @@ if(NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME)
 
   target_include_directories(ninjamplugin_ninjam_runtime
     SYSTEM PUBLIC
+      "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}"
       "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}/ninjam"
       "${NINJAMPLUGIN_NINJAM_SOURCE_DIR}/WDL"
       "${NINJAMPLUGIN_VORBIS_INCLUDE_DIR}"
@@ -258,6 +263,15 @@ if(NINJAMPLUGIN_HAS_REMIX_STEM_EXPORT)
       "${NINJAMPLUGIN_VORBISFILE_LIBRARY}"
   )
 endif()
+
+# The controller implementation in ninjamplugin_ui_shell calls bridge,
+# recording, connection-config, and stem-export APIs. Express that dependency
+# on the target so static-library consumers receive a linker-safe order on
+# GNU/Linux as well as on the more permissive Apple and MSVC linkers.
+target_link_libraries(ninjamplugin_ui_shell
+  PRIVATE
+    ninjamplugin_ninjam_bridge
+)
 
 if(NINJAMPLUGIN_ENABLE_TESTS)
   add_executable(ninjamplugin_ninjam_protocol_smoke_test
