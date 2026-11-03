@@ -31,6 +31,7 @@
 #include <clap/ext/state.h>
 #include <clap/ext/timer-support.h>
 #include <clap/factory/plugin-factory.h>
+#include <clapwrapper/vst3.h>
 
 namespace {
 
@@ -2821,6 +2822,31 @@ const clap_plugin_factory_t kPluginFactory = {
     FactoryCreatePlugin,
 };
 
+const array_of_16_bytes kVst3ComponentId = COMPONENT_ID(
+    ninjamplugin::format::clap::kVst3ClassIdPart1,
+    ninjamplugin::format::clap::kVst3ClassIdPart2,
+    ninjamplugin::format::clap::kVst3ClassIdPart3,
+    ninjamplugin::format::clap::kVst3ClassIdPart4);
+
+const clap_plugin_info_as_vst3_t kPluginInfoAsVst3 = {
+    ninjamplugin::format::clap::kPluginVendor,
+    &kVst3ComponentId,
+    nullptr,
+};
+
+const clap_plugin_info_as_vst3_t* CLAP_ABI FactoryGetVst3Info(
+    const clap_plugin_factory_as_vst3_t* /*factory*/, const uint32_t index) {
+  return index == 0 ? &kPluginInfoAsVst3 : nullptr;
+}
+
+const clap_plugin_factory_as_vst3_t kPluginFactoryAsVst3 = {
+    ninjamplugin::format::clap::kPluginVendor,
+    "https://github.com/mrosenki/NinjamPlugin-Public",
+    nullptr,
+    FactoryGetVst3Info,
+    nullptr,
+};
+
 }  // namespace
 
 extern "C" {
@@ -2834,6 +2860,11 @@ void CLAP_ABI NinjamPluginEntryDeinit() {}
 const void* CLAP_ABI NinjamPluginEntryGetFactory(const char* factory_id) {
   if (factory_id != nullptr && std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) == 0) {
     return &kPluginFactory;
+  }
+  if (factory_id != nullptr &&
+      (std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_INFO_VST3) == 0 ||
+       std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_INFO_VST3_V1) == 0)) {
+    return &kPluginFactoryAsVst3;
   }
   return nullptr;
 }

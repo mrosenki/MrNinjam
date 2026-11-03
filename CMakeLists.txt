@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(NinjamPlugin VERSION 0.2.0 LANGUAGES C CXX)
+project(NinjamPlugin VERSION 0.2.1 LANGUAGES C CXX)
 
 # Keep the host-visible CLAP version (also consumed by clap-wrapper for VST3)
 # and vcpkg package metadata aligned with the authoritative project version.
@@ -16,9 +16,9 @@ string(REGEX MATCHALL
 list(LENGTH NINJAMPLUGIN_MATCHING_PLUGIN_VERSIONS
   NINJAMPLUGIN_MATCHING_PLUGIN_VERSION_COUNT
 )
-if(NOT NINJAMPLUGIN_MATCHING_PLUGIN_VERSION_COUNT EQUAL 2)
+if(NOT NINJAMPLUGIN_MATCHING_PLUGIN_VERSION_COUNT EQUAL 1)
   message(FATAL_ERROR
-    "Both CLAP editor variants must report project version ${PROJECT_VERSION}."
+    "The CLAP descriptor must report project version ${PROJECT_VERSION}."
   )
 endif()
 

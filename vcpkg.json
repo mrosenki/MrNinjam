@@ -1,6 +1,6 @@
 {
   "name": "ninjamplugin",
-  "version-string": "0.2.0",
+  "version-string": "0.2.1",
   "license": "GPL-3.0-or-later",
   "dependencies": [
     "libogg",

@@ -27,26 +27,35 @@ target_link_libraries(ninjamplugin_clap_impl PRIVATE
 
 target_include_directories(ninjamplugin_clap_impl PRIVATE
   "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
+  "${NINJAMPLUGIN_CLAP_WRAPPER_SOURCE_DIR}/include"
 )
 
 target_compile_features(ninjamplugin_clap_impl PRIVATE cxx_std_20)
 
-if(NINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR)
-  target_compile_definitions(ninjamplugin_clap_impl PRIVATE
-    NINJAMPLUGIN_VISAGE_CLAP_EDITOR=1
-  )
-  set(NINJAMPLUGIN_PLUGIN_OUTPUT_NAME "ninjamplugin_visage_spike")
-  set(NINJAMPLUGIN_PLUGIN_BUNDLE_IDENTIFIER "com.ninjam.ninjamplugin.visage-spike")
-  set(NINJAMPLUGIN_PLUGIN_BUNDLE_NAME "NinjamPlugin Visage Spike")
-else()
-  set(NINJAMPLUGIN_PLUGIN_OUTPUT_NAME "ninjamplugin_clap")
-  set(NINJAMPLUGIN_PLUGIN_BUNDLE_IDENTIFIER "com.ninjam.ninjamplugin")
-  set(NINJAMPLUGIN_PLUGIN_BUNDLE_NAME "NinjamPlugin")
-endif()
+set(NINJAMPLUGIN_PLUGIN_OUTPUT_NAME "NinjamPlugin")
+set(NINJAMPLUGIN_PLUGIN_BUNDLE_IDENTIFIER "io.github.mrosenki.ninjamplugin")
+set(NINJAMPLUGIN_PLUGIN_BUNDLE_NAME "NinjamPlugin")
 
 ninjamplugin_apply_warnings(ninjamplugin_clap_impl)
 
 if(NINJAMPLUGIN_ENABLE_TESTS)
+  add_executable(ninjamplugin_plugin_identity_smoke_test
+    ../../tests/plugin_identity_smoke_test.cpp
+  )
+  target_link_libraries(ninjamplugin_plugin_identity_smoke_test PRIVATE
+    ninjamplugin_clap_impl
+  )
+  target_include_directories(ninjamplugin_plugin_identity_smoke_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
+    "${NINJAMPLUGIN_CLAP_WRAPPER_SOURCE_DIR}/include"
+  )
+  target_compile_features(ninjamplugin_plugin_identity_smoke_test PRIVATE cxx_std_20)
+  ninjamplugin_apply_warnings(ninjamplugin_plugin_identity_smoke_test)
+  add_test(NAME ninjamplugin_plugin_identity_smoke_test
+    COMMAND ninjamplugin_plugin_identity_smoke_test
+  )
+
   add_executable(ninjamplugin_audio_processing_heartbeat_smoke_test
     ../../tests/audio_processing_heartbeat_smoke_test.cpp
   )
@@ -88,10 +97,12 @@ if(NINJAMPLUGIN_ENABLE_VST3)
   target_include_directories(ninjamplugin_clap PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
     "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
+    "${NINJAMPLUGIN_CLAP_WRAPPER_SOURCE_DIR}/include"
   )
   target_include_directories(ninjamplugin_vst3 PRIVATE
     "${PROJECT_SOURCE_DIR}/include"
     "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
+    "${NINJAMPLUGIN_CLAP_WRAPPER_SOURCE_DIR}/include"
   )
   target_compile_features(ninjamplugin_clap PRIVATE cxx_std_20)
   target_compile_features(ninjamplugin_vst3 PRIVATE cxx_std_20)
@@ -112,7 +123,7 @@ else()
     set_target_properties(ninjamplugin_clap PROPERTIES
       BUNDLE TRUE
       BUNDLE_EXTENSION clap
-      MACOSX_BUNDLE_GUI_IDENTIFIER "${NINJAMPLUGIN_PLUGIN_BUNDLE_IDENTIFIER}"
+      MACOSX_BUNDLE_GUI_IDENTIFIER "${NINJAMPLUGIN_PLUGIN_BUNDLE_IDENTIFIER}.clap"
       MACOSX_BUNDLE_BUNDLE_NAME "${NINJAMPLUGIN_PLUGIN_BUNDLE_NAME}"
       MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
       MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
