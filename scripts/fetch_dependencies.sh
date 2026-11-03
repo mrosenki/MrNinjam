@@ -58,6 +58,10 @@ prepare_checkout() {
   fi
   trap 'rm -rf -- "$temporary"' RETURN
   git clone --no-checkout "$repository" "$temporary"
+  # Preserve the pinned repository blobs byte-for-byte on every platform.
+  # In particular, Git for Windows otherwise converts text sources to CRLF,
+  # which prevents the reviewed LF-authored dependency patches from applying.
+  git -C "$temporary" config core.autocrlf false
   git -C "$temporary" checkout --detach "$commit"
   if [ -f "${temporary}/.gitmodules" ]; then
     git -C "$temporary" submodule update --init --recursive

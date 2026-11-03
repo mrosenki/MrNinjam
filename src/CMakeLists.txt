@@ -264,6 +264,15 @@ if(NINJAMPLUGIN_HAS_REMIX_STEM_EXPORT)
   )
 endif()
 
+# The controller implementation in ninjamplugin_ui_shell calls bridge,
+# recording, connection-config, and stem-export APIs. Express that dependency
+# on the target so static-library consumers receive a linker-safe order on
+# GNU/Linux as well as on the more permissive Apple and MSVC linkers.
+target_link_libraries(ninjamplugin_ui_shell
+  PRIVATE
+    ninjamplugin_ninjam_bridge
+)
+
 if(NINJAMPLUGIN_ENABLE_TESTS)
   add_executable(ninjamplugin_ninjam_protocol_smoke_test
     tests/ninjam_protocol_smoke_test.cpp
