@@ -211,6 +211,17 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
     editor.setPanelVisibility(test.show_session, test.show_recording);
     if (test.rows_collapsed)
       editor.setRowsCollapsed(true, true, true);
+    if (test.width == 720 || test.width == 835) {
+      ninjamprototype::SessionUiState warning_state;
+      warning_state.connection_state_text = "Connected";
+      warning_state.audio_processing_paused = true;
+      editor.updateSessionUiState(warning_state);
+      if (!editor.sessionUiStateMatches(warning_state)) {
+        std::cerr << test.name
+                  << ": audio processing warning state did not reach the layout\n";
+        ++failures;
+      }
+    }
 
     const auto errors = editor.validateLayout();
     for (const auto& error : errors) {

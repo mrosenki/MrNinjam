@@ -1,3 +1,15 @@
+add_library(ninjamplugin_clap_support STATIC
+  audio_processing_heartbeat.cpp
+)
+set_target_properties(ninjamplugin_clap_support PROPERTIES
+  POSITION_INDEPENDENT_CODE ON
+)
+target_include_directories(ninjamplugin_clap_support PUBLIC
+  "${PROJECT_SOURCE_DIR}/include"
+)
+target_compile_features(ninjamplugin_clap_support PUBLIC cxx_std_20)
+ninjamplugin_apply_warnings(ninjamplugin_clap_support)
+
 add_library(ninjamplugin_clap_impl STATIC
   clap_entry.cpp
 )
@@ -7,6 +19,7 @@ set_target_properties(ninjamplugin_clap_impl PROPERTIES
 )
 
 target_link_libraries(ninjamplugin_clap_impl PRIVATE
+  ninjamplugin_clap_support
   ninjamplugin_core
   ninjamplugin_ninjam_bridge
   ninjamplugin_ui_shell
@@ -32,6 +45,26 @@ else()
 endif()
 
 ninjamplugin_apply_warnings(ninjamplugin_clap_impl)
+
+if(NINJAMPLUGIN_ENABLE_TESTS)
+  add_executable(ninjamplugin_audio_processing_heartbeat_smoke_test
+    ../../tests/audio_processing_heartbeat_smoke_test.cpp
+  )
+  target_link_libraries(ninjamplugin_audio_processing_heartbeat_smoke_test PRIVATE
+    ninjamplugin_clap_support
+    ninjamplugin_ninjam_bridge
+    ninjamplugin_ui_shell
+  )
+  target_compile_features(
+    ninjamplugin_audio_processing_heartbeat_smoke_test PRIVATE cxx_std_20
+  )
+  ninjamplugin_apply_warnings(
+    ninjamplugin_audio_processing_heartbeat_smoke_test
+  )
+  add_test(NAME ninjamplugin_audio_processing_heartbeat_smoke_test
+    COMMAND ninjamplugin_audio_processing_heartbeat_smoke_test
+  )
+endif()
 
 if(NINJAMPLUGIN_ENABLE_VST3)
   set(NINJAMPLUGIN_PLUGIN_FORMATS CLAP VST3)

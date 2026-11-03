@@ -13,6 +13,8 @@ independently of the package version.
   parameter identities, and V1--V20 saved-state decoding compatibility.
 - Align CMake, CLAP, VST3 wrapper, Visage display, and vcpkg metadata on
   version `0.2.0`.
+- Warn when a connected session stops receiving valid DAW audio-processing
+  blocks for approximately 1.5 seconds, without changing network status.
 
 This development baseline has no Git tag, GitHub release, or public binary
 distribution.

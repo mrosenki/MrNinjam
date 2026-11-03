@@ -37,6 +37,20 @@ separate audio engine or UI implementation.
 - UI frames communicate through the shared controller and must not call the
   NINJAM runtime, recording services, or format adapter directly.
 
+The shared CLAP implementation records each valid, non-zero audio block with a
+lock-free counter. A main-thread heartbeat compares that counter against a
+monotonic clock and exposes an `Audio processing paused` warning after about
+1.5 seconds without progress while the NINJAM connection remains active. The
+audio callback does not read a clock, allocate, lock, or log for this check.
+
+While connection work needs regular main-thread service, the plug-in registers
+the CLAP timer-support extension at 33 ms. The pinned clap-wrapper forwards the
+same extension to VST3, so both formats use one heartbeat and UI path. Native
+hosts that do not implement CLAP timer support fall back to the existing host
+callback pump. If a host suspends audio processing and all plug-in main-thread
+or UI timers together, the warning cannot become visible until the host resumes
+one of those callbacks; the plug-in does not create a private polling thread.
+
 The public-release audit must verify that steady-state `ProcessAudio()` does not
 resize or allocate its working buffers.
 

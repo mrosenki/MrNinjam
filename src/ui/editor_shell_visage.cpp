@@ -74,6 +74,7 @@ ninjamprototype::SessionUiState BuildSessionUiState(
   session.recording_status_text = state.recording_status_text;
   session.session_feed_text = state.session_feed_text;
   session.chat_send_enabled = state.chat_send_enabled;
+  session.audio_processing_paused = state.audio_processing_paused;
   session.remote_return_level = state.remote_return_value;
   session.remote_return_activity = state.remote_return_bar.normalized_value;
   session.local_monitor_master = state.local_monitor_master_value;

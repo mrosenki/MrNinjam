@@ -18,6 +18,7 @@
 #include "ninjamplugin/core/parameter_model.h"
 #include "ninjamplugin/core/plugin_state.h"
 #include "ninjamplugin/core/debug_log.h"
+#include "ninjamplugin/format/clap/audio_processing_heartbeat.h"
 #include "ninjamplugin/format/clap/plugin_config.h"
 #include "ninjamplugin/ui/connection_editor_controller.h"
 #include "ninjamplugin/ui/editor_shell.h"
@@ -28,6 +29,7 @@
 #include <clap/ext/gui.h>
 #include <clap/ext/params.h>
 #include <clap/ext/state.h>
+#include <clap/ext/timer-support.h>
 #include <clap/factory/plugin-factory.h>
 
 namespace {
@@ -46,6 +48,7 @@ constexpr clap_id kMetronomeLevelParamId = 1011U;
 constexpr clap_id kSessionBpiParamId = 1012U;
 constexpr std::size_t kMaxStateBytes = 1024 * 1024;
 constexpr uint64_t kMainThreadPumpIntervalNs = 20ULL * 1000ULL * 1000ULL;
+constexpr uint32_t kMainThreadTimerPeriodMs = 33U;
 
 const char* const kPluginFeatures[] = {
     CLAP_PLUGIN_FEATURE_AUDIO_EFFECT,
@@ -101,6 +104,7 @@ struct NinjamPluginInstance {
   const clap_host_params_t* host_params = nullptr;
   const clap_host_gui_t* host_gui = nullptr;
   const clap_host_audio_ports_t* host_audio_ports = nullptr;
+  const clap_host_timer_support_t* host_timer_support = nullptr;
   bool is_reaper_host = false;
   ninjamplugin::core::ParameterModel params;
   ninjamplugin::core::NinjamBridge runtime;
@@ -109,6 +113,10 @@ struct NinjamPluginInstance {
   std::unique_ptr<ninjamplugin::ui::ConnectionEditorController> editor_controller;
   bool editor_created = false;
   bool editor_visible = false;
+  bool plugin_active = false;
+  bool main_thread_timer_registered = false;
+  clap_id main_thread_timer_id = CLAP_INVALID_ID;
+  ninjamplugin::format::clap::AudioProcessingHeartbeat audio_processing_heartbeat;
   std::atomic_bool keep_main_thread_pumping{false};
   std::atomic_bool main_thread_callback_pending{false};
   std::atomic_bool pending_connect_requested_dirty{false};
@@ -201,6 +209,46 @@ void RequestHostMainThreadCallback(NinjamPluginInstance* instance, const bool fo
     return;
   }
   instance->host->request_callback(instance->host);
+}
+
+void UnregisterHostMainThreadTimer(NinjamPluginInstance* instance) {
+  if (instance == nullptr || !instance->main_thread_timer_registered) {
+    return;
+  }
+  if (instance->host != nullptr && instance->host_timer_support != nullptr &&
+      instance->host_timer_support->unregister_timer != nullptr) {
+    instance->host_timer_support->unregister_timer(
+        instance->host, instance->main_thread_timer_id);
+  }
+  instance->main_thread_timer_registered = false;
+  instance->main_thread_timer_id = CLAP_INVALID_ID;
+}
+
+bool UpdateHostMainThreadTimer(NinjamPluginInstance* instance,
+                               const bool should_run) {
+  if (instance == nullptr) {
+    return false;
+  }
+  if (!should_run) {
+    UnregisterHostMainThreadTimer(instance);
+    return false;
+  }
+  if (instance->main_thread_timer_registered) {
+    return true;
+  }
+  if (instance->host == nullptr || instance->host_timer_support == nullptr ||
+      instance->host_timer_support->register_timer == nullptr) {
+    return false;
+  }
+
+  clap_id timer_id = CLAP_INVALID_ID;
+  if (!instance->host_timer_support->register_timer(
+          instance->host, kMainThreadTimerPeriodMs, &timer_id)) {
+    return false;
+  }
+  instance->main_thread_timer_id = timer_id;
+  instance->main_thread_timer_registered = true;
+  return true;
 }
 
 void RequestHostParamsFlush(NinjamPluginInstance* instance) {
@@ -530,6 +578,8 @@ ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSn
   snapshot.last_failure_text = LastFailureReasonToText(instance->runtime.GetLastFailureReason());
   snapshot.connect_attempts_text = std::to_string(instance->runtime.GetConnectAttemptCount());
   snapshot.connect_requested = GetEffectiveConnectRequested(instance);
+  snapshot.audio_processing_paused =
+      instance->audio_processing_heartbeat.IsWarningActive();
   snapshot.session_feed_text = instance->runtime.GetSessionFeedText();
 
   snapshot.target_session_bpm_value =
@@ -1333,6 +1383,8 @@ bool CLAP_ABI PluginInit(const clap_plugin_t* plugin) {
         instance->host->get_extension(instance->host, CLAP_EXT_GUI));
     instance->host_audio_ports = static_cast<const clap_host_audio_ports_t*>(
         instance->host->get_extension(instance->host, CLAP_EXT_AUDIO_PORTS));
+    instance->host_timer_support = static_cast<const clap_host_timer_support_t*>(
+        instance->host->get_extension(instance->host, CLAP_EXT_TIMER_SUPPORT));
   }
   const bool ok = instance->runtime.Initialize(48000.0);
   SyncEditorDraftSettingsFromRuntime(instance);
@@ -1349,6 +1401,9 @@ bool CLAP_ABI PluginInit(const clap_plugin_t* plugin) {
       instance->host_params != nullptr ? 1 : 0,
       instance->is_reaper_host ? 1 : 0);
   ninjamplugin::core::DebugLogf("clap", "PluginInit host_gui=%d", instance->host_gui != nullptr ? 1 : 0);
+  ninjamplugin::core::DebugLogf(
+      "clap", "PluginInit host_timer_support=%d",
+      instance->host_timer_support != nullptr ? 1 : 0);
   return ok;
 }
 
@@ -1359,6 +1414,7 @@ void CLAP_ABI PluginDestroy(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   ninjamplugin::core::DebugLog("clap", "PluginDestroy");
+  UnregisterHostMainThreadTimer(instance);
   instance->editor_shell.reset();
   delete instance;
 }
@@ -1383,8 +1439,15 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
     ninjamplugin::core::DebugLog("clap", "PluginActivate failed: Activate");
     return false;
   }
+  instance->plugin_active = true;
   instance->runtime.MainThreadTick();
-  instance->keep_main_thread_pumping.store(ShouldKeepMainThreadPumping(instance));
+  const bool keep_main_thread_pumping = ShouldKeepMainThreadPumping(instance);
+  instance->keep_main_thread_pumping.store(keep_main_thread_pumping);
+  instance->audio_processing_heartbeat.Update(
+      instance->runtime.GetConnectionState() ==
+          ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
+      true, MonotonicNowNs());
+  UpdateHostMainThreadTimer(instance, keep_main_thread_pumping);
   instance->pending_connection_state.store(instance->runtime.GetConnectionState(), std::memory_order_relaxed);
   instance->pending_connection_state_dirty.store(true, std::memory_order_release);
   instance->pending_actual_session_bpm.store(
@@ -1424,9 +1487,13 @@ void CLAP_ABI PluginDeactivate(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
+  UnregisterHostMainThreadTimer(instance);
+  instance->plugin_active = false;
+  instance->audio_processing_heartbeat.Update(false, false, MonotonicNowNs());
   instance->runtime.Deactivate();
   instance->keep_main_thread_pumping.store(false);
   instance->main_thread_callback_pending.store(false);
+  UpdateEditorShellView(instance, false);
   ninjamplugin::core::DebugLog("clap", "PluginDeactivate");
 }
 
@@ -1499,6 +1566,8 @@ clap_process_status CLAP_ABI PluginProcess(const clap_plugin_t* plugin,
       output.data32[0] == nullptr || output.data32[1] == nullptr) {
     return CLAP_PROCESS_ERROR;
   }
+
+  instance->audio_processing_heartbeat.MarkValidAudioBlock(process->frames_count);
 
   for (uint32_t channel_index = 2; channel_index < output.channel_count; ++channel_index) {
     if (output.data32[channel_index] != nullptr) {
@@ -2541,6 +2610,17 @@ bool CLAP_ABI GuiHide(const clap_plugin_t* plugin) {
   return ok;
 }
 
+void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin);
+
+void CLAP_ABI PluginOnTimer(const clap_plugin_t* plugin, const clap_id timer_id) {
+  auto* instance = ToInstance(plugin);
+  if (instance == nullptr || !instance->main_thread_timer_registered ||
+      timer_id != instance->main_thread_timer_id) {
+    return;
+  }
+  PluginOnMainThread(plugin);
+}
+
 const void* CLAP_ABI PluginGetExtension(const clap_plugin_t* /*plugin*/, const char* id) {
   static const clap_plugin_audio_ports_t kAudioPortsExtension = {
       AudioPortsCount,
@@ -2580,6 +2660,9 @@ const void* CLAP_ABI PluginGetExtension(const clap_plugin_t* /*plugin*/, const c
       GuiShow,
       GuiHide,
   };
+  static const clap_plugin_timer_support_t kTimerSupportExtension = {
+      PluginOnTimer,
+  };
 
   if (id == nullptr) {
     return nullptr;
@@ -2601,6 +2684,9 @@ const void* CLAP_ABI PluginGetExtension(const clap_plugin_t* /*plugin*/, const c
   if (std::strcmp(id, CLAP_EXT_GUI) == 0) {
     return &kGuiExtension;
   }
+  if (std::strcmp(id, CLAP_EXT_TIMER_SUPPORT) == 0) {
+    return &kTimerSupportExtension;
+  }
   return nullptr;
 }
 
@@ -2616,6 +2702,10 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
   instance->runtime.MainThreadTick();
   bool status_params_dirty = false;
   const int current_state = instance->runtime.GetConnectionState();
+  instance->audio_processing_heartbeat.Update(
+      current_state ==
+          ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
+      instance->plugin_active, MonotonicNowNs());
   if (current_state != instance->last_logged_connection_state) {
     instance->last_logged_connection_state = current_state;
     instance->pending_connection_state.store(current_state, std::memory_order_relaxed);
@@ -2661,7 +2751,9 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
   UpdateEditorShellView(instance, false);
   const bool keep_main_thread_pumping = ShouldKeepMainThreadPumping(instance);
   instance->keep_main_thread_pumping.store(keep_main_thread_pumping);
-  if (keep_main_thread_pumping) {
+  const bool timer_registered =
+      UpdateHostMainThreadTimer(instance, keep_main_thread_pumping);
+  if (keep_main_thread_pumping && !timer_registered) {
     RequestHostMainThreadCallback(instance);
   }
 }

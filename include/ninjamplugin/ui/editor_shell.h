@@ -155,6 +155,7 @@ struct ConnectionEditorViewState {
   bool multitrack_capture_active = false;
   bool multitrack_wav_clips_enabled = false;
   bool chat_send_enabled = false;
+  bool audio_processing_paused = false;
   bool connect_enabled = true;
   bool disconnect_enabled = false;
   bool save_enabled = true;
