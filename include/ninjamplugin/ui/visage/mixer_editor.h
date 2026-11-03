@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace ninjamprototype {
+namespace ninjamplugin::ui::mixer {
 
 struct LocalInputState {
   struct SourceChoice {
@@ -271,14 +271,14 @@ struct MixerUiCallbacks {
   std::function<void(const RawExportUiOptions&)> on_raw_export_requested;
 };
 
-MixerScenario MakeScenario(std::string name, int local_input_count,
+MixerScenario MakeMixerScenario(std::string name, int local_input_count,
                            int participant_count, int channels_per_participant);
 
-class MixerPrototypeEditor : public visage::ApplicationWindow {
+class MixerEditor : public visage::ApplicationWindow {
 public:
-  explicit MixerPrototypeEditor(MixerScenario scenario,
+  explicit MixerEditor(MixerScenario scenario,
                                 bool persist_layout_preferences = true);
-  ~MixerPrototypeEditor() override;
+  ~MixerEditor() override;
 
   std::vector<std::string> validateLayout() const;
   std::vector<std::string> validateInteractions();
@@ -304,4 +304,4 @@ private:
   std::unique_ptr<Content> content_;
 };
 
-}  // namespace ninjamprototype
+}  // namespace ninjamplugin::ui::mixer

@@ -1,4 +1,4 @@
-#include "layout_preferences.h"
+#include "ninjamplugin/ui/visage/layout_preferences.h"
 
 #include <algorithm>
 #include <cmath>
@@ -6,7 +6,7 @@
 #include <fstream>
 #include <string>
 
-namespace ninjamprototype {
+namespace ninjamplugin::ui::mixer {
 namespace {
 
 bool ParseBoolean(const std::string& value, bool fallback) {
@@ -132,4 +132,4 @@ bool SaveLayoutPreferences(const std::filesystem::path& path,
   return output.good();
 }
 
-}  // namespace ninjamprototype
+}  // namespace ninjamplugin::ui::mixer

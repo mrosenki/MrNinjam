@@ -287,7 +287,7 @@ if(NINJAMPLUGIN_ENABLE_VISAGE_PROTOTYPE OR
     "${CMAKE_BINARY_DIR}/_deps/visage-build"
     EXCLUDE_FROM_ALL
   )
-  add_subdirectory(prototypes/visage_mixer)
+  add_subdirectory(src/ui/visage)
 endif()
 
 add_subdirectory(src)

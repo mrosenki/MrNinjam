@@ -1,5 +1,5 @@
-#include "mixer_prototype.h"
-#include "layout_preferences.h"
+#include "ninjamplugin/ui/visage/mixer_editor.h"
+#include "ninjamplugin/ui/visage/layout_preferences.h"
 
 #include <filesystem>
 #include <cmath>
@@ -40,13 +40,13 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
   int failures = 0;
 
   const auto preferences_path = output_directory / "layout-preferences-test.conf";
-  const ninjamprototype::LayoutPreferences expected_preferences{
+  const ninjamplugin::ui::mixer::LayoutPreferences expected_preferences{
       .show_session_panel = false,
       .show_recording_panel = true,
       .chat_font_size = 2,
   };
-  if (!ninjamprototype::SaveLayoutPreferences(preferences_path, expected_preferences) ||
-      ninjamprototype::LoadLayoutPreferences(preferences_path) != expected_preferences) {
+  if (!ninjamplugin::ui::mixer::SaveLayoutPreferences(preferences_path, expected_preferences) ||
+      ninjamplugin::ui::mixer::LoadLayoutPreferences(preferences_path) != expected_preferences) {
     std::cerr << "layout preferences did not persist and reload correctly\n";
     ++failures;
   }
@@ -54,10 +54,10 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
   std::filesystem::remove(preferences_path, remove_error);
 
   {
-    ninjamprototype::MixerPrototypeEditor editor(
-        ninjamprototype::MakeScenario("live-state-adapter", 2, 1, 2), false);
+    ninjamplugin::ui::mixer::MixerEditor editor(
+        ninjamplugin::ui::mixer::MakeMixerScenario("live-state-adapter", 2, 1, 2), false);
     editor.setWindowless(1024, 680);
-    ninjamprototype::SessionUiState state;
+    ninjamplugin::ui::mixer::SessionUiState state;
     state.uses_live_backend = true;
     state.connection_state_text = "Connecting";
     state.session_identity_text = "example.test:2049 / adapter-test";
@@ -204,7 +204,7 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
   }
 
   for (const auto& test : kVerificationCases) {
-    ninjamprototype::MixerPrototypeEditor editor(ninjamprototype::MakeScenario(
+    ninjamplugin::ui::mixer::MixerEditor editor(ninjamplugin::ui::mixer::MakeMixerScenario(
         test.name, test.local_inputs, test.participants, test.channels_per_participant),
         false);
     editor.setWindowless(test.width, test.height);
@@ -212,7 +212,7 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
     if (test.rows_collapsed)
       editor.setRowsCollapsed(true, true, true);
     if (test.width == 720 || test.width == 835) {
-      ninjamprototype::SessionUiState warning_state;
+      ninjamplugin::ui::mixer::SessionUiState warning_state;
       warning_state.connection_state_text = "Connected";
       warning_state.audio_processing_paused = true;
       editor.updateSessionUiState(warning_state);
@@ -256,7 +256,7 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
   }
 
   if (failures == 0)
-    std::cout << "All Visage mixer layout checks passed.\n";
+    std::cout << "All mixer layout checks passed.\n";
   return failures == 0 ? 0 : 1;
 }
 
@@ -264,7 +264,7 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
 
 int main(int argc, char** argv) {
   bool verify = false;
-  std::filesystem::path output_directory = "visage-prototype-renders";
+  std::filesystem::path output_directory = "ninjamplugin-ui-harness-renders";
   for (int index = 1; index < argc; ++index) {
     const std::string argument = argv[index];
     if (argument == "--verify")
@@ -276,8 +276,8 @@ int main(int argc, char** argv) {
   if (verify)
     return VerifyLayouts(output_directory);
 
-  ninjamprototype::MixerPrototypeEditor editor(
-      ninjamprototype::MakeScenario("interactive / 4 inputs / 8 remote", 4, 4, 2));
+  ninjamplugin::ui::mixer::MixerEditor editor(
+      ninjamplugin::ui::mixer::MakeMixerScenario("interactive / 4 inputs / 8 remote", 4, 4, 2));
   editor.show(1280, 800);
   editor.runEventLoop();
   return 0;

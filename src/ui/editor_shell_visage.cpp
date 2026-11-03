@@ -4,7 +4,7 @@
 #include "ninjamplugin/format/clap/plugin_config.h"
 #include "ninjamplugin/ui/native_folder_picker.h"
 
-#include "mixer_prototype.h"
+#include "ninjamplugin/ui/visage/mixer_editor.h"
 
 #include <clap/ext/gui.h>
 
@@ -56,9 +56,9 @@ int ParseIntOr(const std::string& text, int fallback) {
   return end != text.c_str() ? static_cast<int>(value) : fallback;
 }
 
-ninjamprototype::SessionUiState BuildSessionUiState(
+ninjamplugin::ui::mixer::SessionUiState BuildSessionUiState(
     const ConnectionEditorViewState& state) {
-  ninjamprototype::SessionUiState session;
+  ninjamplugin::ui::mixer::SessionUiState session;
   session.version_text = ninjamplugin::format::clap::kPluginVersion;
   session.uses_live_backend = true;
   session.connection_state_text = state.connection_state_text;
@@ -151,7 +151,7 @@ ninjamprototype::SessionUiState BuildSessionUiState(
     const auto& pair = state.local_input_pairs[route_index];
     if (!pair.available)
       continue;
-    ninjamprototype::LocalInputState local;
+    ninjamplugin::ui::mixer::LocalInputState local;
     local.source_pair = pair.label;
     local.custom_name = pair.custom_name;
     local.send_enabled = pair.enabled;
@@ -246,12 +246,12 @@ class VisageEditorShell final : public EditorShell {
 public:
   explicit VisageEditorShell(EditorShellConfig config)
       : config_(std::move(config)),
-        editor_(ninjamprototype::MakeScenario(
+        editor_(ninjamplugin::ui::mixer::MakeMixerScenario(
             "CLAP host embedding / live data", 0, 0, 0)) {
     editor_.onCloseRequested() += [] { return true; };
     editor_.setReaperKeyboardHint(config_.show_reaper_keyboard_hint);
     editor_.setUiCallbacks({
-        .on_connect_requested = [this](const ninjamprototype::ConnectionUiDraft& draft) {
+        .on_connect_requested = [this](const ninjamplugin::ui::mixer::ConnectionUiDraft& draft) {
           if (delegate_ != nullptr)
             delegate_->ConnectRequested(SettingsFromDraft(draft));
         },
@@ -259,7 +259,7 @@ public:
           if (delegate_ != nullptr)
             delegate_->DisconnectRequested();
         },
-        .on_save_requested = [this](const ninjamprototype::ConnectionUiDraft& draft) {
+        .on_save_requested = [this](const ninjamplugin::ui::mixer::ConnectionUiDraft& draft) {
           if (delegate_ != nullptr)
             delegate_->SaveRequested(SettingsFromDraft(draft));
         },
@@ -501,7 +501,7 @@ public:
           return BrowseForFolder(current, "Choose a folder for exported WAV stems.", true);
         },
         .on_raw_export_requested = [this](
-                                       const ninjamprototype::RawExportUiOptions& ui_options) {
+                                       const ninjamplugin::ui::mixer::RawExportUiOptions& ui_options) {
           if (delegate_ == nullptr)
             return;
           ninjamplugin::core::RemixStemExportOptions options;
@@ -578,7 +578,7 @@ public:
 
 private:
   ninjamplugin::core::ConnectionSettings SettingsFromDraft(
-      const ninjamprototype::ConnectionUiDraft& draft) const {
+      const ninjamplugin::ui::mixer::ConnectionUiDraft& draft) const {
     auto settings = view_state_.settings;
     settings.host = draft.host;
     settings.user = draft.user;
@@ -598,7 +598,7 @@ private:
   }
 
   EditorShellConfig config_;
-  ninjamprototype::MixerPrototypeEditor editor_;
+  ninjamplugin::ui::mixer::MixerEditor editor_;
   ConnectionEditorDelegate* delegate_ = nullptr;
   ConnectionEditorViewState view_state_;
   void* parent_handle_ = nullptr;

@@ -118,7 +118,7 @@ if(NINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR)
     )
   endif()
   target_link_libraries(ninjamplugin_ui_shell PRIVATE
-    ninjamplugin_visage_mixer_ui
+    ninjamplugin_visage_ui
     ninjamplugin_core
   )
 elseif(APPLE)
