@@ -87,63 +87,34 @@ if(WIN32)
   )
 endif()
 
-if(NINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR)
-  target_compile_definitions(ninjamplugin_ui_shell PRIVATE
-    NINJAMPLUGIN_VISAGE_CLAP_EDITOR=1
-  )
+target_sources(ninjamplugin_ui_shell PRIVATE
+  ui/editor_shell_visage.cpp
+)
+if(APPLE)
   target_sources(ninjamplugin_ui_shell PRIVATE
-    ui/editor_shell_visage.cpp
-  )
-  if(APPLE)
-    target_sources(ninjamplugin_ui_shell PRIVATE
-      ui/native_folder_picker_macos.mm
-    )
-    find_library(NINJAMPLUGIN_APPKIT_FRAMEWORK AppKit REQUIRED)
-    target_link_libraries(ninjamplugin_ui_shell PRIVATE
-      "${NINJAMPLUGIN_APPKIT_FRAMEWORK}"
-    )
-    set_source_files_properties(
-      ui/native_folder_picker_macos.mm
-      PROPERTIES
-      COMPILE_OPTIONS "-fobjc-arc"
-    )
-  elseif(WIN32)
-    target_sources(ninjamplugin_ui_shell PRIVATE
-      ui/native_folder_picker_win32.cpp
-    )
-    target_link_libraries(ninjamplugin_ui_shell PRIVATE shell32 ole32)
-  else()
-    target_sources(ninjamplugin_ui_shell PRIVATE
-      ui/native_folder_picker_stub.cpp
-    )
-  endif()
-  target_link_libraries(ninjamplugin_ui_shell PRIVATE
-    ninjamplugin_visage_ui
-    ninjamplugin_core
-  )
-elseif(APPLE)
-  target_sources(ninjamplugin_ui_shell PRIVATE
-    ui/editor_shell_macos.mm
+    ui/native_folder_picker_macos.mm
   )
   find_library(NINJAMPLUGIN_APPKIT_FRAMEWORK AppKit REQUIRED)
   target_link_libraries(ninjamplugin_ui_shell PRIVATE
     "${NINJAMPLUGIN_APPKIT_FRAMEWORK}"
   )
-  set_source_files_properties(ui/editor_shell_macos.mm PROPERTIES
+  set_source_files_properties(ui/native_folder_picker_macos.mm PROPERTIES
     COMPILE_OPTIONS "-fobjc-arc"
   )
 elseif(WIN32)
   target_sources(ninjamplugin_ui_shell PRIVATE
-    ui/editor_shell_win32.cpp
+    ui/native_folder_picker_win32.cpp
   )
-  target_link_libraries(ninjamplugin_ui_shell PRIVATE
-    comctl32
-  )
+  target_link_libraries(ninjamplugin_ui_shell PRIVATE shell32 ole32)
 else()
   target_sources(ninjamplugin_ui_shell PRIVATE
-    ui/editor_shell_stub.cpp
+    ui/native_folder_picker_stub.cpp
   )
 endif()
+target_link_libraries(ninjamplugin_ui_shell PRIVATE
+  ninjamplugin_visage_ui
+  ninjamplugin_core
+)
 
 ninjamplugin_apply_warnings(ninjamplugin_ui_shell)
 
@@ -370,22 +341,20 @@ if(NINJAMPLUGIN_ENABLE_TESTS)
     COMMAND ninjamplugin_session_capture_recorder_smoke_test
   )
 
-  if(NINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR)
-    add_executable(ninjamplugin_visage_editor_shell_smoke_test
-      tests/visage_editor_shell_smoke_test.cpp
-    )
-    target_include_directories(ninjamplugin_visage_editor_shell_smoke_test PRIVATE
-      "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
-    )
-    target_link_libraries(ninjamplugin_visage_editor_shell_smoke_test PRIVATE
-      ninjamplugin_ui_shell
-    )
-    target_compile_features(ninjamplugin_visage_editor_shell_smoke_test PRIVATE cxx_std_20)
-    ninjamplugin_apply_warnings(ninjamplugin_visage_editor_shell_smoke_test)
-    add_test(NAME ninjamplugin_visage_editor_shell_smoke_test
-      COMMAND ninjamplugin_visage_editor_shell_smoke_test
-    )
-  endif()
+  add_executable(ninjamplugin_visage_editor_shell_smoke_test
+    tests/visage_editor_shell_smoke_test.cpp
+  )
+  target_include_directories(ninjamplugin_visage_editor_shell_smoke_test PRIVATE
+    "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
+  )
+  target_link_libraries(ninjamplugin_visage_editor_shell_smoke_test PRIVATE
+    ninjamplugin_ui_shell
+  )
+  target_compile_features(ninjamplugin_visage_editor_shell_smoke_test PRIVATE cxx_std_20)
+  ninjamplugin_apply_warnings(ninjamplugin_visage_editor_shell_smoke_test)
+  add_test(NAME ninjamplugin_visage_editor_shell_smoke_test
+    COMMAND ninjamplugin_visage_editor_shell_smoke_test
+  )
 
   add_executable(ninjamplugin_ninjam_bridge_live_connect_probe
     tests/ninjam_bridge_live_connect_probe.cpp

@@ -2449,13 +2449,8 @@ bool CLAP_ABI GuiCreate(const clap_plugin_t* plugin, const char* api, const bool
   ninjamplugin::ui::EditorShellConfig config;
   config.title = ninjamplugin::format::clap::kPluginName;
   config.show_reaper_keyboard_hint = instance->is_reaper_host;
-#if defined(NINJAMPLUGIN_VISAGE_CLAP_EDITOR)
   config.width = 1024;
   config.height = 680;
-#else
-  config.width = 900;
-  config.height = 940;
-#endif
   instance->editor_shell = ninjamplugin::ui::CreateEditorShell(config, api, is_floating);
   instance->editor_created = instance->editor_shell != nullptr;
   instance->editor_visible = false;
@@ -2511,15 +2506,10 @@ bool CLAP_ABI GuiGetSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t*
 }
 
 bool CLAP_ABI GuiCanResize(const clap_plugin_t* /*plugin*/) {
-#if defined(NINJAMPLUGIN_VISAGE_CLAP_EDITOR)
   return true;
-#else
-  return false;
-#endif
 }
 
 bool CLAP_ABI GuiGetResizeHints(const clap_plugin_t* /*plugin*/, clap_gui_resize_hints_t* hints) {
-#if defined(NINJAMPLUGIN_VISAGE_CLAP_EDITOR)
   if (hints == nullptr) {
     return false;
   }
@@ -2529,10 +2519,6 @@ bool CLAP_ABI GuiGetResizeHints(const clap_plugin_t* /*plugin*/, clap_gui_resize
   hints->aspect_ratio_width = 0;
   hints->aspect_ratio_height = 0;
   return true;
-#else
-  (void)hints;
-  return false;
-#endif
 }
 
 bool CLAP_ABI GuiAdjustSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t* height) {
@@ -2540,13 +2526,8 @@ bool CLAP_ABI GuiAdjustSize(const clap_plugin_t* plugin, uint32_t* width, uint32
   if (instance == nullptr || instance->editor_shell == nullptr || width == nullptr || height == nullptr) {
     return false;
   }
-#if defined(NINJAMPLUGIN_VISAGE_CLAP_EDITOR)
   *width = std::max(*width, 560U);
   *height = std::max(*height, 270U);
-#else
-  *width = instance->editor_shell->GetWidth();
-  *height = instance->editor_shell->GetHeight();
-#endif
   return true;
 }
 

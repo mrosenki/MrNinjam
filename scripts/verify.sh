@@ -4,16 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_TYPE="${1:-Release}"
 BUILD_DIR="${ROOT_DIR}/build/${BUILD_TYPE}"
-CLAP_ARTIFACT="${BUILD_DIR}/plugin/ninjamplugin_visage_spike.clap"
-VST3_ARTIFACT="${BUILD_DIR}/plugin/ninjamplugin_visage_spike.vst3"
+CLAP_ARTIFACT="${BUILD_DIR}/plugin/NinjamPlugin.clap"
+VST3_ARTIFACT="${BUILD_DIR}/plugin/NinjamPlugin.vst3"
 
 "${ROOT_DIR}/scripts/check_submodule_clean.sh"
 
 printf "Configuring NinjamPlugin (%s)...\n" "$BUILD_TYPE"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  -DNINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR=ON \
-  -DNINJAMPLUGIN_ENABLE_VISAGE_PROTOTYPE=ON \
+  -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON \
   -DNINJAMPLUGIN_ENABLE_VST3=ON
 
 printf "Building NinjamPlugin targets...\n"

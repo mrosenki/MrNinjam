@@ -10,7 +10,6 @@ BUILD_DIR="${ROOT_DIR}/build/${BUILD_TYPE}"
 printf "Configuring NinjamPlugin (%s)...\n" "$BUILD_TYPE"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  -DNINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR=ON \
   -DNINJAMPLUGIN_ENABLE_VST3=ON
 
 printf "Building NinjamPlugin targets...\n"

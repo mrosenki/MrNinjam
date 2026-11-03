@@ -77,12 +77,8 @@ endif()
 
 option(NINJAMPLUGIN_ENABLE_STRICT_WARNINGS "Enable strict compiler warnings" ON)
 option(NINJAMPLUGIN_ENABLE_TESTS "Build unit/smoke tests" ON)
-option(NINJAMPLUGIN_ENABLE_VISAGE_PROTOTYPE
-  "Build the isolated Visage mixer UI prototype"
-  OFF
-)
-option(NINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR
-  "Use the experimental simulated Visage mixer in the CLAP editor"
+option(NINJAMPLUGIN_BUILD_UI_HARNESS
+  "Build the standalone NinjamPlugin UI test harness"
   OFF
 )
 option(NINJAMPLUGIN_ENABLE_VST3
@@ -253,42 +249,39 @@ if(NINJAMPLUGIN_ENABLE_VST3)
   )
 endif()
 
-if(NINJAMPLUGIN_ENABLE_VISAGE_PROTOTYPE OR
-   NINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR)
-  if(NOT EXISTS "${NINJAMPLUGIN_VISAGE_UPSTREAM_SOURCE_DIR}/CMakeLists.txt")
-    message(FATAL_ERROR
-      "Visage sources missing. Run scripts/fetch_dependencies.sh."
-    )
-  endif()
-  if(NOT IS_DIRECTORY "${NINJAMPLUGIN_BGFX_SOURCE_DIR}" OR
-     NOT IS_DIRECTORY "${NINJAMPLUGIN_FREETYPE_SOURCE_DIR}")
-    message(FATAL_ERROR
-      "Pinned Visage graphics dependencies are missing. Run scripts/fetch_dependencies.sh."
-    )
-  endif()
-
-  ninjamplugin_prepare_patched_dependency(
-    NINJAMPLUGIN_VISAGE_SOURCE_DIR
-    "visage"
-    "${NINJAMPLUGIN_VISAGE_UPSTREAM_SOURCE_DIR}"
-    "${PROJECT_SOURCE_DIR}/patches/visage-text-editor-style.patch"
+if(NOT EXISTS "${NINJAMPLUGIN_VISAGE_UPSTREAM_SOURCE_DIR}/CMakeLists.txt")
+  message(FATAL_ERROR
+    "Visage sources missing. Run scripts/fetch_dependencies.sh."
   )
-
-  set(FETCHCONTENT_SOURCE_DIR_BGFX "${NINJAMPLUGIN_BGFX_SOURCE_DIR}" CACHE PATH "" FORCE)
-  set(FETCHCONTENT_SOURCE_DIR_FREETYPE "${NINJAMPLUGIN_FREETYPE_SOURCE_DIR}" CACHE PATH "" FORCE)
-
-  set(VISAGE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  set(VISAGE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  # Visage is a static library, but the CLAP editor links it into a shared
-  # module. Linux requires every object in that static archive to be PIC.
-  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-  add_subdirectory(
-    "${NINJAMPLUGIN_VISAGE_SOURCE_DIR}"
-    "${CMAKE_BINARY_DIR}/_deps/visage-build"
-    EXCLUDE_FROM_ALL
-  )
-  add_subdirectory(src/ui/visage)
 endif()
+if(NOT IS_DIRECTORY "${NINJAMPLUGIN_BGFX_SOURCE_DIR}" OR
+   NOT IS_DIRECTORY "${NINJAMPLUGIN_FREETYPE_SOURCE_DIR}")
+  message(FATAL_ERROR
+    "Pinned Visage graphics dependencies are missing. Run scripts/fetch_dependencies.sh."
+  )
+endif()
+
+ninjamplugin_prepare_patched_dependency(
+  NINJAMPLUGIN_VISAGE_SOURCE_DIR
+  "visage"
+  "${NINJAMPLUGIN_VISAGE_UPSTREAM_SOURCE_DIR}"
+  "${PROJECT_SOURCE_DIR}/patches/visage-text-editor-style.patch"
+)
+
+set(FETCHCONTENT_SOURCE_DIR_BGFX "${NINJAMPLUGIN_BGFX_SOURCE_DIR}" CACHE PATH "" FORCE)
+set(FETCHCONTENT_SOURCE_DIR_FREETYPE "${NINJAMPLUGIN_FREETYPE_SOURCE_DIR}" CACHE PATH "" FORCE)
+
+set(VISAGE_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(VISAGE_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+# Visage is a static library, but the CLAP editor links it into a shared
+# module. Linux requires every object in that static archive to be PIC.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+add_subdirectory(
+  "${NINJAMPLUGIN_VISAGE_SOURCE_DIR}"
+  "${CMAKE_BINARY_DIR}/_deps/visage-build"
+  EXCLUDE_FROM_ALL
+)
+add_subdirectory(src/ui/visage)
 
 add_subdirectory(src)
 
