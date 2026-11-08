@@ -86,5 +86,39 @@ int main() {
     return EXIT_FAILURE;
   }
 
+  // Exercise the host-legal repeated lifecycle order. These audio-thread
+  // entry points must remain bounded; their deferred control work is serviced
+  // by MainThreadTick() or, at the latest, deactivation.
+  for (int cycle = 0; cycle < 1000; ++cycle) {
+    if (!bridge.StartProcessing() || !bridge.IsProcessing()) {
+      std::cerr << "Repeated StartProcessing failed at cycle " << cycle << "\n";
+      return EXIT_FAILURE;
+    }
+    bridge.Reset();
+    bridge.StopProcessing();
+    if (bridge.IsProcessing() || !bridge.IsActive()) {
+      std::cerr << "Repeated StopProcessing failed at cycle " << cycle << "\n";
+      return EXIT_FAILURE;
+    }
+    // Hosts may restart processing before the requested main-thread callback
+    // has serviced deferred stop/reset work.
+    if (!bridge.StartProcessing() || !bridge.IsProcessing()) {
+      std::cerr << "Immediate processing restart failed at cycle " << cycle << "\n";
+      return EXIT_FAILURE;
+    }
+    bridge.StopProcessing();
+    bridge.MainThreadTick();
+    bridge.Deactivate();
+    if (bridge.IsActive() || bridge.IsProcessing()) {
+      std::cerr << "Repeated Deactivate failed at cycle " << cycle << "\n";
+      return EXIT_FAILURE;
+    }
+    if (!bridge.Activate()) {
+      std::cerr << "Repeated Activate failed at cycle " << cycle << "\n";
+      return EXIT_FAILURE;
+    }
+  }
+  bridge.Deactivate();
+
   return EXIT_SUCCESS;
 }

@@ -367,6 +367,8 @@ class NinjamBridge {
   void HandleChatMessage(const char** parms, int nparms);
   void AppendSessionFeedLine(const std::string& line);
   void ClearSessionFeedState();
+  void ServiceRealtimeLifecycleRequests();
+  void FinishLifecycleWorkers();
   void StartKeepaliveThread();
   void StopKeepaliveThread();
   void KeepaliveThreadLoop();
@@ -377,8 +379,10 @@ class NinjamBridge {
     kActive,
     kProcessing,
   };
+  static_assert(std::atomic<RuntimeState>::is_always_lock_free,
+                "Audio lifecycle state must remain lock-free");
 
-  RuntimeState state_ = RuntimeState::kUninitialized;
+  std::atomic<RuntimeState> state_{RuntimeState::kUninitialized};
   double sample_rate_ = 0.0;
   std::atomic_bool connect_requested_{false};
   bool connected_ = false;
@@ -421,6 +425,7 @@ class NinjamBridge {
   mutable std::mutex session_feed_mutex_;
   std::thread keepalive_thread_;
   std::atomic_bool keepalive_thread_stop_{false};
+  std::atomic<std::uint32_t> pending_realtime_lifecycle_events_{0};
   bool local_channel_config_initialized_ = false;
   int local_channel_bitrate_ = kTransmitBitrateDefault;
   bool local_channel_broadcast_ = false;

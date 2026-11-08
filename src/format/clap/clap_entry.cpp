@@ -1507,8 +1507,7 @@ bool CLAP_ABI PluginStartProcessing(const clap_plugin_t* plugin) {
       instance->debug_log_instance_id);
 
   const bool started = instance->runtime.StartProcessing();
-  ninjamplugin::core::DebugLogf(
-      "clap", "PluginStartProcessing ok=%d", started ? 1 : 0);
+  RequestHostMainThreadCallback(instance, true);
   return started;
 }
 
@@ -1521,7 +1520,7 @@ void CLAP_ABI PluginStopProcessing(const clap_plugin_t* plugin) {
       instance->debug_log_instance_id);
 
   instance->runtime.StopProcessing();
-  ninjamplugin::core::DebugLog("clap", "PluginStopProcessing");
+  RequestHostMainThreadCallback(instance, true);
 }
 
 void CLAP_ABI PluginReset(const clap_plugin_t* plugin) {
@@ -1532,9 +1531,9 @@ void CLAP_ABI PluginReset(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   instance->runtime.Reset();
-  ninjamplugin::core::DebugLog("clap", "PluginReset");
   instance->transport_position_valid = false;
   instance->transport_was_playing = false;
+  RequestHostMainThreadCallback(instance, true);
 }
 
 clap_process_status CLAP_ABI PluginProcess(const clap_plugin_t* plugin,

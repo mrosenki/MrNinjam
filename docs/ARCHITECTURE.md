@@ -40,6 +40,15 @@ deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
 
 ## Threading boundaries
 
+- CLAP `init`, `activate`, `deactivate`, `destroy`, and `on_main_thread` run on
+  the CLAP main thread. They are not real-time callbacks, although long work on
+  the main thread should still be avoided where ownership permits.
+- CLAP `start_processing`, `stop_processing`, and `reset` run on the symbolic
+  audio thread, as does `process`. The pinned clap-wrapper maps VST3
+  `setProcessing(true)` to `start_processing`, and
+  `setProcessing(false)` to `stop_processing` followed by `reset`. VST3 permits
+  `setProcessing` on its processing thread, so all three callbacks must meet
+  real-time constraints in both formats.
 - The host audio callback owns bounded sample processing, routing, metering
   accumulation, and the documented `NJClient::AudioProc()` call.
 - The audio callback must not wait on UI/control work, perform file I/O, parse
@@ -48,6 +57,14 @@ deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
   updates, editor state, and other non-real-time tasks.
 - Recording uses bounded handoff to a writer path; export work runs outside the
   audio callback.
+- A processing stop atomically asks the capture writer to drain and finalize;
+  it closes the recorder input gate immediately and never joins that thread.
+  A restart serviced while the previous capture is finalizing joins the old
+  writer on the main thread before opening a new capture. Start/stop/reset
+  diagnostics and reset's session-feed cleanup are handed to `on_main_thread`.
+  Main-thread lifecycle service, deactivation, and destruction reap capture
+  workers; deactivation and destruction also join export workers. Workers are
+  never detached and cannot outlive the bridge.
 - UI frames communicate through the shared controller and must not call the
   NINJAM runtime, recording services, or format adapter directly.
 
@@ -65,10 +82,10 @@ callback pump. If a host suspends audio processing and all plug-in main-thread
 or UI timers together, the warning cannot become visible until the host resumes
 one of those callbacks; the plug-in does not create a private polling thread.
 
-The real-time safety audit remains separate from this identity/UI consolidation.
-It must address blocking audio callbacks, steady-state allocations, routing
-state data races, and audio-thread logging before public release without being
-mixed into the `0.2.1` architectural change.
+The lifecycle part of the real-time safety audit is enforced by a source-level
+regression check over the audio-thread lifecycle callbacks. Steady-state audio
+allocations, routing-state concurrency, and other process-path concerns remain
+separate audits.
 
 ## Audio and routing model
 

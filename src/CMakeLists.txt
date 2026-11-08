@@ -268,6 +268,13 @@ if(NINJAMPLUGIN_ENABLE_TESTS)
   add_test(NAME ninjamplugin_ninjam_bridge_lifecycle_smoke_test
     COMMAND ninjamplugin_ninjam_bridge_lifecycle_smoke_test
   )
+  add_test(NAME ninjamplugin_realtime_lifecycle_source_check
+    COMMAND "${CMAKE_COMMAND}"
+      "-DCLAP_ENTRY=${PROJECT_SOURCE_DIR}/src/format/clap/clap_entry.cpp"
+      "-DBRIDGE_SOURCE=${PROJECT_SOURCE_DIR}/src/core/ninjam_bridge.cpp"
+      "-DRECORDER_SOURCE=${PROJECT_SOURCE_DIR}/src/core/session_capture_recorder.cpp"
+      -P "${PROJECT_SOURCE_DIR}/scripts/check_realtime_lifecycle_callbacks.cmake"
+  )
 
   add_executable(ninjamplugin_ninjam_bridge_audio_path_smoke_test
     tests/ninjam_bridge_audio_path_smoke_test.cpp

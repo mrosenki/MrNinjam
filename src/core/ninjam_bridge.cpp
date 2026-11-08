@@ -34,6 +34,9 @@ constexpr std::uint64_t kDeferredDisconnectDelayMs = 150ULL;
 constexpr std::uint64_t kLevelDiagnosticsLogIntervalMs = 1000ULL;
 constexpr std::size_t kSessionFeedMaxLines = 256;
 constexpr float kUpstreamMetronomeDefaultGain = 0.5f;
+constexpr std::uint32_t kLifecycleStarted = 1U << 0U;
+constexpr std::uint32_t kLifecycleStopped = 1U << 1U;
+constexpr std::uint32_t kLifecycleReset = 1U << 2U;
 int EncodeOutputRoute(const int route) {
   const int clamped = std::clamp(route, 0, NinjamBridge::kMaximumOutputRoute);
   if (clamped < NinjamBridge::kStereoOutputRouteCount) return clamped * 2;
@@ -403,6 +406,28 @@ void NinjamBridge::ClearSessionFeedState() {
   session_feed_lines_.clear();
 }
 
+void NinjamBridge::ServiceRealtimeLifecycleRequests() {
+  const std::uint32_t events =
+      pending_realtime_lifecycle_events_.exchange(0, std::memory_order_acq_rel);
+  if ((events & kLifecycleReset) != 0U) {
+    ClearSessionFeedState();
+  }
+  if ((events & kLifecycleStarted) != 0U) {
+    DebugLog("bridge", "StartProcessing");
+  }
+  if ((events & kLifecycleStopped) != 0U) {
+    DebugLog("bridge", "StopProcessing");
+  }
+  if ((events & kLifecycleReset) != 0U) {
+    DebugLog("bridge", "Reset");
+  }
+}
+
+void NinjamBridge::FinishLifecycleWorkers() {
+  session_capture_recorder_.Stop();
+  remix_stem_exporter_.Wait();
+}
+
 void NinjamBridge::StartKeepaliveThread() {
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   if (keepalive_thread_.joinable()) {
@@ -440,14 +465,16 @@ void NinjamBridge::KeepaliveThreadLoop() {
 }
 
 NinjamBridge::~NinjamBridge() {
+  ServiceRealtimeLifecycleRequests();
   DebugLogf("bridge",
             "Destroy begin state=%d connected=%d recording_requested=%d session_capture_active=%d multitrack_active=%d export_active=%d",
-            static_cast<int>(state_),
+            static_cast<int>(state_.load(std::memory_order_acquire)),
             connected_ ? 1 : 0,
             recording_requested_.load(std::memory_order_acquire) ? 1 : 0,
             session_capture_recorder_.IsActive() ? 1 : 0,
             multitrack_capture_active_ ? 1 : 0,
             remix_stem_exporter_.IsActive() ? 1 : 0);
+  FinishLifecycleWorkers();
   StopKeepaliveThread();
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   {
@@ -471,14 +498,15 @@ bool NinjamBridge::Initialize(const double sample_rate) {
   // rescanning audio-port channel counts.  In that case the NJClient remains
   // connected by Deactivate(), so reinitializing all connection bookkeeping
   // here would discard the live session and trigger an unnecessary reconnect.
-  if (state_ != RuntimeState::kUninitialized) {
+  const RuntimeState current_state = state_.load(std::memory_order_acquire);
+  if (current_state != RuntimeState::kUninitialized) {
     const double previous_sample_rate = sample_rate_;
     sample_rate_ = sample_rate;
     DebugLogf("bridge",
               "Initialize reused runtime previous_sample_rate=%.1f sample_rate=%.1f state=%d",
               previous_sample_rate,
               sample_rate_,
-              static_cast<int>(state_));
+              static_cast<int>(current_state));
     return true;
   }
 
@@ -569,7 +597,7 @@ bool NinjamBridge::Initialize(const double sample_rate) {
   for (auto& muted : remote_user_monitor_muted_)
     muted.store(false, std::memory_order_release);
   ClearSessionFeedState();
-  state_ = RuntimeState::kInitialized;
+  state_.store(RuntimeState::kInitialized, std::memory_order_release);
   DebugLogf("bridge",
             "Initialize sample_rate=%.1f runtime_available=%d endpoint_configured=%d identity_configured=%d remote_return=%.2f metronome=%.2f tx_mode=%s tx_bitrate=%d level_diag=%d log_path=%s",
             sample_rate_,
@@ -586,26 +614,29 @@ bool NinjamBridge::Initialize(const double sample_rate) {
 }
 
 bool NinjamBridge::Activate() {
-  if (state_ == RuntimeState::kUninitialized) {
+  const RuntimeState current_state = state_.load(std::memory_order_acquire);
+  if (current_state == RuntimeState::kUninitialized) {
     return false;
   }
-  if (state_ == RuntimeState::kProcessing) {
+  if (current_state == RuntimeState::kProcessing) {
     return true;
   }
 
-  state_ = RuntimeState::kActive;
+  state_.store(RuntimeState::kActive, std::memory_order_release);
   MainThreadTick();
   DebugLog("bridge", "Activate");
   return true;
 }
 
 void NinjamBridge::Deactivate() {
-  if (state_ == RuntimeState::kUninitialized) {
+  if (state_.load(std::memory_order_acquire) == RuntimeState::kUninitialized) {
     return;
   }
   const bool keep_runtime_connection =
       connect_requested_.load(std::memory_order_acquire) && IsRuntimeConnectionAvailable();
-  state_ = RuntimeState::kInitialized;
+  state_.store(RuntimeState::kInitialized, std::memory_order_release);
+  ServiceRealtimeLifecycleRequests();
+  FinishLifecycleWorkers();
   session_bpm_sync_pending_ = false;
   session_bpi_sync_pending_ = false;
   if (!keep_runtime_connection) {
@@ -619,8 +650,6 @@ void NinjamBridge::Deactivate() {
     connect_attempt_count_ = 0;
     connection_state_ = IsRuntimeConnectionAvailable() ? kConnectionStateDisconnected
                                                        : kConnectionStateUnavailable;
-    session_capture_recorder_.Stop();
-    remix_stem_exporter_.Wait();
     multitrack_capture_active_ = false;
     multitrack_capture_directory_.clear();
     multitrack_capture_status_text_ =
@@ -649,38 +678,36 @@ void NinjamBridge::Deactivate() {
 }
 
 bool NinjamBridge::StartProcessing() {
-  if (state_ == RuntimeState::kProcessing) {
+  const RuntimeState current_state = state_.load(std::memory_order_acquire);
+  if (current_state == RuntimeState::kProcessing) {
     return true;
   }
-  if (state_ != RuntimeState::kActive) {
+  if (current_state != RuntimeState::kActive) {
     return false;
   }
 
-  state_ = RuntimeState::kProcessing;
-  DebugLog("bridge", "StartProcessing");
+  state_.store(RuntimeState::kProcessing, std::memory_order_release);
+  pending_realtime_lifecycle_events_.fetch_or(kLifecycleStarted,
+                                              std::memory_order_release);
   return true;
 }
 
 void NinjamBridge::StopProcessing() {
-  if (state_ == RuntimeState::kProcessing) {
-    state_ = RuntimeState::kActive;
+  if (state_.load(std::memory_order_acquire) == RuntimeState::kProcessing) {
+    state_.store(RuntimeState::kActive, std::memory_order_release);
   }
-  DebugLogf("bridge",
-            "StopProcessing recording_requested=%d session_capture_active=%d multitrack_active=%d export_active=%d",
-            recording_requested_.load(std::memory_order_acquire) ? 1 : 0,
-            session_capture_recorder_.IsActive() ? 1 : 0,
-            multitrack_capture_active_ ? 1 : 0,
-            remix_stem_exporter_.IsActive() ? 1 : 0);
-  session_capture_recorder_.Stop();
-  remix_stem_exporter_.Wait();
+  session_capture_recorder_.RequestStop();
+  pending_realtime_lifecycle_events_.fetch_or(kLifecycleStopped,
+                                              std::memory_order_release);
 }
 
 void NinjamBridge::Reset() {
-  DebugLog("bridge", "Reset");
-  ClearSessionFeedState();
+  pending_realtime_lifecycle_events_.fetch_or(kLifecycleReset,
+                                              std::memory_order_release);
 }
 
 void NinjamBridge::MainThreadTick() {
+  ServiceRealtimeLifecycleRequests();
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   const bool connect_requested = connect_requested_.load(std::memory_order_acquire);
   const bool was_connected = connected_;
@@ -1123,7 +1150,7 @@ void NinjamBridge::MainThreadTick() {
                 recordings_dir.c_str(),
                 session_capture_recorder_.GetStatusText().c_str());
     }
-  } else if (!should_record_session_capture && session_capture_recorder_.IsActive()) {
+  } else if (!should_record_session_capture && session_capture_recorder_.NeedsCleanup()) {
     DebugLogf("bridge",
               "Session capture stopping status=%s",
               session_capture_recorder_.GetStatusText().c_str());
@@ -1154,15 +1181,17 @@ void NinjamBridge::MainThreadTick() {
 }
 
 bool NinjamBridge::IsInitialized() const {
-  return state_ != RuntimeState::kUninitialized;
+  return state_.load(std::memory_order_acquire) != RuntimeState::kUninitialized;
 }
 
 bool NinjamBridge::IsActive() const {
-  return state_ == RuntimeState::kActive || state_ == RuntimeState::kProcessing;
+  const RuntimeState current_state = state_.load(std::memory_order_acquire);
+  return current_state == RuntimeState::kActive ||
+         current_state == RuntimeState::kProcessing;
 }
 
 bool NinjamBridge::IsProcessing() const {
-  return state_ == RuntimeState::kProcessing;
+  return state_.load(std::memory_order_acquire) == RuntimeState::kProcessing;
 }
 
 double NinjamBridge::GetSampleRate() const {

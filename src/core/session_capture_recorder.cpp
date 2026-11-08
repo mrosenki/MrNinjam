@@ -370,18 +370,28 @@ bool SessionCaptureRecorder::Start(const double sample_rate,
 }
 
 void SessionCaptureRecorder::Stop() {
-  stop_requested_.store(true, std::memory_order_release);
+  RequestStop();
   if (writer_thread_.joinable()) {
     writer_thread_.join();
   }
-  if (output_file_ != nullptr) {
-    FinalizeOutputFile();
-  }
+}
+
+void SessionCaptureRecorder::RequestStop() {
+  // Lifecycle stop and process are serialized by the CLAP contract (and by
+  // clap-wrapper for VST3). Ask the writer to drain before publishing the
+  // closed input gate so a non-real-time restart can never overwrite the stop
+  // request, then prevent subsequent processing from enqueueing into the old
+  // worker while it finalizes.
+  stop_requested_.store(true, std::memory_order_release);
   active_.store(false, std::memory_order_release);
 }
 
 bool SessionCaptureRecorder::IsActive() const {
   return active_.load(std::memory_order_acquire);
+}
+
+bool SessionCaptureRecorder::NeedsCleanup() const {
+  return writer_thread_.joinable();
 }
 
 void SessionCaptureRecorder::Push(const float* left, const float* right, const std::size_t frame_count) {
@@ -487,6 +497,12 @@ void SessionCaptureRecorder::WriterThreadLoop() {
       }
     }
   }
+  if (output_file_ != nullptr) {
+    FinalizeOutputFile();
+  }
+  // Also close the input gate for writer-originated failures, where no owner
+  // necessarily called RequestStop().
+  active_.store(false, std::memory_order_release);
 }
 
 bool SessionCaptureRecorder::OpenOutputFile(double sample_rate,
