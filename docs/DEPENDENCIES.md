@@ -127,3 +127,7 @@ provisional CI review. Runner images, apt/Homebrew packages, compilers, CMake,
 and codec resolution float; Linux excludes the VST3 validator; and there is no
 CLAP validator. Uploaded artifacts must remain private until
 public-distribution gates are complete.
+
+The Apple Silicon CI job uses the explicit `macos-15` GitHub-hosted runner.
+That build environment is independent of the plug-in deployment target, which
+remains `CMAKE_OSX_DEPLOYMENT_TARGET=11.0`.
