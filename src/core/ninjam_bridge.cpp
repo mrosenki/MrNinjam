@@ -9,6 +9,8 @@
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <limits>
+#include <new>
 
 #include "ninjamplugin/core/debug_log.h"
 #include "ninjamplugin/core/connection_config.h"
@@ -613,13 +615,49 @@ bool NinjamBridge::Initialize(const double sample_rate) {
   return true;
 }
 
-bool NinjamBridge::Activate() {
+bool NinjamBridge::PrepareAudioStorage(
+    const std::size_t maximum_frame_count) {
+  if (maximum_frame_count == 0U ||
+      maximum_frame_count >
+          static_cast<std::size_t>(std::numeric_limits<int>::max()) /
+              (sizeof(float) * 2U)) {
+    return false;
+  }
+
+  try {
+    for (auto& buffer : routed_output_buffers_) {
+      buffer.resize(maximum_frame_count);
+    }
+    session_capture_left_buffer_.resize(maximum_frame_count);
+    session_capture_right_buffer_.resize(maximum_frame_count);
+    for (auto& buffer : runtime_send_input_buffers_) {
+      buffer.resize(maximum_frame_count);
+    }
+  } catch (const std::bad_alloc&) {
+    return false;
+  }
+
+#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+  if (client_ != nullptr && !client_->PrepareAudio(maximum_frame_count)) {
+    return false;
+  }
+#endif
+  prepared_maximum_frame_count_ = maximum_frame_count;
+  oversized_audio_block_count_.store(0U, std::memory_order_release);
+  return true;
+}
+
+bool NinjamBridge::Activate(const std::size_t maximum_frame_count) {
   const RuntimeState current_state = state_.load(std::memory_order_acquire);
   if (current_state == RuntimeState::kUninitialized) {
     return false;
   }
   if (current_state == RuntimeState::kProcessing) {
     return true;
+  }
+
+  if (!PrepareAudioStorage(maximum_frame_count)) {
+    return false;
   }
 
   state_.store(RuntimeState::kActive, std::memory_order_release);
@@ -1192,6 +1230,14 @@ bool NinjamBridge::IsActive() const {
 
 bool NinjamBridge::IsProcessing() const {
   return state_.load(std::memory_order_acquire) == RuntimeState::kProcessing;
+}
+
+std::size_t NinjamBridge::GetPreparedMaximumFrameCount() const {
+  return prepared_maximum_frame_count_;
+}
+
+std::uint64_t NinjamBridge::GetOversizedAudioBlockCount() const {
+  return oversized_audio_block_count_.load(std::memory_order_acquire);
 }
 
 double NinjamBridge::GetSampleRate() const {
@@ -2795,6 +2841,14 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
   if (frame_count == 0U) {
     return true;
   }
+  if (frame_count > prepared_maximum_frame_count_) {
+    oversized_audio_block_count_.fetch_add(1U, std::memory_order_relaxed);
+    std::fill_n(output_left, frame_count, 0.0F);
+    std::fill_n(output_right, frame_count, 0.0F);
+    last_runtime_monitor_valid_.store(false, std::memory_order_release);
+    last_runtime_monitor_frame_count_.store(0U, std::memory_order_release);
+    return false;
+  }
 
   if (!apply_gain) {
     last_runtime_monitor_valid_.store(false, std::memory_order_release);
@@ -2916,16 +2970,11 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
     const int active_output_channel_count = GetActiveDawOutputChannelCount();
     current_remote_mix_frame_count_ = frame_count;
     current_remote_mix_output_channel_count_ = active_output_channel_count;
-    if (session_capture_left_buffer_.size() < frame_count)
-      session_capture_left_buffer_.resize(frame_count);
-    if (session_capture_right_buffer_.size() < frame_count)
-      session_capture_right_buffer_.resize(frame_count);
     std::fill_n(session_capture_left_buffer_.data(), frame_count, 0.0f);
     std::fill_n(session_capture_right_buffer_.data(), frame_count, 0.0f);
     std::array<float*, kMaxSupportedAudioChannels> runtime_out{};
     for (int channel = 0; channel < active_output_channel_count; ++channel) {
       auto& buffer = routed_output_buffers_[static_cast<std::size_t>(channel)];
-      if (buffer.size() < frame_count) buffer.resize(frame_count);
       std::fill_n(buffer.data(), frame_count, 0.0f);
       runtime_out[static_cast<std::size_t>(channel)] = buffer.data();
     }
@@ -2987,9 +3036,6 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
             continue;
           }
           auto& buffer = runtime_send_input_buffers_[channel_index];
-          if (buffer.size() < frame_count) {
-            buffer.resize(frame_count);
-          }
           const std::size_t route_channel = channel_index - left_index;
           for (std::size_t frame = 0; frame < frame_count; ++frame) {
             buffer[frame] =
@@ -3073,7 +3119,6 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
     const int active_output_channel_count = GetActiveDawOutputChannelCount();
     for (int channel = 0; channel < active_output_channel_count; ++channel) {
       auto& buffer = routed_output_buffers_[static_cast<std::size_t>(channel)];
-      if (buffer.size() < frame_count) buffer.resize(frame_count);
       if (!runtime_monitor_ready) std::fill_n(buffer.data(), frame_count, 0.0f);
     }
     const float monitor_master = static_cast<float>(GetLocalMonitorMaster());

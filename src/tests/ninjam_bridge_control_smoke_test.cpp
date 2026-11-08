@@ -102,7 +102,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  if (!bridge.Activate()) {
+  if (!bridge.Activate(512U)) {
     std::cerr << "Activate failed\n";
     return EXIT_FAILURE;
   }

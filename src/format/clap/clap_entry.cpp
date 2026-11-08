@@ -1423,7 +1423,7 @@ void CLAP_ABI PluginDestroy(const clap_plugin_t* plugin) {
 bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
                              const double sample_rate,
                              const uint32_t /*min_frames_count*/,
-                             const uint32_t /*max_frames_count*/) {
+                             const uint32_t max_frames_count) {
   auto* instance = ToInstance(plugin);
   if (instance == nullptr) {
     return false;
@@ -1436,7 +1436,7 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
     return false;
   }
   SyncEditorDraftSettingsFromRuntime(instance);
-  if (!instance->runtime.Activate()) {
+  if (!instance->runtime.Activate(max_frames_count)) {
     ninjamplugin::core::DebugLog("clap", "PluginActivate failed: Activate");
     return false;
   }
@@ -1476,7 +1476,9 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
   RequestHostParamsFlush(instance);
   RequestHostMainThreadCallback(instance, true);
   UpdateEditorShellView(instance, true);
-  ninjamplugin::core::DebugLogf("clap", "PluginActivate sample_rate=%.1f", sample_rate);
+  ninjamplugin::core::DebugLogf(
+      "clap", "PluginActivate sample_rate=%.1f max_frames=%u", sample_rate,
+      max_frames_count);
   return true;
 }
 

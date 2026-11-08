@@ -53,6 +53,13 @@ deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
   accumulation, and the documented `NJClient::AudioProc()` call.
 - The audio callback must not wait on UI/control work, perform file I/O, parse
   unbounded control payloads, or allocate after processing has been prepared.
+- Activation uses the host-declared maximum block size to allocate bridge
+  routing, send, capture, and NINJAM mix scratch storage. Every block at or
+  below that maximum is processed without growing those buffers. A host block
+  above its declared maximum is a contract violation: the bridge returns
+  failure, clears the main stereo output, invalidates the cached routed output,
+  and increments a lock-free diagnostic counter rather than truncating or
+  allocating on the audio thread.
 - Main/control-thread work owns connection changes, persistence, topology
   updates, editor state, and other non-real-time tasks.
 - Recording uses bounded handoff to a writer path; export work runs outside the
@@ -83,9 +90,12 @@ or UI timers together, the warning cannot become visible until the host resumes
 one of those callbacks; the plug-in does not create a private polling thread.
 
 The lifecycle part of the real-time safety audit is enforced by a source-level
-regression check over the audio-thread lifecycle callbacks. Steady-state audio
-allocations, routing-state concurrency, and other process-path concerns remain
-separate audits.
+regression check over the audio-thread lifecycle callbacks. A processing-path
+regression test also intercepts C++ allocation calls on the audio-test thread
+and exercises prepared minimum, maximum, variable, routed, recording-producer,
+and restart cases. It deliberately excludes activation and codec warm-up and
+cannot observe internal C-library allocation calls. Routing-state concurrency
+and other publication concerns remain the separate Issue #6 audit.
 
 ## Audio and routing model
 

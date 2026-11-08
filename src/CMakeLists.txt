@@ -288,6 +288,18 @@ if(NINJAMPLUGIN_ENABLE_TESTS)
     COMMAND ninjamplugin_ninjam_bridge_audio_path_smoke_test
   )
 
+  add_executable(ninjamplugin_realtime_allocation_smoke_test
+    tests/realtime_allocation_smoke_test.cpp
+  )
+  target_link_libraries(ninjamplugin_realtime_allocation_smoke_test PRIVATE
+    ninjamplugin_ninjam_bridge
+  )
+  target_compile_features(ninjamplugin_realtime_allocation_smoke_test PRIVATE cxx_std_20)
+  ninjamplugin_apply_warnings(ninjamplugin_realtime_allocation_smoke_test)
+  add_test(NAME ninjamplugin_realtime_allocation_smoke_test
+    COMMAND ninjamplugin_realtime_allocation_smoke_test
+  )
+
   add_executable(ninjamplugin_ninjam_bridge_control_smoke_test
     tests/ninjam_bridge_control_smoke_test.cpp
   )

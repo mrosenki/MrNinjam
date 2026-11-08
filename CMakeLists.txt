@@ -121,6 +121,23 @@ set(NINJAMPLUGIN_NINJAM_UPSTREAM_SOURCE_DIR
   "Pristine pinned NINJAM/WDL source directory"
 )
 
+# The dependency roots may be supplied from a shared checkout outside this
+# source tree (for example, a dedicated worktree). Remap those paths as well as
+# the project paths above so third-party assertion strings cannot disclose the
+# machine-specific source location in packaged plug-ins.
+if(MSVC)
+  add_compile_options(
+    "/pathmap:${NINJAMPLUGIN_DEPENDENCY_ROOT}=./deps"
+    "/pathmap:${NINJAMPLUGIN_EXTERNAL_ROOT}=./external"
+  )
+elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|GNU" OR
+       CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  add_compile_options(
+    "-ffile-prefix-map=${NINJAMPLUGIN_DEPENDENCY_ROOT}=./deps"
+    "-ffile-prefix-map=${NINJAMPLUGIN_EXTERNAL_ROOT}=./external"
+  )
+endif()
+
 if(NINJAMPLUGIN_ENABLE_TESTS)
   enable_testing()
 endif()
@@ -289,7 +306,7 @@ if(NINJAMPLUGIN_ENABLE_TESTS AND TARGET ninjamplugin_clap)
   add_test(NAME ninjamplugin_clap_artifact_path_scan
     COMMAND "${CMAKE_COMMAND}"
       "-DARTIFACT=$<TARGET_FILE:ninjamplugin_clap>"
-      "-DFORBIDDEN_PATHS=${CMAKE_SOURCE_DIR};${CMAKE_BINARY_DIR}"
+      "-DFORBIDDEN_PATHS=${CMAKE_SOURCE_DIR};${CMAKE_BINARY_DIR};${NINJAMPLUGIN_DEPENDENCY_ROOT};${NINJAMPLUGIN_EXTERNAL_ROOT}"
       -P "${CMAKE_SOURCE_DIR}/scripts/check_artifact_paths.cmake"
   )
 endif()
@@ -298,7 +315,7 @@ if(NINJAMPLUGIN_ENABLE_TESTS AND TARGET ninjamplugin_vst3)
   add_test(NAME ninjamplugin_vst3_artifact_path_scan
     COMMAND "${CMAKE_COMMAND}"
       "-DARTIFACT=$<TARGET_FILE:ninjamplugin_vst3>"
-      "-DFORBIDDEN_PATHS=${CMAKE_SOURCE_DIR};${CMAKE_BINARY_DIR}"
+      "-DFORBIDDEN_PATHS=${CMAKE_SOURCE_DIR};${CMAKE_BINARY_DIR};${NINJAMPLUGIN_DEPENDENCY_ROOT};${NINJAMPLUGIN_EXTERNAL_ROOT}"
       -P "${CMAKE_SOURCE_DIR}/scripts/check_artifact_paths.cmake"
   )
 endif()

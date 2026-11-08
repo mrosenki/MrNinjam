@@ -19,7 +19,7 @@ int main() {
     std::cerr << "Bridge unexpectedly initialized at startup\n";
     return EXIT_FAILURE;
   }
-  if (bridge.Activate()) {
+  if (bridge.Activate(512U)) {
     std::cerr << "Activate should fail before initialize\n";
     return EXIT_FAILURE;
   }
@@ -45,7 +45,7 @@ int main() {
     std::cerr << "Disconnected BPI proposal replaced the observed session timing\n";
     return EXIT_FAILURE;
   }
-  if (!bridge.Activate()) {
+  if (!bridge.Activate(512U)) {
     std::cerr << "Activate failed\n";
     return EXIT_FAILURE;
   }
@@ -81,7 +81,7 @@ int main() {
     std::cerr << "Reinitialize after host deactivation failed\n";
     return EXIT_FAILURE;
   }
-  if (!bridge.Activate() || !bridge.IsActive()) {
+  if (!bridge.Activate(512U) || !bridge.IsActive()) {
     std::cerr << "Reactivate after host deactivation failed\n";
     return EXIT_FAILURE;
   }
@@ -113,7 +113,7 @@ int main() {
       std::cerr << "Repeated Deactivate failed at cycle " << cycle << "\n";
       return EXIT_FAILURE;
     }
-    if (!bridge.Activate()) {
+    if (!bridge.Activate(512U)) {
       std::cerr << "Repeated Activate failed at cycle " << cycle << "\n";
       return EXIT_FAILURE;
     }
