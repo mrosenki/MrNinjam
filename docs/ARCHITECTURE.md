@@ -58,10 +58,13 @@ deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
 - Recording uses bounded handoff to a writer path; export work runs outside the
   audio callback.
 - A processing stop atomically asks the capture writer to drain and finalize;
-  it never joins that thread. Start/stop/reset diagnostics and reset's
-  session-feed cleanup are handed to `on_main_thread`. Deactivation and
-  destruction are the non-real-time ownership boundaries that join the capture
-  and export workers. Workers are never detached and cannot outlive the bridge.
+  it closes the recorder input gate immediately and never joins that thread.
+  A restart serviced while the previous capture is finalizing joins the old
+  writer on the main thread before opening a new capture. Start/stop/reset
+  diagnostics and reset's session-feed cleanup are handed to `on_main_thread`.
+  Main-thread lifecycle service, deactivation, and destruction reap capture
+  workers; deactivation and destruction also join export workers. Workers are
+  never detached and cannot outlive the bridge.
 - UI frames communicate through the shared controller and must not call the
   NINJAM runtime, recording services, or format adapter directly.
 

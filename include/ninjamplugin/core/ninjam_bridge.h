@@ -379,8 +379,10 @@ class NinjamBridge {
     kActive,
     kProcessing,
   };
+  static_assert(std::atomic<RuntimeState>::is_always_lock_free,
+                "Audio lifecycle state must remain lock-free");
 
-  RuntimeState state_ = RuntimeState::kUninitialized;
+  std::atomic<RuntimeState> state_{RuntimeState::kUninitialized};
   double sample_rate_ = 0.0;
   std::atomic_bool connect_requested_{false};
   bool connected_ = false;

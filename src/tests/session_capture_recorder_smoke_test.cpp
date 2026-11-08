@@ -84,10 +84,16 @@ int main() {
     }
     const std::string partial_file_path = recorder.GetActiveFilePath();
     recorder.RequestStop();
-    for (int attempt = 0; recorder.IsActive() && attempt < 500; ++attempt) {
+    if (recorder.IsActive() || !recorder.NeedsCleanup()) {
+      std::cerr << "Asynchronous stop did not close the capture input gate\n";
+      return EXIT_FAILURE;
+    }
+    for (int attempt = 0;
+         recorder.GetActiveFilePath() == partial_file_path && attempt < 500;
+         ++attempt) {
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
-    if (recorder.IsActive()) {
+    if (recorder.GetActiveFilePath() == partial_file_path) {
       std::cerr << "Asynchronous stop did not finish capture finalization\n";
       return EXIT_FAILURE;
     }
@@ -100,6 +106,52 @@ int main() {
       return EXIT_FAILURE;
     }
     recorder.Stop();
+    if (recorder.NeedsCleanup()) {
+      std::cerr << "Stop did not reap the asynchronously finalized writer\n";
+      return EXIT_FAILURE;
+    }
+  }
+
+  // A processing restart can arrive before the previous writer has finished.
+  // Start() runs on the non-real-time owner, joins that writer, and starts a
+  // distinct capture without reopening the old recorder input gate.
+  {
+    ninjamplugin::core::SessionCaptureRecorder recorder;
+    if (!recorder.Start(48000.0, test_dir.string(), "rapid-restart.host", "tester", 32)) {
+      std::cerr << "Rapid-restart recorder failed to start first capture\n";
+      return EXIT_FAILURE;
+    }
+    for (int block = 0; block < 64; ++block) {
+      recorder.Push(left.data(), right.data(), left.size());
+    }
+    const std::string first_partial_path = recorder.GetActiveFilePath();
+    const std::string first_final_path = first_partial_path.substr(
+        0, first_partial_path.size() - std::string(".partial").size());
+    recorder.RequestStop();
+    if (recorder.IsActive() || !recorder.NeedsCleanup()) {
+      std::cerr << "Rapid restart left the old capture accepting audio\n";
+      return EXIT_FAILURE;
+    }
+    if (!recorder.Start(48000.0, test_dir.string(), "rapid-restart.host", "tester", 32)) {
+      std::cerr << "Rapid-restart recorder failed to start second capture\n";
+      return EXIT_FAILURE;
+    }
+    const std::string second_partial_path = recorder.GetActiveFilePath();
+    if (!recorder.IsActive() || first_partial_path == second_partial_path ||
+        fs::exists(first_partial_path) || fs::exists(first_partial_path + ".info") ||
+        !fs::exists(first_final_path)) {
+      std::cerr << "Rapid restart did not finalize the first capture safely\n";
+      return EXIT_FAILURE;
+    }
+    recorder.Push(left.data(), right.data(), left.size());
+    recorder.Stop();
+    const std::string second_final_path = recorder.GetActiveFilePath();
+    if (recorder.IsActive() || recorder.NeedsCleanup() ||
+        second_final_path == first_final_path || !fs::exists(second_final_path) ||
+        fs::file_size(second_final_path) <= 80U) {
+      std::cerr << "Rapid restart did not finalize the second capture safely\n";
+      return EXIT_FAILURE;
+    }
   }
 
   // Destruction is a non-real-time ownership boundary and must reap an active

@@ -60,13 +60,17 @@ class SessionCaptureRecorder {
              const std::string& host_name,
              const std::string& user_name,
              int bits_per_sample = 32);
-  // Bounded, lock-free stop handoff for real-time callers. The writer thread
-  // drains queued audio and finalizes the capture asynchronously. Call Stop()
-  // from a non-real-time owner before reusing or destroying the recorder.
+  // Bounded, lock-free stop handoff for real-time callers. New audio is
+  // rejected immediately; the writer thread drains already queued audio and
+  // finalizes the capture asynchronously. Call Stop() from a non-real-time
+  // owner before reusing or destroying the recorder.
   void RequestStop();
   void Stop();
 
   bool IsActive() const;
+  // Non-real-time ownership query. A true result means Stop() must eventually
+  // join the writer, even if asynchronous finalization has already completed.
+  bool NeedsCleanup() const;
   void Push(const float* left, const float* right, std::size_t frame_count);
 
   std::string GetDirectory() const;

@@ -100,6 +100,13 @@ int main() {
       std::cerr << "Repeated StopProcessing failed at cycle " << cycle << "\n";
       return EXIT_FAILURE;
     }
+    // Hosts may restart processing before the requested main-thread callback
+    // has serviced deferred stop/reset work.
+    if (!bridge.StartProcessing() || !bridge.IsProcessing()) {
+      std::cerr << "Immediate processing restart failed at cycle " << cycle << "\n";
+      return EXIT_FAILURE;
+    }
+    bridge.StopProcessing();
     bridge.MainThreadTick();
     bridge.Deactivate();
     if (bridge.IsActive() || bridge.IsProcessing()) {
