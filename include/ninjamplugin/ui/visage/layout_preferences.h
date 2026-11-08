@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-namespace ninjamprototype {
+namespace ninjamplugin::ui::mixer {
 
 struct LayoutPreferences {
   bool show_session_panel = true;
@@ -23,4 +23,4 @@ LayoutPreferences LoadLayoutPreferences(const std::filesystem::path& path);
 bool SaveLayoutPreferences(const std::filesystem::path& path,
                            const LayoutPreferences& preferences);
 
-}  // namespace ninjamprototype
+}  // namespace ninjamplugin::ui::mixer

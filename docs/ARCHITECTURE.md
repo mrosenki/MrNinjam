@@ -11,6 +11,19 @@ VST3 product.
 VST3 is therefore a supported distribution of the same plugin rather than a
 separate audio engine or UI implementation.
 
+The permanent host identity established in `0.2.1` is:
+
+| Surface | Value |
+| --- | --- |
+| Product and package name | `NinjamPlugin` |
+| CLAP ID | `io.github.mrosenki.ninjamplugin` |
+| VST3 CID | `CF3108E94031432BAEC75E1A03E0978F` |
+| Vendor | `Micah Rosenkind` |
+
+Identity is centralized in `plugin_config.h` and locked by a descriptor-level
+test. The transition from the private Classic and Visage-spike identities is a
+deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
+
 ## Major components
 
 | Area | Primary location | Responsibility |
@@ -22,7 +35,8 @@ separate audio engine or UI implementation.
 | Session recording | `src/core/session_capture_recorder.cpp` | Buffered capture, finalization, and recovery |
 | Stem export | `src/core/remix_stem_exporter.cpp` | Non-destructive RAW-session decoding and WAV export |
 | Shared editor controller | `src/ui/connection_editor_controller.cpp` | UI-independent view state and commands |
-| Visage editor | `src/ui/editor_shell_visage.cpp`, `prototypes/visage_mixer` | Rendering, layout, input, and UI preferences |
+| Production editor | `src/ui/editor_shell_visage.cpp`, `src/ui/visage/` | Visage-backed rendering, layout, input, and UI preferences |
+| UI test harness | `tools/ui_harness/` | Optional standalone layout and interaction validation |
 
 ## Threading boundaries
 
@@ -51,8 +65,10 @@ callback pump. If a host suspends audio processing and all plug-in main-thread
 or UI timers together, the warning cannot become visible until the host resumes
 one of those callbacks; the plug-in does not create a private polling thread.
 
-The public-release audit must verify that steady-state `ProcessAudio()` does not
-resize or allocate its working buffers.
+The real-time safety audit remains separate from this identity/UI consolidation.
+It must address blocking audio callbacks, steady-state allocations, routing
+state data races, and audio-thread logging before public release without being
+mixed into the `0.2.1` architectural change.
 
 ## Audio and routing model
 

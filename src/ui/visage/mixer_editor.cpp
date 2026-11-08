@@ -1,7 +1,7 @@
-#include "mixer_prototype.h"
+#include "ninjamplugin/ui/visage/mixer_editor.h"
 
-#include "embedded/prototype_fonts.h"
-#include "layout_preferences.h"
+#include "embedded/ninjamplugin_visage_fonts.h"
+#include "ninjamplugin/ui/visage/layout_preferences.h"
 
 #include <visage_ui/scroll_bar.h>
 #include <visage_ui/popup_menu.h>
@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <utility>
 
-namespace ninjamprototype {
+namespace ninjamplugin::ui::mixer {
 namespace {
 
 using namespace visage::dimension;
@@ -4439,10 +4439,10 @@ enum class CompactFocus { None, Session, Recording };
 
 }  // namespace
 
-class MixerPrototypeEditor::Content : public visage::Frame {
+class MixerEditor::Content : public visage::Frame {
 public:
   Content(MixerScenario scenario, bool persist_layout_preferences)
-      : Frame("prototype-content"), input_panel_("SEND"),
+      : Frame("mixer-content"), input_panel_("SEND"),
         remote_panel_("RECEIVE"),
         session_tab_("session-tab", PanelTab::Side::Left, kCyan),
         recording_tab_("recording-tab", PanelTab::Side::Right, kAmber),
@@ -5462,7 +5462,7 @@ private:
   MixerUiCallbacks ui_callbacks_;
 };
 
-MixerScenario MakeScenario(std::string name, int local_input_count,
+MixerScenario MakeMixerScenario(std::string name, int local_input_count,
                            int participant_count, int channels_per_participant) {
   MixerScenario scenario;
   scenario.name = std::move(name);
@@ -5497,89 +5497,89 @@ MixerScenario MakeScenario(std::string name, int local_input_count,
   return scenario;
 }
 
-MixerPrototypeEditor::MixerPrototypeEditor(MixerScenario scenario,
+MixerEditor::MixerEditor(MixerScenario scenario,
                                            bool persist_layout_preferences)
     : content_(std::make_unique<Content>(std::move(scenario),
                                          persist_layout_preferences)) {
-  setTitle("NinjamPlugin Visage Mixer Prototype");
+  setTitle("NinjamPlugin");
   setFlexLayout(true);
   addChild(content_.get());
   content_->layout().setFlexGrow(1.0f);
 }
 
-MixerPrototypeEditor::~MixerPrototypeEditor() = default;
+MixerEditor::~MixerEditor() = default;
 
-std::vector<std::string> MixerPrototypeEditor::validateLayout() const {
+std::vector<std::string> MixerEditor::validateLayout() const {
   return content_->validateLayout();
 }
 
-std::vector<std::string> MixerPrototypeEditor::validateInteractions() {
+std::vector<std::string> MixerEditor::validateInteractions() {
   return content_->validateInteractions();
 }
 
-void MixerPrototypeEditor::setPanelVisibility(bool show_session, bool show_recording) {
+void MixerEditor::setPanelVisibility(bool show_session, bool show_recording) {
   content_->setPanelVisibility(show_session, show_recording);
 }
 
-void MixerPrototypeEditor::setRowsCollapsed(bool send, bool receive, bool chat) {
+void MixerEditor::setRowsCollapsed(bool send, bool receive, bool chat) {
   content_->setRowsCollapsed(send, receive, chat);
 }
 
-bool MixerPrototypeEditor::panelVisibilityMatches(bool show_session,
+bool MixerEditor::panelVisibilityMatches(bool show_session,
                                                   bool show_recording) const {
   return content_->panelVisibilityMatches(show_session, show_recording);
 }
 
-void MixerPrototypeEditor::updateSessionUiState(const SessionUiState& state) {
+void MixerEditor::updateSessionUiState(const SessionUiState& state) {
   content_->updateSessionUiState(state);
 }
 
-void MixerPrototypeEditor::setUiCallbacks(MixerUiCallbacks callbacks) {
+void MixerEditor::setUiCallbacks(MixerUiCallbacks callbacks) {
   content_->setUiCallbacks(std::move(callbacks));
 }
 
-void MixerPrototypeEditor::setReaperKeyboardHint(bool visible) {
+void MixerEditor::setReaperKeyboardHint(bool visible) {
   content_->setReaperKeyboardHint(visible);
 }
 
-bool MixerPrototypeEditor::sessionUiStateMatches(const SessionUiState& state) const {
+bool MixerEditor::sessionUiStateMatches(const SessionUiState& state) const {
   return content_->sessionUiStateMatches(state);
 }
 
-ConnectionUiDraft MixerPrototypeEditor::connectionUiDraft() const {
+ConnectionUiDraft MixerEditor::connectionUiDraft() const {
   return content_->connectionUiDraft();
 }
 
-void MixerPrototypeEditor::simulateMetronomeLevelChange(double value) {
+void MixerEditor::simulateMetronomeLevelChange(double value) {
   content_->simulateMetronomeLevelChange(value);
 }
 
-std::size_t MixerPrototypeEditor::localInputRowCount() const {
+std::size_t MixerEditor::localInputRowCount() const {
   return content_->localInputRowCount();
 }
 
-float MixerPrototypeEditor::localInputContentHeight() const {
+float MixerEditor::localInputContentHeight() const {
   return content_->localInputContentHeight();
 }
 
-std::size_t MixerPrototypeEditor::remoteChannelRowCount() const {
+std::size_t MixerEditor::remoteChannelRowCount() const {
   return content_->remoteChannelRowCount();
 }
 
-int MixerPrototypeEditor::remoteChannelMeterCount(const std::size_t index) const {
+int MixerEditor::remoteChannelMeterCount(const std::size_t index) const {
   return content_->remoteChannelMeterCount(index);
 }
 
-float MixerPrototypeEditor::remoteChannelContentHeight() const {
+float MixerEditor::remoteChannelContentHeight() const {
   return content_->remoteChannelContentHeight();
 }
 
-bool MixerPrototypeEditor::remoteChannelRowsHaveVisibleBounds() const {
+bool MixerEditor::remoteChannelRowsHaveVisibleBounds() const {
   return content_->remoteChannelRowsHaveVisibleBounds();
 }
 
-std::string MixerPrototypeEditor::rawExportOutputDestination() const {
+std::string MixerEditor::rawExportOutputDestination() const {
   return content_->rawExportOutputDestination();
 }
 
-}  // namespace ninjamprototype
+}  // namespace ninjamplugin::ui::mixer

@@ -1,9 +1,9 @@
-# Proposed initial commit manifest
+# Historical initial commit manifest
 
-This is the explicit source allowlist proposed for the first clean private
-commit. It was generated from the reviewed migration snapshot on 2026-11-03.
-It is a proposal only: Git has not been initialized and no files have been
-staged or committed.
+This is the explicit 132-file allowlist used for the independent repository's
+first root commit, `1f3c9d10cb6643208089834da73675cbbfdc1553`, on 2026-11-03.
+It intentionally records that historical snapshot and is not a manifest of the
+current development tree.
 
 The manifest includes project source, tests, build metadata, scripts,
 documentation, integration patches, workflow configuration, and retained
@@ -12,9 +12,8 @@ runtime data, recordings, exports, logs, crash material, editor metadata,
 credentials, connection settings, generated plug-ins, private migration
 review notes, and historical Git metadata.
 
-Before the first commit, compare the newly initialized index exactly against
-this list and repeat the hygiene checks. Any additional path requires explicit
-review.
+The paths below must not be rewritten as files move or are removed through
+normal reviewed commits; use Git history for the current tree.
 
 ```text
 .gitattributes

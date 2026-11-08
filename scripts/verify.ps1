@@ -5,15 +5,14 @@ param(
 $ErrorActionPreference = "Stop"
 $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $BuildDir = Join-Path $RootDir ("build/{0}" -f $BuildType)
-$ClapArtifact = Join-Path $BuildDir "plugin/ninjamplugin_visage_spike.clap"
-$Vst3Artifact = Join-Path $BuildDir "plugin/ninjamplugin_visage_spike.vst3"
+$ClapArtifact = Join-Path $BuildDir "plugin/NinjamPlugin.clap"
+$Vst3Artifact = Join-Path $BuildDir "plugin/NinjamPlugin.vst3"
 
 & (Join-Path $RootDir "scripts/check_submodule_clean.ps1")
 
 Write-Host ("Configuring NinjamPlugin ({0})..." -f $BuildType)
 cmake -S $RootDir -B $BuildDir -DCMAKE_BUILD_TYPE=$BuildType `
-  -DNINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR=ON `
-  -DNINJAMPLUGIN_ENABLE_VISAGE_PROTOTYPE=ON `
+  -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON `
   -DNINJAMPLUGIN_ENABLE_VST3=ON
 
 Write-Host "Building NinjamPlugin targets..."
@@ -28,7 +27,9 @@ foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
   Write-Host ("Plugin artifact: {0}" -f $ArtifactPath)
 }
 
-Get-ChildItem (Join-Path $BuildDir "plugin") -Recurse -File | ForEach-Object {
-  cmake "-DARTIFACT=$($_.FullName)" "-DFORBIDDEN_PATHS=$RootDir" `
-    -P (Join-Path $RootDir "scripts/check_artifact_paths.cmake")
+foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
+  Get-ChildItem $ArtifactPath -Recurse -File | ForEach-Object {
+    cmake "-DARTIFACT=$($_.FullName)" "-DFORBIDDEN_PATHS=$RootDir" `
+      -P (Join-Path $RootDir "scripts/check_artifact_paths.cmake")
+  }
 }

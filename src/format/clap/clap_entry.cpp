@@ -31,6 +31,7 @@
 #include <clap/ext/state.h>
 #include <clap/ext/timer-support.h>
 #include <clap/factory/plugin-factory.h>
+#include <clapwrapper/vst3.h>
 
 namespace {
 
@@ -2448,13 +2449,8 @@ bool CLAP_ABI GuiCreate(const clap_plugin_t* plugin, const char* api, const bool
   ninjamplugin::ui::EditorShellConfig config;
   config.title = ninjamplugin::format::clap::kPluginName;
   config.show_reaper_keyboard_hint = instance->is_reaper_host;
-#if defined(NINJAMPLUGIN_VISAGE_CLAP_EDITOR)
   config.width = 1024;
   config.height = 680;
-#else
-  config.width = 900;
-  config.height = 940;
-#endif
   instance->editor_shell = ninjamplugin::ui::CreateEditorShell(config, api, is_floating);
   instance->editor_created = instance->editor_shell != nullptr;
   instance->editor_visible = false;
@@ -2510,15 +2506,10 @@ bool CLAP_ABI GuiGetSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t*
 }
 
 bool CLAP_ABI GuiCanResize(const clap_plugin_t* /*plugin*/) {
-#if defined(NINJAMPLUGIN_VISAGE_CLAP_EDITOR)
   return true;
-#else
-  return false;
-#endif
 }
 
 bool CLAP_ABI GuiGetResizeHints(const clap_plugin_t* /*plugin*/, clap_gui_resize_hints_t* hints) {
-#if defined(NINJAMPLUGIN_VISAGE_CLAP_EDITOR)
   if (hints == nullptr) {
     return false;
   }
@@ -2528,10 +2519,6 @@ bool CLAP_ABI GuiGetResizeHints(const clap_plugin_t* /*plugin*/, clap_gui_resize
   hints->aspect_ratio_width = 0;
   hints->aspect_ratio_height = 0;
   return true;
-#else
-  (void)hints;
-  return false;
-#endif
 }
 
 bool CLAP_ABI GuiAdjustSize(const clap_plugin_t* plugin, uint32_t* width, uint32_t* height) {
@@ -2539,13 +2526,8 @@ bool CLAP_ABI GuiAdjustSize(const clap_plugin_t* plugin, uint32_t* width, uint32
   if (instance == nullptr || instance->editor_shell == nullptr || width == nullptr || height == nullptr) {
     return false;
   }
-#if defined(NINJAMPLUGIN_VISAGE_CLAP_EDITOR)
   *width = std::max(*width, 560U);
   *height = std::max(*height, 270U);
-#else
-  *width = instance->editor_shell->GetWidth();
-  *height = instance->editor_shell->GetHeight();
-#endif
   return true;
 }
 
@@ -2821,6 +2803,31 @@ const clap_plugin_factory_t kPluginFactory = {
     FactoryCreatePlugin,
 };
 
+const array_of_16_bytes kVst3ComponentId = COMPONENT_ID(
+    ninjamplugin::format::clap::kVst3ClassIdPart1,
+    ninjamplugin::format::clap::kVst3ClassIdPart2,
+    ninjamplugin::format::clap::kVst3ClassIdPart3,
+    ninjamplugin::format::clap::kVst3ClassIdPart4);
+
+const clap_plugin_info_as_vst3_t kPluginInfoAsVst3 = {
+    ninjamplugin::format::clap::kPluginVendor,
+    &kVst3ComponentId,
+    nullptr,
+};
+
+const clap_plugin_info_as_vst3_t* CLAP_ABI FactoryGetVst3Info(
+    const clap_plugin_factory_as_vst3_t* /*factory*/, const uint32_t index) {
+  return index == 0 ? &kPluginInfoAsVst3 : nullptr;
+}
+
+const clap_plugin_factory_as_vst3_t kPluginFactoryAsVst3 = {
+    ninjamplugin::format::clap::kPluginVendor,
+    "https://github.com/mrosenki/NinjamPlugin-Public",
+    nullptr,
+    FactoryGetVst3Info,
+    nullptr,
+};
+
 }  // namespace
 
 extern "C" {
@@ -2834,6 +2841,11 @@ void CLAP_ABI NinjamPluginEntryDeinit() {}
 const void* CLAP_ABI NinjamPluginEntryGetFactory(const char* factory_id) {
   if (factory_id != nullptr && std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) == 0) {
     return &kPluginFactory;
+  }
+  if (factory_id != nullptr &&
+      (std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_INFO_VST3) == 0 ||
+       std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_INFO_VST3_V1) == 0)) {
+    return &kPluginFactoryAsVst3;
   }
   return nullptr;
 }

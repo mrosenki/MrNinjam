@@ -4,7 +4,7 @@ NinjamPlugin is a cross-platform NINJAM client that runs inside a DAW. Its
 native plugin implementation is CLAP; the same implementation is packaged as
 VST3 through clap-wrapper.
 
-The current development baseline is version `0.2.0`. The independent Git
+The current development baseline is version `0.2.1`. The independent Git
 history began with the reviewed `0.1.132` migration snapshot; that historical
 baseline remains preserved in the initial commit. This source tree is private,
 pre-publication, and not yet release-ready. The project licence has been
@@ -32,9 +32,9 @@ scope. See [Product Scope](docs/PRODUCT_SCOPE.md).
 ## Source layout
 
 - `include/` — public project headers.
-- `src/` — shared core, NINJAM bridge, UI shell, CLAP adapter, and tests.
-- `prototypes/visage_mixer/` — the Visage mixer/editor implementation retained
-  under its compatibility-sensitive internal target names.
+- `src/` — shared core, NINJAM bridge, production UI, CLAP adapter, and tests.
+- `tools/ui_harness/` — optional standalone harness for production UI layout
+  and interaction checks.
 - `cmake/` — build helpers, including build-owned dependency patch staging.
 - `patches/` — reviewed NINJAM and Visage integration patches.
 - `scripts/` — dependency preparation, builds, tests, and artifact checks.
@@ -47,7 +47,7 @@ the source snapshot.
 ## Build outline
 
 Prepare the exact locked dependency revisions, then configure and verify a
-Visage release build:
+release build:
 
 ```bash
 ./scripts/fetch_dependencies.sh
@@ -66,10 +66,12 @@ commands. Exact source pins and provenance are in
 
 ## Status and compatibility
 
-The `0.2.x` development series preserves the plug-in IDs, internal artifact
-names, and V1--V20 state compatibility established by the `0.1.132` migration
-snapshot. Temporary names such as `visage-spike` are retained where changing
-them could prevent existing DAW projects from resolving the plug-in.
+Version `0.2.1` establishes the permanent CLAP ID
+`io.github.mrosenki.ninjamplugin`, VST3 CID
+`CF3108E94031432BAEC75E1A03E0978F`, and `NinjamPlugin` package name. This is a
+deliberate one-time host-identity break from the private migration builds, which
+used temporary identities and were never publicly released. Parameter IDs and
+V1--V20 saved-state decoding remain unchanged.
 
 The old development history and private test artifacts are deliberately not
 part of this tree. Verified historical conclusions and the limitations of the

@@ -10,7 +10,6 @@ $BuildDir = Join-Path $RootDir ("build/{0}" -f $BuildType)
 
 Write-Host ("Configuring NinjamPlugin ({0})..." -f $BuildType)
 cmake -S $RootDir -B $BuildDir -DCMAKE_BUILD_TYPE=$BuildType `
-  -DNINJAMPLUGIN_ENABLE_VISAGE_CLAP_EDITOR=ON `
   -DNINJAMPLUGIN_ENABLE_VST3=ON
 
 Write-Host "Building NinjamPlugin targets..."
