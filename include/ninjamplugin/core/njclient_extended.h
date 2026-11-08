@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #include <ninjam/njclient.h>
 
 #if !defined(NINJAMPLUGIN_NJCLIENT_REMOTE_CHANNEL_AUDIO_PATCH)
@@ -12,4 +14,5 @@
 class NinjamPluginNJClient final : public NJClient {
  public:
   int GetUserChannelCount(int user_index, int channel_index);
+  bool PrepareAudio(std::size_t maximum_frame_count);
 };

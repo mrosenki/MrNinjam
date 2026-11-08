@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
   }
 
   ninjamplugin::core::NinjamBridge bridge;
-  if (!bridge.Initialize(48000.0) || !bridge.Activate()) {
+  if (!bridge.Initialize(48000.0) || !bridge.Activate(4096U)) {
     std::cerr << "Failed to initialize/activate bridge runtime.\n";
     return 11;
   }

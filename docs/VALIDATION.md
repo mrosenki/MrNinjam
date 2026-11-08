@@ -47,6 +47,26 @@ Steinberg VST3 validator passed all 47 tests and reported the permanent CID.
 Bundle metadata reports version `0.2.1` and the `.clap`/`.vst3` bundle IDs. The
 PR workflow remains the required Windows/Linux and clean-run confirmation.
 
+The Issue #5 Phase 1 bridge-storage correction was validated from the Release
+configuration with both CLAP and wrapped VST3 enabled. Both products built, all
+16 CTest cases passed, and the allocation regression covered variable and
+maximum block sizes, all supported channels, routing/recording changes, the
+bounded recording producer, lifecycle restart, and oversized-block rejection.
+The final CLAP validator run reported 16 passes, no failures, five inapplicable
+skips, and no warnings. The Steinberg VST3 validator passed all 47 tests,
+including its variable-block-size case. Dependency revisions were pinned and
+clean, both bundle path scans passed, binary dependencies were system-only, and
+bundle metadata remained at version `0.2.1` with the permanent identities. The
+existing libogg/libvorbis macOS deployment-target linker warnings remain
+unchanged.
+
+This validation establishes preparation and bounded use of bridge-owned and
+explicit NINJAM scratch storage. It does not establish complete connected-audio
+real-time safety: the test does not exercise genuine server stream transitions
+or detect direct C allocation, upstream blocking mutexes, codec continuation,
+decoder lifetime work, or Session mode filesystem operations reached from the
+audio callback. Those remain Issue #5 Phase 2 validation requirements.
+
 The migration completion review also confirmed:
 
 - the independent Git history contains no imported historical commits;

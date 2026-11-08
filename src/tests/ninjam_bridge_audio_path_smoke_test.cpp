@@ -36,7 +36,7 @@ std::vector<float> SumBuffers(const std::vector<float>& lhs, const std::vector<f
 
 int main() {
   ninjamplugin::core::NinjamBridge bridge;
-  if (!bridge.Initialize(48000.0) || !bridge.Activate()) {
+  if (!bridge.Initialize(48000.0) || !bridge.Activate(512U)) {
     std::cerr << "Bridge setup failed\n";
     return EXIT_FAILURE;
   }
@@ -155,7 +155,7 @@ int main() {
   // Local monitor destinations are real CLAP output pairs: main 1/2 is
   // returned by ProcessAudio and auxiliary 3/4 by CopyLastSessionReturn.
   ninjamplugin::core::NinjamBridge routing_bridge;
-  if (!routing_bridge.Initialize(48000.0)) {
+  if (!routing_bridge.Initialize(48000.0) || !routing_bridge.Activate(512U)) {
     std::cerr << "Output-routing bridge initialization failed\n";
     return EXIT_FAILURE;
   }

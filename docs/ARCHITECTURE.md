@@ -53,6 +53,21 @@ deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
   accumulation, and the documented `NJClient::AudioProc()` call.
 - The audio callback must not wait on UI/control work, perform file I/O, parse
   unbounded control payloads, or allocate after processing has been prepared.
+- Activation uses the host-declared maximum block size to allocate bridge
+  routing, send, capture, and NINJAM mix scratch storage. Every block at or
+  below that maximum is processed without growing those buffers. A host block
+  above its declared maximum is a contract violation: the bridge returns
+  failure, clears the main stereo output, invalidates the cached routed output,
+  and increments a lock-free diagnostic counter rather than truncating or
+  allocating on the audio thread.
+- This preparation is Phase 1 of Issue #5, not a complete connected-processing
+  guarantee. Upstream `NJClient::AudioProc()` still reaches blocking local and
+  remote topology mutexes, allocation-capable local `BufferQueue` growth and
+  continuing codec decode, audio-thread decoder reclamation, and Session mode
+  file opening, reading, decoder construction, and rearming. The approved
+  Phase 2 hybrid design will move codec and session-file work to independent
+  workers while retaining the audio-thread sample clock, interval and Session
+  timing, immediate local monitoring, routing, and recording alignment.
 - Main/control-thread work owns connection changes, persistence, topology
   updates, editor state, and other non-real-time tasks.
 - Recording uses bounded handoff to a writer path; export work runs outside the
@@ -83,9 +98,14 @@ or UI timers together, the warning cannot become visible until the host resumes
 one of those callbacks; the plug-in does not create a private polling thread.
 
 The lifecycle part of the real-time safety audit is enforced by a source-level
-regression check over the audio-thread lifecycle callbacks. Steady-state audio
-allocations, routing-state concurrency, and other process-path concerns remain
-separate audits.
+regression check over the audio-thread lifecycle callbacks. A processing-path
+regression test also intercepts C++ allocation calls on the audio-test thread
+and exercises prepared minimum, maximum, variable, routed, recording-producer,
+and restart cases. It deliberately excludes genuine connected stream activity
+and cannot observe internal C-library allocation calls, blocking upstream
+mutexes, or filesystem operations. It proves prepared bridge-buffer behavior,
+not complete connected-audio real-time safety. Routing-state concurrency and
+other publication concerns remain the separate Issue #6 audit.
 
 ## Audio and routing model
 

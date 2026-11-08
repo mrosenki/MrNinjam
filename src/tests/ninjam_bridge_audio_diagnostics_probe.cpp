@@ -42,7 +42,8 @@ int main(int argc, char** argv) {
   }
 
   ninjamplugin::core::NinjamBridge bridge;
-  if (!bridge.Initialize(48000.0) || !bridge.Activate() || !bridge.StartProcessing()) {
+  if (!bridge.Initialize(48000.0) || !bridge.Activate(4096U) ||
+      !bridge.StartProcessing()) {
     std::cerr << "Failed to initialize processing bridge runtime.\n";
     return 11;
   }

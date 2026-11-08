@@ -26,6 +26,13 @@ static_assert(std::string_view(ninjamplugin::format::clap::kPluginVendor) ==
 static_assert(std::string_view(ninjamplugin::format::clap::kPluginVersion) ==
               "0.2.1");
 
+const void* CLAP_ABI HostGetExtension(const clap_host_t* /*host*/,
+                                      const char* /*extension_id*/) {
+  return nullptr;
+}
+
+void CLAP_ABI HostRequest(const clap_host_t* /*host*/) {}
+
 }  // namespace
 
 int main() {
@@ -62,6 +69,68 @@ int main() {
     std::cerr << "explicit VST3 class identity did not match the permanent CID\n";
     return 1;
   }
+
+  // Exercise the public CLAP lifecycle so the activation maximum cannot be
+  // accidentally discarded. A compliant maximum-size block succeeds; the
+  // next larger block is an explicit host-contract error.
+  clap_host_t host{};
+  host.clap_version = CLAP_VERSION;
+  host.name = "NinjamPlugin identity test";
+  host.vendor = "NinjamPlugin";
+  host.url = "https://github.com/mrosenki/NinjamPlugin-Public";
+  host.version = "1";
+  host.get_extension = HostGetExtension;
+  host.request_restart = HostRequest;
+  host.request_process = HostRequest;
+  host.request_callback = HostRequest;
+
+  const clap_plugin_t* plugin = clap_factory->create_plugin(
+      clap_factory, &host, ninjamplugin::format::clap::kPluginId);
+  if (plugin == nullptr || !plugin->init(plugin) ||
+      !plugin->activate(plugin, 48000.0, 1U, 257U) ||
+      !plugin->start_processing(plugin)) {
+    std::cerr << "CLAP activation did not accept the declared block maximum\n";
+    if (plugin != nullptr) plugin->destroy(plugin);
+    return 1;
+  }
+
+  std::array<float, 258> input_left{};
+  std::array<float, 258> input_right{};
+  std::array<float, 258> output_left{};
+  std::array<float, 258> output_right{};
+  std::array<float*, 2> input_data{input_left.data(), input_right.data()};
+  std::array<float*, 2> output_data{output_left.data(), output_right.data()};
+  clap_audio_buffer_t input_buffer{};
+  input_buffer.data32 = input_data.data();
+  input_buffer.channel_count = 2U;
+  clap_audio_buffer_t output_buffer{};
+  output_buffer.data32 = output_data.data();
+  output_buffer.channel_count = 2U;
+  clap_process_t process{};
+  process.steady_time = 0;
+  process.frames_count = 257U;
+  process.audio_inputs = &input_buffer;
+  process.audio_outputs = &output_buffer;
+  process.audio_inputs_count = 1U;
+  process.audio_outputs_count = 1U;
+  if (plugin->process(plugin, &process) != CLAP_PROCESS_CONTINUE) {
+    std::cerr << "CLAP rejected its declared maximum block size\n";
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+    plugin->destroy(plugin);
+    return 1;
+  }
+  process.frames_count = 258U;
+  if (plugin->process(plugin, &process) != CLAP_PROCESS_ERROR) {
+    std::cerr << "CLAP did not reject a block above its declared maximum\n";
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+    plugin->destroy(plugin);
+    return 1;
+  }
+  plugin->stop_processing(plugin);
+  plugin->deactivate(plugin);
+  plugin->destroy(plugin);
 
   std::cout << "Permanent CLAP and VST3 identities verified.\n";
   return 0;

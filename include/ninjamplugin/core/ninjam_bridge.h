@@ -119,7 +119,7 @@ class NinjamBridge {
   NinjamBridge& operator=(const NinjamBridge&) = delete;
 
   bool Initialize(double sample_rate);
-  bool Activate();
+  bool Activate(std::size_t maximum_frame_count);
   void Deactivate();
   bool StartProcessing();
   void StopProcessing();
@@ -130,6 +130,8 @@ class NinjamBridge {
   bool IsActive() const;
   bool IsProcessing() const;
   double GetSampleRate() const;
+  std::size_t GetPreparedMaximumFrameCount() const;
+  std::uint64_t GetOversizedAudioBlockCount() const;
 
   static constexpr double kSessionBpmMin = 40.0;
   static constexpr double kSessionBpmMax = 300.0;
@@ -372,6 +374,7 @@ class NinjamBridge {
   void StartKeepaliveThread();
   void StopKeepaliveThread();
   void KeepaliveThreadLoop();
+  bool PrepareAudioStorage(std::size_t maximum_frame_count);
 
   enum class RuntimeState {
     kUninitialized = 0,
@@ -384,6 +387,8 @@ class NinjamBridge {
 
   std::atomic<RuntimeState> state_{RuntimeState::kUninitialized};
   double sample_rate_ = 0.0;
+  std::size_t prepared_maximum_frame_count_ = 0;
+  mutable std::atomic<std::uint64_t> oversized_audio_block_count_{0};
   std::atomic_bool connect_requested_{false};
   bool connected_ = false;
   bool disconnect_pending_ = false;
