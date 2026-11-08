@@ -34,6 +34,9 @@ constexpr std::uint64_t kDeferredDisconnectDelayMs = 150ULL;
 constexpr std::uint64_t kLevelDiagnosticsLogIntervalMs = 1000ULL;
 constexpr std::size_t kSessionFeedMaxLines = 256;
 constexpr float kUpstreamMetronomeDefaultGain = 0.5f;
+constexpr std::uint32_t kLifecycleStarted = 1U << 0U;
+constexpr std::uint32_t kLifecycleStopped = 1U << 1U;
+constexpr std::uint32_t kLifecycleReset = 1U << 2U;
 int EncodeOutputRoute(const int route) {
   const int clamped = std::clamp(route, 0, NinjamBridge::kMaximumOutputRoute);
   if (clamped < NinjamBridge::kStereoOutputRouteCount) return clamped * 2;
@@ -403,6 +406,28 @@ void NinjamBridge::ClearSessionFeedState() {
   session_feed_lines_.clear();
 }
 
+void NinjamBridge::ServiceRealtimeLifecycleRequests() {
+  const std::uint32_t events =
+      pending_realtime_lifecycle_events_.exchange(0, std::memory_order_acq_rel);
+  if ((events & kLifecycleReset) != 0U) {
+    ClearSessionFeedState();
+  }
+  if ((events & kLifecycleStarted) != 0U) {
+    DebugLog("bridge", "StartProcessing");
+  }
+  if ((events & kLifecycleStopped) != 0U) {
+    DebugLog("bridge", "StopProcessing");
+  }
+  if ((events & kLifecycleReset) != 0U) {
+    DebugLog("bridge", "Reset");
+  }
+}
+
+void NinjamBridge::FinishLifecycleWorkers() {
+  session_capture_recorder_.Stop();
+  remix_stem_exporter_.Wait();
+}
+
 void NinjamBridge::StartKeepaliveThread() {
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   if (keepalive_thread_.joinable()) {
@@ -440,6 +465,7 @@ void NinjamBridge::KeepaliveThreadLoop() {
 }
 
 NinjamBridge::~NinjamBridge() {
+  ServiceRealtimeLifecycleRequests();
   DebugLogf("bridge",
             "Destroy begin state=%d connected=%d recording_requested=%d session_capture_active=%d multitrack_active=%d export_active=%d",
             static_cast<int>(state_),
@@ -448,6 +474,7 @@ NinjamBridge::~NinjamBridge() {
             session_capture_recorder_.IsActive() ? 1 : 0,
             multitrack_capture_active_ ? 1 : 0,
             remix_stem_exporter_.IsActive() ? 1 : 0);
+  FinishLifecycleWorkers();
   StopKeepaliveThread();
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   {
@@ -606,6 +633,8 @@ void NinjamBridge::Deactivate() {
   const bool keep_runtime_connection =
       connect_requested_.load(std::memory_order_acquire) && IsRuntimeConnectionAvailable();
   state_ = RuntimeState::kInitialized;
+  ServiceRealtimeLifecycleRequests();
+  FinishLifecycleWorkers();
   session_bpm_sync_pending_ = false;
   session_bpi_sync_pending_ = false;
   if (!keep_runtime_connection) {
@@ -619,8 +648,6 @@ void NinjamBridge::Deactivate() {
     connect_attempt_count_ = 0;
     connection_state_ = IsRuntimeConnectionAvailable() ? kConnectionStateDisconnected
                                                        : kConnectionStateUnavailable;
-    session_capture_recorder_.Stop();
-    remix_stem_exporter_.Wait();
     multitrack_capture_active_ = false;
     multitrack_capture_directory_.clear();
     multitrack_capture_status_text_ =
@@ -657,7 +684,8 @@ bool NinjamBridge::StartProcessing() {
   }
 
   state_ = RuntimeState::kProcessing;
-  DebugLog("bridge", "StartProcessing");
+  pending_realtime_lifecycle_events_.fetch_or(kLifecycleStarted,
+                                              std::memory_order_release);
   return true;
 }
 
@@ -665,22 +693,18 @@ void NinjamBridge::StopProcessing() {
   if (state_ == RuntimeState::kProcessing) {
     state_ = RuntimeState::kActive;
   }
-  DebugLogf("bridge",
-            "StopProcessing recording_requested=%d session_capture_active=%d multitrack_active=%d export_active=%d",
-            recording_requested_.load(std::memory_order_acquire) ? 1 : 0,
-            session_capture_recorder_.IsActive() ? 1 : 0,
-            multitrack_capture_active_ ? 1 : 0,
-            remix_stem_exporter_.IsActive() ? 1 : 0);
-  session_capture_recorder_.Stop();
-  remix_stem_exporter_.Wait();
+  session_capture_recorder_.RequestStop();
+  pending_realtime_lifecycle_events_.fetch_or(kLifecycleStopped,
+                                              std::memory_order_release);
 }
 
 void NinjamBridge::Reset() {
-  DebugLog("bridge", "Reset");
-  ClearSessionFeedState();
+  pending_realtime_lifecycle_events_.fetch_or(kLifecycleReset,
+                                              std::memory_order_release);
 }
 
 void NinjamBridge::MainThreadTick() {
+  ServiceRealtimeLifecycleRequests();
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   const bool connect_requested = connect_requested_.load(std::memory_order_acquire);
   const bool was_connected = connected_;

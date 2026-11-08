@@ -370,14 +370,14 @@ bool SessionCaptureRecorder::Start(const double sample_rate,
 }
 
 void SessionCaptureRecorder::Stop() {
-  stop_requested_.store(true, std::memory_order_release);
+  RequestStop();
   if (writer_thread_.joinable()) {
     writer_thread_.join();
   }
-  if (output_file_ != nullptr) {
-    FinalizeOutputFile();
-  }
-  active_.store(false, std::memory_order_release);
+}
+
+void SessionCaptureRecorder::RequestStop() {
+  stop_requested_.store(true, std::memory_order_release);
 }
 
 bool SessionCaptureRecorder::IsActive() const {
@@ -487,6 +487,10 @@ void SessionCaptureRecorder::WriterThreadLoop() {
       }
     }
   }
+  if (output_file_ != nullptr) {
+    FinalizeOutputFile();
+  }
+  active_.store(false, std::memory_order_release);
 }
 
 bool SessionCaptureRecorder::OpenOutputFile(double sample_rate,

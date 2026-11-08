@@ -71,6 +71,59 @@ int main() {
     }
   }
 
+  // The real-time stop handoff must let the writer drain and finalize without
+  // making the caller join it. Stop() below only reaps the completed thread.
+  {
+    ninjamplugin::core::SessionCaptureRecorder recorder;
+    if (!recorder.Start(48000.0, test_dir.string(), "async-stop.host", "tester", 32)) {
+      std::cerr << "Asynchronous-stop recorder failed to start\n";
+      return EXIT_FAILURE;
+    }
+    for (int block = 0; block < 64; ++block) {
+      recorder.Push(left.data(), right.data(), left.size());
+    }
+    const std::string partial_file_path = recorder.GetActiveFilePath();
+    recorder.RequestStop();
+    for (int attempt = 0; recorder.IsActive() && attempt < 500; ++attempt) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    if (recorder.IsActive()) {
+      std::cerr << "Asynchronous stop did not finish capture finalization\n";
+      return EXIT_FAILURE;
+    }
+    const std::string final_file_path = recorder.GetActiveFilePath();
+    if (final_file_path.empty() || final_file_path == partial_file_path ||
+        final_file_path.find(".wav.partial") != std::string::npos ||
+        !fs::exists(final_file_path) || fs::exists(partial_file_path) ||
+        fs::exists(partial_file_path + ".info")) {
+      std::cerr << "Asynchronous stop did not promote the completed capture\n";
+      return EXIT_FAILURE;
+    }
+    recorder.Stop();
+  }
+
+  // Destruction is a non-real-time ownership boundary and must reap an active
+  // writer without leaving a partial capture or a detached worker behind.
+  {
+    std::string partial_file_path;
+    {
+      ninjamplugin::core::SessionCaptureRecorder recorder;
+      if (!recorder.Start(48000.0, test_dir.string(), "destructor.host", "tester", 32)) {
+        std::cerr << "Destructor-shutdown recorder failed to start\n";
+        return EXIT_FAILURE;
+      }
+      recorder.Push(left.data(), right.data(), left.size());
+      partial_file_path = recorder.GetActiveFilePath();
+    }
+    const std::string final_file_path =
+        partial_file_path.substr(0, partial_file_path.size() - std::string(".partial").size());
+    if (fs::exists(partial_file_path) || fs::exists(partial_file_path + ".info") ||
+        !fs::exists(final_file_path)) {
+      std::cerr << "Recorder destruction did not finalize its active capture\n";
+      return EXIT_FAILURE;
+    }
+  }
+
   // A one-second write must leave a playable, size-checkpointed partial before
   // Stop() is called.
   {
@@ -250,6 +303,29 @@ int main() {
     if (progress_notifications.load(std::memory_order_relaxed) < 2 ||
         forced_notifications.load(std::memory_order_relaxed) != 1) {
       std::cerr << "RAW export did not publish live and final progress notifications\n";
+      return EXIT_FAILURE;
+    }
+
+    // The exporter destructor must join an in-flight worker and deliver its
+    // final notification before callback storage goes out of scope.
+    progress_notifications.store(0, std::memory_order_relaxed);
+    forced_notifications.store(0, std::memory_order_relaxed);
+    {
+      ninjamplugin::core::RemixStemExporter destructor_exporter;
+      destructor_exporter.SetProgressNotification([&](const bool force) {
+        progress_notifications.fetch_add(1, std::memory_order_relaxed);
+        if (force) {
+          forced_notifications.fetch_add(1, std::memory_order_relaxed);
+        }
+      });
+      if (!destructor_exporter.Start(raw_session.string(), export_options)) {
+        std::cerr << "Destructor-shutdown RAW export did not start\n";
+        return EXIT_FAILURE;
+      }
+    }
+    if (progress_notifications.load(std::memory_order_relaxed) < 2 ||
+        forced_notifications.load(std::memory_order_relaxed) != 1) {
+      std::cerr << "RAW exporter destruction did not reap its active worker\n";
       return EXIT_FAILURE;
     }
 
