@@ -60,13 +60,13 @@ const void* CLAP_ABI HostGetExtension(const clap_host_t*, const char*) {
 void CLAP_ABI HostRequest(const clap_host_t*) {}
 
 struct InputEvents {
-  clap_input_events_t interface{};
+  clap_input_events_t api{};
   std::array<clap_event_param_value_t, kEventCount> events{};
 
   InputEvents() {
-    interface.ctx = this;
-    interface.size = Size;
-    interface.get = Get;
+    api.ctx = this;
+    api.size = Size;
+    api.get = Get;
     const std::array<clap_id, kEventCount> ids = {
         kConnectParamId,
         kSessionBpmParamId,
@@ -107,12 +107,12 @@ struct InputEvents {
 };
 
 struct OutputEvents {
-  clap_output_events_t interface{};
+  clap_output_events_t api{};
   std::atomic<std::uint32_t> accepted{0};
 
   OutputEvents() {
-    interface.ctx = this;
-    interface.try_push = TryPush;
+    api.ctx = this;
+    api.try_push = TryPush;
   }
 
   static bool CLAP_ABI TryPush(const clap_output_events_t* list,
@@ -154,8 +154,8 @@ struct PluginFixture {
     process.audio_outputs = &output_buffer;
     process.audio_inputs_count = 1U;
     process.audio_outputs_count = 1U;
-    process.in_events = &input_events.interface;
-    process.out_events = &output_events.interface;
+    process.in_events = &input_events.api;
+    process.out_events = &output_events.api;
     return true;
   }
 
