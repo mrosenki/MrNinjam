@@ -69,6 +69,13 @@ class NinjamPluginNJClient final : public NJClient {
   RealtimeStatistics GetRealtimeStatistics() const;
   std::size_t GetPreparedRealtimeMemoryBytes() const;
   void SetRealtimeWorkerPausedForTesting(bool paused);
+  enum class RealtimePacketModeForTesting { kNormal, kVoice, kSession };
+  void SetRealtimeAudioEnabledForTesting();
+  bool PushRemotePacketForTesting(
+      RealtimePacketModeForTesting mode, int user, int channel,
+      std::int64_t timeline, int frames, int channels, int output,
+      float volume, float pan, bool muted, const float* left,
+      const float* right);
 
  private:
   struct RealtimeState;

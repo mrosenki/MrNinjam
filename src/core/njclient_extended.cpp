@@ -140,13 +140,14 @@ struct LocalSnapshot {
   std::atomic_bool solo{false};
 };
 
-struct VoiceTail {
+struct RemoteTail {
+  RemotePacket packet{};
   int offset = 0;
-  int frames = 0;
-  int channels = 0;
-  std::uint64_t generation = 0U;
-  std::array<float, kPacketFrames> left{};
-  std::array<float, kPacketFrames> right{};
+  bool active = false;
+  void Clear() {
+    offset = 0;
+    active = false;
+  }
 };
 
 struct SessionDecoder {
@@ -276,7 +277,9 @@ struct NinjamPluginNJClient::RealtimeState {
   std::array<float, kPacketFrames> session_scratch_right{};
   std::array<float, kPacketFrames> silence{};
   std::vector<float> metronome_scratch;
-  std::array<VoiceTail, kRemoteSlots> voice_tails{};
+  std::array<RemoteTail, kRemoteSlots> normal_tails{};
+  std::array<RemoteTail, kRemoteSlots> voice_tails{};
+  std::array<RemoteTail, kRemoteSlots> session_tails{};
   std::vector<SessionDecoder> session_decoders;
 
   std::atomic<std::uint64_t> local_overflow{0U};
@@ -669,6 +672,28 @@ void NinjamPluginNJClient::AudioProc(
     }
 
     bool delivered = false;
+    for (auto& tail : state.normal_tails) {
+      if (!tail.active) continue;
+      const auto& packet = tail.packet;
+      const auto packet_end = static_cast<int>(packet.timeline) + packet.frames;
+      if (packet.topology_generation != topology ||
+          packet.time_generation != state.interval_generation ||
+          packet_end <= segment_start) {
+        tail.Clear();
+        continue;
+      }
+      const int packet_start = static_cast<int>(packet.timeline) + tail.offset;
+      if (packet_start >= segment_end) continue;
+      const int first = std::max(segment_start, packet_start);
+      const int last = std::min(segment_end, packet_end);
+      if (last > first) {
+        deliver(packet, first - static_cast<int>(packet.timeline),
+            block_offset + first - segment_start, last - first);
+        delivered = true;
+        tail.offset = last - static_cast<int>(packet.timeline);
+        if (tail.offset >= packet.frames) tail.Clear();
+      }
+    }
     for (;;) {
       const RemotePacket* packet = state.normal.Front();
       if (packet == nullptr) break;
@@ -687,6 +712,19 @@ void NinjamPluginNJClient::AudioProc(
         deliver(*packet, first - static_cast<int>(packet->timeline),
             block_offset + first - segment_start, last - first);
         delivered = true;
+        if (last < packet->timeline + packet->frames) {
+          // Move the remainder into consumer-owned storage before advancing
+          // the SPSC ring, so interleaved remote channels remain reachable.
+          const int slot = packet->user * MAX_USER_CHANNELS + packet->channel;
+          if (slot < 0 || slot >= kRemoteSlots) {
+            state.normal.Pop();
+            continue;
+          }
+          auto& tail = state.normal_tails[static_cast<std::size_t>(slot)];
+          tail.packet = *packet;
+          tail.offset = last - static_cast<int>(packet->timeline);
+          tail.active = true;
+        }
       }
       state.normal.Pop();
     }
@@ -721,21 +759,17 @@ void NinjamPluginNJClient::AudioProc(
   std::array<int, kRemoteSlots> voice_offsets{};
   for (int slot = 0; slot < kRemoteSlots; ++slot) {
     auto& tail = state.voice_tails[static_cast<std::size_t>(slot)];
-    if (tail.frames <= tail.offset || tail.generation != topology) {
-      tail.offset = tail.frames = 0;
+    if (!tail.active) continue;
+    if (tail.offset >= tail.packet.frames ||
+        tail.packet.topology_generation != topology) {
+      tail.Clear();
       continue;
     }
-    const int count = std::min(frames, tail.frames - tail.offset);
-    RemotePacket packet;
-    packet.user = slot / MAX_USER_CHANNELS;
-    packet.channel = slot % MAX_USER_CHANNELS;
-    packet.channels = tail.channels;
-    std::copy_n(tail.left.data() + tail.offset, count, packet.left.data());
-    std::copy_n(tail.right.data() + tail.offset, count, packet.right.data());
-    deliver(packet, 0, 0, count);
+    const int count = std::min(frames, tail.packet.frames - tail.offset);
+    deliver(tail.packet, tail.offset, 0, count);
     tail.offset += count;
     voice_offsets[static_cast<std::size_t>(slot)] = count;
-    if (tail.offset >= tail.frames) tail.offset = tail.frames = 0;
+    if (tail.offset >= tail.packet.frames) tail.Clear();
   }
   while (state.voice.Count() > kVoiceBacklogLimit) {
     state.voice.Pop();
@@ -764,12 +798,9 @@ void NinjamPluginNJClient::AudioProc(
     offset += count;
     if (count < packet->frames) {
       auto& tail = state.voice_tails[static_cast<std::size_t>(slot)];
-      tail.offset = 0;
-      tail.frames = packet->frames - count;
-      tail.channels = packet->channels;
-      tail.generation = packet->topology_generation;
-      std::copy_n(packet->left.data() + count, tail.frames, tail.left.data());
-      std::copy_n(packet->right.data() + count, tail.frames, tail.right.data());
+      tail.packet = *packet;
+      tail.offset = count;
+      tail.active = true;
     }
     state.voice.Pop();
   }
@@ -779,6 +810,29 @@ void NinjamPluginNJClient::AudioProc(
         std::llround(session_position * sample_rate));
     const std::int64_t last_sample = first_sample + frames;
     bool delivered = false;
+    for (auto& tail : state.session_tails) {
+      if (!tail.active) continue;
+      const auto& packet = tail.packet;
+      const auto packet_end = packet.timeline + packet.frames;
+      if (packet.topology_generation != topology ||
+          packet.time_generation != state.transport_generation ||
+          packet_end <= first_sample) {
+        tail.Clear();
+        state.stale_session.fetch_add(1U, std::memory_order_relaxed);
+        continue;
+      }
+      const auto packet_start = packet.timeline + tail.offset;
+      if (packet_start >= last_sample) continue;
+      const auto first = std::max(first_sample, packet_start);
+      const auto last = std::min(last_sample, packet_end);
+      if (last > first) {
+        deliver(packet, static_cast<int>(first - packet.timeline),
+            static_cast<int>(first - first_sample), static_cast<int>(last - first));
+        delivered = true;
+        tail.offset = static_cast<int>(last - packet.timeline);
+        if (tail.offset >= packet.frames) tail.Clear();
+      }
+    }
     for (;;) {
       const RemotePacket* packet = state.session.Front();
       if (packet == nullptr) break;
@@ -798,6 +852,19 @@ void NinjamPluginNJClient::AudioProc(
         deliver(*packet, static_cast<int>(first - packet->timeline),
             static_cast<int>(first - first_sample), static_cast<int>(last - first));
         delivered = true;
+        if (last < packet->timeline + packet->frames) {
+          // Move the remainder into consumer-owned storage before advancing
+          // the SPSC ring, so interleaved remote channels remain reachable.
+          const int slot = packet->user * MAX_USER_CHANNELS + packet->channel;
+          if (slot < 0 || slot >= kRemoteSlots) {
+            state.session.Pop();
+            continue;
+          }
+          auto& tail = state.session_tails[static_cast<std::size_t>(slot)];
+          tail.packet = *packet;
+          tail.offset = static_cast<int>(last - packet->timeline);
+          tail.active = true;
+        }
       }
       state.session.Pop();
     }
@@ -1382,4 +1449,53 @@ std::size_t NinjamPluginNJClient::GetPreparedRealtimeMemoryBytes() const {
 void NinjamPluginNJClient::SetRealtimeWorkerPausedForTesting(bool paused) {
   if (realtime_ != nullptr)
     realtime_->codec_paused_for_testing.store(paused, std::memory_order_release);
+}
+
+void NinjamPluginNJClient::SetRealtimeAudioEnabledForTesting() {
+  if (realtime_ != nullptr)
+    realtime_->audio_enabled.store(true, std::memory_order_release);
+}
+
+bool NinjamPluginNJClient::PushRemotePacketForTesting(
+    RealtimePacketModeForTesting mode, int user, int channel,
+    std::int64_t timeline, int frames, int channels, int output,
+    float volume, float pan, bool muted, const float* left,
+    const float* right) {
+  if (realtime_ == nullptr || !realtime_->prepared.load(std::memory_order_acquire) ||
+      user < 0 || user >= 32 || channel < 0 || channel >= MAX_USER_CHANNELS ||
+      frames <= 0 || frames > kPacketFrames || left == nullptr)
+    return false;
+  RemotePacket packet;
+  packet.topology_generation =
+      realtime_->topology_generation.load(std::memory_order_acquire);
+  packet.timeline = timeline;
+  packet.user = user;
+  packet.channel = channel;
+  packet.frames = frames;
+  packet.channels = std::clamp(channels, 1, 2);
+  packet.output = output;
+  packet.volume = volume;
+  packet.pan = pan;
+  packet.muted = muted;
+  std::copy_n(left, frames, packet.left.data());
+  std::copy_n(right != nullptr ? right : left, frames, packet.right.data());
+  switch (mode) {
+    case RealtimePacketModeForTesting::kNormal:
+      packet.mode = PacketMode::kNormal;
+      packet.time_generation = realtime_->published_interval_generation.load(
+          std::memory_order_acquire);
+      realtime_->normal_count.store(1, std::memory_order_release);
+      return realtime_->normal.Push(packet);
+    case RealtimePacketModeForTesting::kVoice:
+      packet.mode = PacketMode::kVoice;
+      realtime_->voice_count.store(1, std::memory_order_release);
+      return realtime_->voice.Push(packet);
+    case RealtimePacketModeForTesting::kSession:
+      packet.mode = PacketMode::kSession;
+      packet.time_generation = realtime_->published_transport_generation.load(
+          std::memory_order_acquire);
+      realtime_->session_count.store(1, std::memory_order_release);
+      return realtime_->session.Push(packet);
+  }
+  return false;
 }

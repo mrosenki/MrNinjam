@@ -52,15 +52,15 @@ independent atomics; a producer never edits a consumer cursor.
 | --- | ---: | --- |
 | Local PCM | 512 packets / 65,536 frames | Audio -> codec. On overflow the absolute sample timeline advances and the worker later inserts equal-duration silence. Compressed bytes are never truncated. |
 | Local interval/control markers | 4,096 markers | Audio -> codec. Preserves every normal interval boundary and transport rearm across PCM loss. Marker overflow is counted; the connected saturation regression requires zero. |
-| Normal return | 2,048 packets / 262,144 frames | Codec -> audio. Packets carry topology and interval generations plus interval positions. Missing timestamps render silence without moving the interval clock; stale generations are discarded. |
-| Voice return | 2,048 packets; 512-packet backlog limit | Codec -> audio. The next callback consumes the earliest available packet with no prefill. Excess backlog is consumer-trimmed and counted. |
-| Session return | 2,048 packets / 262,144 frames | Session -> audio. Packets carry topology and transport generations plus absolute project samples. Seek/transport changes invalidate obsolete packets; missing positions render silence. |
+| Normal return | 2,048 packets / 262,144 frames | Codec -> audio. Packets carry topology and interval generations plus interval positions. Consumer-owned per-channel tails preserve packet remainders across short or irregular host callbacks; stale generations are discarded. |
+| Voice return | 2,048 packets; 512-packet backlog limit | Codec -> audio. The next callback consumes the earliest available packet with no prefill. Consumer-owned tails preserve PCM and routing/gain/pan/mute metadata. Excess backlog is consumer-trimmed and counted. |
+| Session return | 2,048 packets / 262,144 frames | Session -> audio. Packets carry topology and transport generations plus absolute project samples. Consumer-owned tails preserve timestamped remainders; seek/transport changes invalidate both queued and partial packets. |
 
 These are capacities, not startup prefill requirements. Voice has no mandatory
 pre-roll. Normal and Session workers render only a bounded lookahead of twice
 the declared host maximum, clamped to 512--8,192 frames. At a declared maximum
-of 512 frames, the measured prepared storage is 12,165,184 bytes per connected
-instance (11.60 MiB), including all rings, remote tails, Session decoder slots,
+of 512 frames, the measured prepared storage is 14,471,312 bytes per connected
+instance (13.80 MiB), including all rings, per-mode remote tails, Session decoder slots,
 and NINJAM/metronome scratch plus the fixed real-time state object.
 
 The local PCM and marker streams are separate so a saturated PCM ring cannot
@@ -95,6 +95,14 @@ capture files, and protocol Session messages. Session underflow is expected
 and counted during the forced worker stall and seek invalidation; it produces
 silence at the missing project timestamp. Recording and metronome remain on the
 callback-owned clocks rather than worker completion time.
+
+`ninjamplugin_realtime_packet_continuity_test` injects known PCM into the
+prepared Normal, Voice, and Session return rings for three simultaneous remote
+channels. It compares every output sample and timestamp across repeating
+1/64/127/128/257/512-frame, non-divisible host blocks. The regression also
+checks tail routing/gain/pan/mute metadata and verifies that a Session seek
+invalidates an already-partially-consumed packet before the new transport
+generation is accepted.
 
 ### Remaining boundaries
 

@@ -73,6 +73,13 @@ for all 75,393 dropped PCM frames as silence and lost no interval marker.
 Prepared connected storage measured 12,165,184 bytes per instance at the
 512-frame host maximum.
 
+The deterministic packet-continuity regression separately injects known PCM
+for three simultaneous Normal, Voice, and Session channels. Exact sample and
+timestamp comparisons cover 1/64/127/128/257/512-frame and non-divisible host
+sequences, Voice tail routing metadata, and Session partial-packet invalidation
+on seek. Prepared storage now measures 14,471,312 bytes per instance because
+each return mode owns fixed, allocation-free per-channel partial-packet state.
+
 The source check rejects direct allocation, blocking-lock, codec, filesystem,
 resize, destruction, wait, and join tokens in the connected callback. The
 macOS direct-C interposition uses malloc zones and is not active on other
@@ -82,7 +89,7 @@ final run passed after serializing the upstream RNG through the reproducible
 dependency patch and giving the Session worker independent scratch. This also
 validates the two-instance case under TSan.
 
-The final Release build produced both CLAP and VST3 bundles and all 17 CTest
+The final Release build produced both CLAP and VST3 bundles and all 18 CTest
 cases passed. The final CLAP validator run reported 16 passes, no failures,
 five inapplicable skips, and no warnings (21 tests total). The Steinberg
 validator passed all 47 tests. Dependency pins were clean, the
