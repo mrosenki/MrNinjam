@@ -1,11 +1,11 @@
 # Third-party notices
 
-This is the reviewed source/build inventory for NinjamPlugin 0.2.1. It does
+This is the reviewed source/build inventory for MrNinjam 0.2.1. It does
 not replace the licence texts under `third_party/licenses/` or notices inside
 the locked upstream source. Exact revisions are documented in
 `docs/DEPENDENCIES.md`.
 
-The root GPL-3.0-or-later grant applies to original NinjamPlugin material. The
+The root GPL-3.0-or-later grant applies to original MrNinjam material. The
 components below retain their own copyrights and terms.
 
 ## Plug-in, protocol, and audio components

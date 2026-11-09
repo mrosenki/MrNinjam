@@ -1,6 +1,6 @@
 # Changelog
 
-NinjamPlugin uses [Semantic Versioning](https://semver.org/) for the active
+MrNinjam uses [Semantic Versioning](https://semver.org/) for the active
 development line. Before `1.0.0`, minor versions may add or revise supported
 behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
@@ -10,7 +10,9 @@ independently of the package version.
 
 - Establish the permanent CLAP ID `io.github.mrosenki.ninjamplugin` and VST3
   CID `CF3108E94031432BAEC75E1A03E0978F` before public release.
-- Standardize the product, bundle, and artifact name as `NinjamPlugin`.
+- Rename the visible product, bundles, and artifacts from the historical
+  `NinjamPlugin` name to `MrNinjam` before public release, while retaining the
+  permanent CLAP ID and VST3 CID.
 - Make the Visage-backed editor the only production editor on macOS, Windows,
   and Linux; remove the deprecated Classic platform shells.
 - Move production UI sources out of the prototype tree while retaining an

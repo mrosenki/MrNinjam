@@ -2,7 +2,7 @@
 
 ## Development status
 
-NinjamPlugin `0.2.1` is a development-stage source-code preview. The project
+MrNinjam `0.2.1` is a development-stage source-code preview. The project
 has not published an official binary release and does not currently designate
 any released version as supported for security updates. Reports against the
 current `main` source are still welcome and will be assessed on their merits.

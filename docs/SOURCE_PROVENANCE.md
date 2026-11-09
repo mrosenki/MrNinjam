@@ -3,7 +3,7 @@
 ## Project-authored material
 
 Copyright © 2026 Micah Rosenkind. The copyright owner has confirmed that the
-NinjamPlugin material listed in this section is an independently authored
+MrNinjam material listed in this section is an independently authored
 personal project and that the owner has authority to license it under
 GPL-3.0-or-later. This statement excludes all third-party code and assets.
 
@@ -70,7 +70,7 @@ The project mixer additionally embeds
 Lato file listed above. The unused Droid copy in `examples/fonts/` is likewise
 identical to the core Droid asset, but Visage example targets are disabled.
 Other fonts found inside ignored bgfx and VSTGUI example trees are not built
-or packaged by NinjamPlugin.
+or packaged by MrNinjam.
 
 These fonts, icons, shader sources, and tools are not tracked in this
 repository; they are material in the separately fetched pinned Visage

@@ -1,8 +1,10 @@
-# NinjamPlugin
+# MrNinjam
 
-NinjamPlugin is a cross-platform NINJAM client that runs inside a DAW. Its
+MrNinjam is a cross-platform NINJAM client that runs inside a DAW. Its
 native plugin implementation is CLAP; the same implementation is packaged as
 VST3 through clap-wrapper.
+
+The canonical repository is <https://github.com/mrosenki/MrNinjam>.
 
 The current development baseline is version `0.2.1`. The independent Git
 history began with the reviewed `0.1.132` migration snapshot; that historical
@@ -68,12 +70,21 @@ commands. Exact source pins and provenance are in
 
 ## Status and compatibility
 
-Version `0.2.1` establishes the permanent CLAP ID
-`io.github.mrosenki.ninjamplugin`, VST3 CID
-`CF3108E94031432BAEC75E1A03E0978F`, and `NinjamPlugin` package name. This is a
-deliberate one-time host-identity break from the private migration builds, which
-used temporary identities and were never publicly released. Parameter IDs and
-V1--V20 saved-state decoding remain unchanged.
+Version `0.2.1` retains the permanent CLAP ID
+`io.github.mrosenki.ninjamplugin` and VST3 CID
+`CF3108E94031432BAEC75E1A03E0978F` while changing the visible product and
+bundle name from the historical `NinjamPlugin` identity to `MrNinjam` before
+public release. Parameter IDs and V1--V20 saved-state decoding remain
+unchanged. Internal `ninjamplugin` namespaces, targets, environment variables,
+and state headers are deliberately retained for source and state compatibility.
+
+The generated bundles are `MrNinjam.clap` and `MrNinjam.vst3`. Hosts that
+resolve plug-ins by CLAP ID or VST3 CID should retain project recall after a
+rescan. Hosts that first resolve a plug-in by its bundle filename or cached
+installation path may require the renamed bundle to be rescanned, installed
+alongside the old development bundle temporarily, or manually substituted in
+an affected project. This path-based limitation is host-specific and cannot be
+eliminated without keeping the old bundle filename.
 
 The old development history and private test artifacts are deliberately not
 part of this tree. Verified historical conclusions and the limitations of the
@@ -82,7 +93,7 @@ new-tree validation are summarized in [Validation](docs/VALIDATION.md).
 ## Licence
 
 Copyright © 2026 Micah Rosenkind. Except where otherwise indicated, original
-NinjamPlugin material is licensed under the GNU General Public License,
+MrNinjam material is licensed under the GNU General Public License,
 version 3 or (at your option) any later version. See [LICENSE](LICENSE) and
 [Licensing](docs/LICENSING.md). Third-party code and assets retain their own
 terms as listed in [Third-party notices](THIRD_PARTY_NOTICES.md).
