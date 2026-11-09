@@ -36,6 +36,8 @@ bool CheckLoaded(const ninjamplugin::core::ConnectionSettings& settings,
 int main() {
   const std::filesystem::path temp_dir =
       std::filesystem::temp_directory_path() / "ninjamplugin-connection-config-smoke";
+  std::error_code cleanup_error;
+  std::filesystem::remove_all(temp_dir, cleanup_error);
   std::filesystem::create_directories(temp_dir);
   const std::filesystem::path config_path = temp_dir / "ninjamplugin_settings.cfg";
 
@@ -106,6 +108,10 @@ int main() {
       std::cerr << "Saved config unexpectedly persisted password\n";
       return 6;
     }
+    if (saved_text.find("# MrNinjam settings") == std::string::npos) {
+      std::cerr << "Saved config did not use the MrNinjam brand\n";
+      return 10;
+    }
   }
 
   SetEnvVar("NINJAM_SERVER_HOST", nullptr);
@@ -141,6 +147,41 @@ int main() {
   SetEnvVar("NINJAM_SERVER_HOST", nullptr);
   SetEnvVar("NINJAM_SERVER_USER", nullptr);
   SetEnvVar("NINJAM_SERVER_PASS", nullptr);
+
+#if defined(_WIN32)
+  SetEnvVar("APPDATA", temp_dir.string().c_str());
+  const std::filesystem::path former_config_directory = temp_dir / "NinjamPlugin";
+  const std::filesystem::path current_config_path =
+      temp_dir / "MrNinjam" / "mrninjam_settings.cfg";
+#elif defined(__APPLE__)
+  SetEnvVar("HOME", temp_dir.string().c_str());
+  const std::filesystem::path former_config_directory =
+      temp_dir / "Library" / "Application Support" / "NinjamPlugin";
+  const std::filesystem::path current_config_path =
+      temp_dir / "Library" / "Application Support" / "MrNinjam" /
+      "mrninjam_settings.cfg";
+#else
+  SetEnvVar("XDG_CONFIG_HOME", temp_dir.string().c_str());
+  const std::filesystem::path former_config_directory = temp_dir / "NinjamPlugin";
+  const std::filesystem::path current_config_path =
+      temp_dir / "MrNinjam" / "mrninjam_settings.cfg";
+#endif
+  std::filesystem::create_directories(former_config_directory);
+  {
+    std::ofstream legacy_output(former_config_directory / "ninjamplugin_settings.cfg");
+    legacy_output << "host=legacy.example:2049\nuser=legacy-user\n";
+  }
+  if (ninjamplugin::core::GetConnectionConfigPath() != current_config_path.string() ||
+      !std::filesystem::exists(current_config_path)) {
+    std::cerr << "Historical settings were not migrated to the MrNinjam path\n";
+    return 11;
+  }
+  if (!ninjamplugin::core::LoadPersistedConnectionSettings(&settings) ||
+      settings.host != "legacy.example:2049" || settings.user != "legacy-user") {
+    std::cerr << "Migrated historical settings did not load\n";
+    return 12;
+  }
+
   std::filesystem::remove_all(temp_dir);
   return 0;
 }

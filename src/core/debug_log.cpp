@@ -96,6 +96,24 @@ bool ParseEnabled(const char* text, const bool fallback) {
 std::filesystem::path PlatformConfigDirectory() {
 #if defined(_WIN32)
   if (const char* root = ReadEnvNonEmpty("APPDATA"))
+    return std::filesystem::path(root) / "MrNinjam";
+#elif defined(__APPLE__)
+  if (const char* home = ReadEnvNonEmpty("HOME"))
+    return std::filesystem::path(home) / "Library" / "Application Support" /
+           "MrNinjam";
+#else
+  if (const char* root = ReadEnvNonEmpty("XDG_CONFIG_HOME"))
+    return std::filesystem::path(root) / "MrNinjam";
+  if (const char* home = ReadEnvNonEmpty("HOME"))
+    return std::filesystem::path(home) / ".config" / "MrNinjam";
+#endif
+  std::error_code error;
+  return std::filesystem::temp_directory_path(error) / "MrNinjam";
+}
+
+std::filesystem::path FormerPlatformConfigDirectory() {
+#if defined(_WIN32)
+  if (const char* root = ReadEnvNonEmpty("APPDATA"))
     return std::filesystem::path(root) / "NinjamPlugin";
 #elif defined(__APPLE__)
   if (const char* home = ReadEnvNonEmpty("HOME"))
@@ -114,21 +132,21 @@ std::filesystem::path PlatformConfigDirectory() {
 std::filesystem::path PlatformLogDirectory() {
 #if defined(_WIN32)
   if (const char* root = ReadEnvNonEmpty("LOCALAPPDATA"))
-    return std::filesystem::path(root) / "NinjamPlugin" / "Logs";
+    return std::filesystem::path(root) / "MrNinjam" / "Logs";
   if (const char* root = ReadEnvNonEmpty("APPDATA"))
-    return std::filesystem::path(root) / "NinjamPlugin" / "Logs";
+    return std::filesystem::path(root) / "MrNinjam" / "Logs";
 #elif defined(__APPLE__)
   if (const char* home = ReadEnvNonEmpty("HOME"))
-    return std::filesystem::path(home) / "Library" / "Logs" / "NinjamPlugin";
+    return std::filesystem::path(home) / "Library" / "Logs" / "MrNinjam";
 #else
   if (const char* root = ReadEnvNonEmpty("XDG_STATE_HOME"))
-    return std::filesystem::path(root) / "NinjamPlugin" / "logs";
+    return std::filesystem::path(root) / "MrNinjam" / "logs";
   if (const char* home = ReadEnvNonEmpty("HOME"))
-    return std::filesystem::path(home) / ".local" / "state" / "NinjamPlugin" /
+    return std::filesystem::path(home) / ".local" / "state" / "MrNinjam" /
            "logs";
 #endif
   std::error_code error;
-  return std::filesystem::temp_directory_path(error) / "NinjamPlugin" / "logs";
+  return std::filesystem::temp_directory_path(error) / "MrNinjam" / "logs";
 }
 
 std::filesystem::path DiagnosticsPreferencesPath() {
@@ -137,6 +155,10 @@ std::filesystem::path DiagnosticsPreferencesPath() {
 
 bool LoadPersistedEnabled() {
   std::ifstream input(DiagnosticsPreferencesPath());
+  if (!input.is_open()) {
+    input.clear();
+    input.open(FormerPlatformConfigDirectory() / "diagnostics.conf");
+  }
   std::string line;
   while (std::getline(input, line)) {
     if (line.rfind("enabled=", 0) == 0)
@@ -154,7 +176,7 @@ bool SavePersistedEnabled(const bool enabled) {
   std::ofstream output(path, std::ios::out | std::ios::trunc);
   if (!output.is_open())
     return false;
-  output << "# NinjamPlugin machine-wide diagnostic preferences\n";
+  output << "# MrNinjam machine-wide diagnostic preferences\n";
   output << "enabled=" << (enabled ? "1" : "0") << '\n';
   return output.good();
 }
@@ -270,7 +292,8 @@ void RemoveOldLogs(const std::filesystem::path& directory,
     if (!it->is_regular_file(error))
       continue;
     const auto name = it->path().filename().string();
-    if (name.rfind("ninjamplugin-", 0) == 0 && it->path().extension() == ".log")
+    if ((name.rfind("mrninjam-", 0) == 0 || name.rfind("ninjamplugin-", 0) == 0) &&
+        it->path().extension() == ".log")
       logs.push_back(*it);
   }
   std::sort(logs.begin(), logs.end(), [](const auto& lhs, const auto& rhs) {
@@ -302,7 +325,7 @@ void ConfigurePathLocked(const char* host_name, const char* host_version) {
   const auto directory = PlatformLogDirectory();
   DebugLogDirectoryStorage() = directory.string();
   const std::string file_name =
-      "ninjamplugin-" + SanitizeTokenForPath(host_name) + "-" +
+      "mrninjam-" + SanitizeTokenForPath(host_name) + "-" +
       SanitizeTokenForPath(host_version) + "-" + TimestampForFileName() + "-pid" +
       std::to_string(ProcessId()) + "-session" + std::to_string(SessionToken()) +
       ".log";
