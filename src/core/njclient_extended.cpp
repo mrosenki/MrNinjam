@@ -87,6 +87,7 @@ class SpscRing {
 
 struct LocalPacket {
   std::uint64_t timeline = 0U;
+  std::uint64_t connection_generation = 0U;
   std::uint64_t interval_generation = 0U;
   int interval_position = 0;
   int interval_length = 0;
@@ -101,6 +102,7 @@ struct LocalPacket {
 
 struct LocalMarker {
   std::uint64_t timeline = 0U;
+  std::uint64_t connection_generation = 0U;
   std::uint64_t interval_generation = 0U;
   int interval_position = 0;
   int interval_length = 0;
@@ -232,6 +234,7 @@ struct NinjamPluginNJClient::RealtimeState {
   std::atomic<int> voice_count{0};
   std::atomic<int> session_count{0};
   std::atomic<std::uint64_t> topology_generation{1U};
+  std::atomic<std::uint64_t> connection_generation{1U};
   std::uint64_t topology_hash = 0U;
 
   int interval_position = -1;
@@ -244,6 +247,7 @@ struct NinjamPluginNJClient::RealtimeState {
   double metronome_position = 0.0;
   std::uint64_t interval_generation = 0U;
   std::uint64_t audio_timeline = 0U;
+  std::uint64_t audio_connection_generation = 0U;
   std::atomic<int> published_position{0};
   std::atomic<int> published_length{1000};
   std::atomic<std::uint64_t> published_interval_generation{0U};
@@ -261,6 +265,7 @@ struct NinjamPluginNJClient::RealtimeState {
   std::int64_t session_cursor = 0;
   std::uint64_t session_generation = 0U;
   std::uint64_t expected_local_timeline = 0U;
+  std::uint64_t worker_local_connection_generation = 0U;
   bool have_local_timeline = false;
   std::uint64_t local_interval_generation = 0U;
   LocalMarker local_control{};
@@ -278,10 +283,13 @@ struct NinjamPluginNJClient::RealtimeState {
   std::atomic<std::uint64_t> local_marker_overflow{0U};
   std::atomic<std::uint64_t> local_submitted{0U};
   std::atomic<std::uint64_t> local_processed{0U};
+  std::atomic<std::uint64_t> stale_local_frames{0U};
+  std::atomic<std::uint64_t> stale_local_markers{0U};
   std::atomic<std::uint64_t> normal_underflow{0U};
   std::atomic<std::uint64_t> normal_overflow{0U};
   std::atomic<std::uint64_t> voice_overflow{0U};
   std::atomic<std::uint64_t> voice_drops{0U};
+  std::atomic<std::uint64_t> voice_peak_depth{0U};
   std::atomic<std::uint64_t> callback_sequence{0U};
   std::atomic<std::uint64_t> voice_first_schedule{
       std::numeric_limits<std::uint64_t>::max()};
@@ -351,6 +359,13 @@ bool NinjamPluginNJClient::PrepareAudio(std::size_t maximum_frame_count) {
   return true;
 }
 
+void NinjamPluginNJClient::Connect(char* host, char* user, char* pass) {
+  std::lock_guard<std::mutex> lock(realtime_->pipeline_mutex);
+  NJClient::Connect(host, user, pass);
+  realtime_->connection_generation.fetch_add(1U, std::memory_order_release);
+  PublishControlSnapshot();
+}
+
 int NinjamPluginNJClient::Run() {
   std::lock_guard<std::mutex> lock(realtime_->pipeline_mutex);
   m_srate = realtime_->sample_rate.load(std::memory_order_acquire);
@@ -362,6 +377,7 @@ int NinjamPluginNJClient::Run() {
 void NinjamPluginNJClient::Disconnect() {
   std::lock_guard<std::mutex> lock(realtime_->pipeline_mutex);
   NJClient::Disconnect();
+  realtime_->connection_generation.fetch_add(1U, std::memory_order_release);
   PublishControlSnapshot();
 }
 
@@ -491,6 +507,18 @@ void NinjamPluginNJClient::AudioProc(
   sample_rate = std::max(1, sample_rate);
   state.sample_rate.store(sample_rate, std::memory_order_release);
 
+  const auto connection_generation =
+      state.connection_generation.load(std::memory_order_acquire);
+  if (connection_generation != state.audio_connection_generation) {
+    state.audio_connection_generation = connection_generation;
+    state.interval_position = -1;
+    state.metronome_state = 0;
+    state.metronome_position = 0.0;
+    state.previous_playing = false;
+    state.have_position = false;
+    ++state.transport_generation;
+  }
+
   const bool valid_position = std::isfinite(session_position) && session_position >= 0.0;
   const double duration = static_cast<double>(frames) / sample_rate;
   const bool transport_changed = seeked || playing != state.previous_playing ||
@@ -601,6 +629,7 @@ void NinjamPluginNJClient::AudioProc(
       if (interval_started || (transport_changed && block_offset == 0)) {
         LocalMarker marker;
         marker.timeline = state.audio_timeline + static_cast<std::uint64_t>(block_offset);
+        marker.connection_generation = connection_generation;
         marker.interval_generation = state.interval_generation;
         marker.interval_position = segment_start;
         marker.interval_length = state.interval_length;
@@ -615,6 +644,7 @@ void NinjamPluginNJClient::AudioProc(
       for (int offset = 0; offset < segment_frames; offset += kPacketFrames) {
         LocalPacket packet;
         packet.timeline = state.audio_timeline + static_cast<std::uint64_t>(block_offset + offset);
+        packet.connection_generation = connection_generation;
         packet.interval_generation = state.interval_generation;
         packet.interval_position = segment_start + offset;
         packet.interval_length = state.interval_length;
@@ -833,7 +863,30 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
   for (int packet_index = 0; packet_index < 32; ++packet_index) {
     const LocalPacket* queued = state.local.Front();
     if (queued == nullptr) break;
+    const auto connection_generation =
+        state.connection_generation.load(std::memory_order_acquire);
+    if (queued->connection_generation != connection_generation) {
+      state.stale_local_frames.fetch_add(
+          static_cast<std::uint64_t>(queued->frames), std::memory_order_relaxed);
+      state.local.Pop();
+      continue;
+    }
     std::unique_lock<std::mutex> pipeline(state.pipeline_mutex);
+    const auto locked_connection_generation =
+        state.connection_generation.load(std::memory_order_acquire);
+    if (queued->connection_generation != locked_connection_generation) {
+      state.stale_local_frames.fetch_add(
+          static_cast<std::uint64_t>(queued->frames), std::memory_order_relaxed);
+      state.local.Pop();
+      continue;
+    }
+    if (state.worker_local_connection_generation != locked_connection_generation) {
+      state.worker_local_connection_generation = locked_connection_generation;
+      state.expected_local_timeline = 0U;
+      state.have_local_timeline = false;
+      state.local_interval_generation = 0U;
+      state.have_local_control = false;
+    }
     // Never feed the legacy encoder queue up to its hard drop threshold. When
     // it is congested, leave this packet in the prepared SPSC ring. If that
     // ring later overflows, the packet timeline makes the worker encode an
@@ -938,7 +991,13 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
 
     for (;;) {
       const LocalMarker* queued_marker = state.local_markers.Front();
-      if (queued_marker == nullptr || queued_marker->timeline > packet.timeline) break;
+      if (queued_marker == nullptr) break;
+      if (queued_marker->connection_generation != locked_connection_generation) {
+        state.local_markers.Pop();
+        state.stale_local_markers.fetch_add(1U, std::memory_order_relaxed);
+        continue;
+      }
+      if (queued_marker->timeline > packet.timeline) break;
       const LocalMarker marker = *queued_marker;
       state.local_markers.Pop();
       if (!state.have_local_control) {
@@ -953,6 +1012,7 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
 
     LocalMarker packet_control;
     packet_control.timeline = packet.timeline;
+    packet_control.connection_generation = packet.connection_generation;
     packet_control.interval_generation = packet.interval_generation;
     packet_control.interval_position = packet.interval_position;
     packet_control.interval_length = packet.interval_length;
@@ -1036,7 +1096,12 @@ void NinjamPluginNJClient::RenderLiveRemote() {
     state.normal_cursor += count;
   }
 
-  for (int user_index = 0; user_index < m_remoteusers.GetSize(); ++user_index) {
+  const auto active_voice_channels = static_cast<std::size_t>(
+      std::max(1, state.voice_count.load(std::memory_order_acquire)));
+  const bool voice_batch_has_room =
+      state.voice.Count() + active_voice_channels <= active_voice_channels * 2U;
+  for (int user_index = 0;
+       voice_batch_has_room && user_index < m_remoteusers.GetSize(); ++user_index) {
     RemoteUser* user = m_remoteusers.Get(user_index);
     if (user == nullptr) continue;
     for (int channel_index = 0; channel_index < MAX_USER_CHANNELS; ++channel_index) {
@@ -1072,6 +1137,10 @@ void NinjamPluginNJClient::RenderLiveRemote() {
     }
   }
   m_users_cs.Leave();
+  auto peak = state.voice_peak_depth.load(std::memory_order_relaxed);
+  const auto depth = static_cast<std::uint64_t>(state.voice.Count());
+  while (peak < depth && !state.voice_peak_depth.compare_exchange_weak(
+             peak, depth, std::memory_order_relaxed)) {}
 }
 
 void NinjamPluginNJClient::CodecWorkerLoop() {
@@ -1288,10 +1357,14 @@ NinjamPluginNJClient::GetRealtimeStatistics() const {
   result.local_overflow_frames = realtime_->local_overflow.load(std::memory_order_acquire);
   result.local_marker_overflows =
       realtime_->local_marker_overflow.load(std::memory_order_acquire);
+  result.stale_local_frames = realtime_->stale_local_frames.load(std::memory_order_acquire);
+  result.stale_local_markers = realtime_->stale_local_markers.load(std::memory_order_acquire);
   result.normal_underflow_frames = realtime_->normal_underflow.load(std::memory_order_acquire);
   result.normal_overflow_packets = realtime_->normal_overflow.load(std::memory_order_acquire);
   result.voice_overflow_packets = realtime_->voice_overflow.load(std::memory_order_acquire);
   result.voice_backlog_drops = realtime_->voice_drops.load(std::memory_order_acquire);
+  result.voice_peak_queued_packets =
+      realtime_->voice_peak_depth.load(std::memory_order_acquire);
   const auto voice_schedule =
       realtime_->voice_first_schedule.load(std::memory_order_acquire);
   result.voice_first_schedule_callbacks =

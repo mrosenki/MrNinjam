@@ -114,10 +114,13 @@ struct RealtimePipelineDiagnostics {
   std::uint64_t local_processed_frames = 0;
   std::uint64_t local_overflow_frames = 0;
   std::uint64_t local_marker_overflows = 0;
+  std::uint64_t stale_local_frames = 0;
+  std::uint64_t stale_local_markers = 0;
   std::uint64_t normal_underflow_frames = 0;
   std::uint64_t normal_overflow_packets = 0;
   std::uint64_t voice_overflow_packets = 0;
   std::uint64_t voice_backlog_drops = 0;
+  std::uint64_t voice_peak_queued_packets = 0;
   std::uint64_t voice_first_schedule_callbacks = 0;
   std::uint64_t session_underflow_frames = 0;
   std::uint64_t session_overflow_packets = 0;

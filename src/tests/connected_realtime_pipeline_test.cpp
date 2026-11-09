@@ -16,7 +16,10 @@
 
 #include "ninjamplugin/core/connection_config.h"
 #include "ninjamplugin/core/ninjam_bridge.h"
-#include "jnetlib/listen.h"
+#if defined(_WIN32)
+#include "ninjamplugin/platform/windows_upstream_compat.h"
+#endif
+#include "jnetlib/jnetlib.h"
 #include "mpb.h"
 #include "netmsg.h"
 
@@ -97,6 +100,7 @@ class FixtureServer {
     users.build_add_rec(1, 0, 0, 0, 0, "peer", "Normal");
     users.build_add_rec(1, 1, 0, 0, 2, "peer", "Voice");
     users.build_add_rec(1, 2, 0, 0, 4, "peer", "Session");
+    users.build_add_rec(1, 3, 0, 0, 2, "peer", "Voice-2");
     Send(connection, users.build());
   }
 
@@ -105,6 +109,7 @@ class FixtureServer {
     users.build_add_rec(active ? 1 : 0, 0, 0, 0, 0, "peer", suffix);
     users.build_add_rec(active ? 1 : 0, 1, 0, 0, 2, "peer", "Voice");
     users.build_add_rec(active ? 1 : 0, 2, 0, 0, 4, "peer", "Session");
+    users.build_add_rec(active ? 1 : 0, 3, 0, 0, 2, "peer", "Voice-2");
     Send(connection, users.build());
     presence_updates_.fetch_add(1, std::memory_order_relaxed);
   }
@@ -119,6 +124,14 @@ class FixtureServer {
     download.chidx = upload.chidx;
     download.username = "peer";
     Send(connection, download.build());
+    if (upload.chidx == 1) {
+      std::memcpy(mirror_voice_guid_.data(), upload.guid, mirror_voice_guid_.size());
+      mirror_voice_guid_.back() ^= 0x5aU;
+      mirror_voice_guid_valid_ = true;
+      std::memcpy(download.guid, mirror_voice_guid_.data(), sizeof(download.guid));
+      download.chidx = 3;
+      Send(connection, download.build());
+    }
   }
 
   void EchoWrite(Net_Connection* connection,
@@ -129,6 +142,11 @@ class FixtureServer {
     download.audio_data = upload.audio_data;
     download.audio_data_len = upload.audio_data_len;
     Send(connection, download.build());
+    if (mirror_voice_guid_valid_ && channel_guid_valid_[1] &&
+        std::memcmp(upload.guid, channel_guids_[1].data(), 16) == 0) {
+      std::memcpy(download.guid, mirror_voice_guid_.data(), sizeof(download.guid));
+      Send(connection, download.build());
+    }
   }
 
   void EchoSessionMessage(Net_Connection* connection, mpb_chat_message* message) {
@@ -256,6 +274,8 @@ class FixtureServer {
   int port_ = 0;
   std::array<std::array<unsigned char, 16>, 3> channel_guids_{};
   std::array<bool, 3> channel_guid_valid_{};
+  std::array<unsigned char, 16> mirror_voice_guid_{};
+  bool mirror_voice_guid_valid_ = false;
   std::atomic<int> normal_uploads_{0};
   std::atomic<int> voice_uploads_{0};
   std::atomic<int> session_uploads_{0};
@@ -380,6 +400,7 @@ int main() {
   std::size_t audio_c_allocations = 0U;
   double normal_peak = 0.0;
   double voice_peak = 0.0;
+  double second_voice_peak = 0.0;
   double session_peak = 0.0;
   int first_voice_block = -1;
   int voice_source_block_at_first_output = -1;
@@ -428,6 +449,8 @@ int main() {
     normal_peak = std::max(normal_peak, bridge.GetRemoteUserChannelMonitorPeakLevel(0, 0));
     const double block_voice = bridge.GetRemoteUserChannelMonitorPeakLevel(0, 1);
     voice_peak = std::max(voice_peak, block_voice);
+    second_voice_peak = std::max(second_voice_peak,
+        bridge.GetRemoteUserChannelMonitorPeakLevel(0, 3));
     session_peak = std::max(session_peak,
         bridge.GetRemoteUserChannelMonitorPeakLevel(0, 2));
     if (block_voice > 0.0 && first_voice_block < 0) {
@@ -440,6 +463,22 @@ int main() {
     bridge.MainThreadTick();
     secondary_bridge.MainThreadTick();
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+
+  // Leave current-generation PCM and control markers queued while the codec
+  // worker is stopped. Reconnect must discard them rather than feed them to
+  // the new connection's encoders.
+  bridge.SetRealtimeWorkerPausedForTesting(true);
+  for (int block = 0; block < 8; ++block) {
+    const bool processed = bridge.ProcessAudio(input_ptrs.data(), input_ptrs.size(),
+        output_left.data(), output_right.data(), 128U, 1.0F, false,
+        {true, true, position});
+    if (!processed) {
+      std::cerr << "stale-queue setup block failed\n";
+      return 5;
+    }
+    position += 128.0 / 48000.0;
+    bridge.MainThreadTick();
   }
 
   bridge.SetConnectRequested(false);
@@ -464,6 +503,7 @@ int main() {
     std::cerr << "fixture client did not reconnect\n";
     return 5;
   }
+  bridge.SetRealtimeWorkerPausedForTesting(false);
   for (int block = 0; block < 300; ++block) {
     reconnect_server.SetCurrentAudioBlock(block);
     g_allocation_count = 0U;
@@ -539,9 +579,11 @@ int main() {
               << " overflow=" << realtime.local_overflow_frames << '\n';
     return 6;
   }
-  if (normal_peak <= 0.0 || voice_peak <= 0.0 || first_voice_block < 0) {
+  if (normal_peak <= 0.0 || voice_peak <= 0.0 || second_voice_peak <= 0.0 ||
+      first_voice_block < 0) {
     std::cerr << "missing decoded return normal=" << normal_peak
-              << " voice=" << voice_peak << '\n';
+              << " voice=" << voice_peak
+              << " voice2=" << second_voice_peak << '\n';
     return 7;
   }
   if (session_peak <= 0.0 || server.session_messages() == 0 || recorded_file_count == 0U) {
@@ -563,6 +605,14 @@ int main() {
               << " memory=" << realtime.prepared_memory_bytes << '\n';
     return 10;
   }
+  if (realtime.stale_local_frames == 0U || realtime.stale_local_markers == 0U ||
+      realtime.voice_peak_queued_packets > 4U) {
+    std::cerr << "generation/pacing failure stale_frames="
+              << realtime.stale_local_frames
+              << " stale_markers=" << realtime.stale_local_markers
+              << " voice_peak_queue=" << realtime.voice_peak_queued_packets << '\n';
+    return 11;
+  }
   std::cout << "connected_fixture allocations=" << audio_allocations
             << " c_allocations=" << audio_c_allocations
             << " voice_first_block=" << first_voice_block
@@ -571,6 +621,7 @@ int main() {
             << realtime.voice_first_schedule_callbacks
             << " normal_peak=" << normal_peak
             << " voice_peak=" << voice_peak
+            << " voice2_peak=" << second_voice_peak
             << " session_peak=" << session_peak
             << " session_messages=" << server.session_messages()
             << " session_files=" << recorded_file_count
@@ -578,6 +629,9 @@ int main() {
             << " local_processed=" << realtime.local_processed_frames
             << " local_overflow=" << realtime.local_overflow_frames
             << " marker_overflow=" << realtime.local_marker_overflows
+            << " stale_local_frames=" << realtime.stale_local_frames
+            << " stale_local_markers=" << realtime.stale_local_markers
+            << " voice_peak_queue=" << realtime.voice_peak_queued_packets
             << " presence_updates=" << server.presence_updates()
             << " memory_bytes=" << realtime.prepared_memory_bytes
             << " session_underflow=" << realtime.session_underflow_frames

@@ -22,6 +22,7 @@ class NinjamPluginNJClient final : public NJClient {
   // These methods intentionally hide the legacy non-virtual entry points. The
   // bridge owns this concrete type, so connected processing uses the prepared
   // hybrid path while NJClient remains the pinned protocol implementation.
+  void Connect(char* host, char* user, char* pass);
   int Run();
   void Disconnect();
   void SetWorkDir(char* path);
@@ -53,10 +54,13 @@ class NinjamPluginNJClient final : public NJClient {
     std::uint64_t local_processed_frames = 0;
     std::uint64_t local_overflow_frames = 0;
     std::uint64_t local_marker_overflows = 0;
+    std::uint64_t stale_local_frames = 0;
+    std::uint64_t stale_local_markers = 0;
     std::uint64_t normal_underflow_frames = 0;
     std::uint64_t normal_overflow_packets = 0;
     std::uint64_t voice_overflow_packets = 0;
     std::uint64_t voice_backlog_drops = 0;
+    std::uint64_t voice_peak_queued_packets = 0;
     std::uint64_t voice_first_schedule_callbacks = 0;
     std::uint64_t session_underflow_frames = 0;
     std::uint64_t session_overflow_packets = 0;
