@@ -267,6 +267,8 @@ struct NinjamPluginNJClient::RealtimeState {
   bool have_local_control = false;
   std::array<float, kPacketFrames> scratch_left{};
   std::array<float, kPacketFrames> scratch_right{};
+  std::array<float, kPacketFrames> session_scratch_left{};
+  std::array<float, kPacketFrames> session_scratch_right{};
   std::array<float, kPacketFrames> silence{};
   std::vector<float> metronome_scratch;
   std::array<VoiceTail, kRemoteSlots> voice_tails{};
@@ -338,9 +340,10 @@ bool NinjamPluginNJClient::PrepareAudio(std::size_t maximum_frame_count) {
     }
     PublishControlSnapshot();
   }
-  state.memory_bytes = state.local.Bytes() + state.local_markers.Bytes() +
+  state.memory_bytes = sizeof(RealtimeState) +
+      state.local.Bytes() + state.local_markers.Bytes() +
       state.normal.Bytes() +
-      state.voice.Bytes() + state.session.Bytes() + sizeof(state.voice_tails) +
+      state.voice.Bytes() + state.session.Bytes() +
       state.session_decoders.capacity() * sizeof(SessionDecoder) +
       maximum_frame_count * sizeof(float) * 4U;
   state.prepared.store(true, std::memory_order_release);
@@ -1081,8 +1084,10 @@ void NinjamPluginNJClient::CodecWorkerLoop() {
     ProcessLocalHandoff();
     RenderLiveRemote();
     if (state.session_count.load(std::memory_order_acquire) > 0 &&
-        !state.session_started.exchange(true, std::memory_order_acq_rel))
+        !state.session_started.exchange(true, std::memory_order_acq_rel)) {
+      if (state.session_thread.joinable()) state.session_thread.join();
       state.session_thread = std::thread(&NinjamPluginNJClient::SessionWorkerLoop, this);
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
@@ -1204,14 +1209,16 @@ void NinjamPluginNJClient::RenderSessionRemote() {
       }
       media.frames_left -= needed;
       if (output_frames <= 0 || available < needed * channels) continue;
-      state.scratch_left.fill(0.0F);
-      state.scratch_right.fill(0.0F);
-      float* destination[2] = {state.scratch_left.data(), state.scratch_right.data()};
+      state.session_scratch_left.fill(0.0F);
+      state.session_scratch_right.fill(0.0F);
+      float* destination[2] = {
+          state.session_scratch_left.data(), state.session_scratch_right.data()};
       mixFloatsNIOutput(codec->Get(), codec->GetSampleRate(), channels,
           destination, sample_rate, 2, output_frames, 1.0F, 0.0F,
           &decoder->resample_state, codec->Available() / channels);
       codec->Skip(needed * channels);
-      if (!HasSignal(state.scratch_left.data(), state.scratch_right.data(), output_frames))
+      if (!HasSignal(state.session_scratch_left.data(),
+              state.session_scratch_right.data(), output_frames))
         continue;
       RemotePacket packet;
       packet.topology_generation = topology;
@@ -1226,8 +1233,8 @@ void NinjamPluginNJClient::RenderSessionRemote() {
       packet.pan = descriptor.pan;
       packet.muted = descriptor.muted;
       packet.mode = PacketMode::kSession;
-      std::copy_n(state.scratch_left.data(), output_frames, packet.left.data());
-      std::copy_n(state.scratch_right.data(), output_frames, packet.right.data());
+      std::copy_n(state.session_scratch_left.data(), output_frames, packet.left.data());
+      std::copy_n(state.session_scratch_right.data(), output_frames, packet.right.data());
       if (state.published_transport_generation.load(std::memory_order_acquire) != generation) {
         state.stale_session.fetch_add(1U, std::memory_order_relaxed);
         return;
@@ -1241,12 +1248,18 @@ void NinjamPluginNJClient::RenderSessionRemote() {
 
 void NinjamPluginNJClient::SessionWorkerLoop() {
   auto& state = *realtime_;
+  int idle_cycles = 0;
   while (!state.stop.load(std::memory_order_acquire)) {
-    if (state.session_count.load(std::memory_order_acquire) > 0)
+    if (state.session_count.load(std::memory_order_acquire) > 0) {
+      idle_cycles = 0;
       RenderSessionRemote();
+    } else if (++idle_cycles >= 250) {
+      break;
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
   for (auto& decoder : state.session_decoders) decoder.Clear();
+  state.session_started.store(false, std::memory_order_release);
 }
 
 int NinjamPluginNJClient::GetUserChannelCount(int user_index, int channel_index) {

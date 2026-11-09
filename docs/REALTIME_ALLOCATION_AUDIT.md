@@ -1,13 +1,128 @@
-# Real-time allocation audit — Issue #5 Phase 1
+# Real-time allocation audit — Issue #5 Phase 2
 
-This audit records the processing-path findings and the Phase 1 bridge-storage
+## Phase 2 result
+
+The connected path now uses the approved hybrid design. The host callback owns
+the sample-accurate NINJAM interval clock, metronome synthesis, immediate local
+monitoring, SEND/RECEIVE mixing, host routing, meters, and recording alignment.
+It exchanges prepared PCM packets with one codec worker per plug-in instance.
+A Session-media worker is created lazily only after a subscribed Session
+channel appears, keeping file operations independent from Voice decoding.
+
+The resulting connected callback graph is:
+
+```text
+CLAP/VST3 process
+  -> NinjamBridge::ProcessAudio
+    -> NinjamPluginNJClient::AudioProc
+      -> clear prepared outputs
+      -> read atomic local-control projection and mix local monitor
+      -> advance interval/transport generations and metronome phase
+      -> copy local PCM and interval markers into prepared SPSC rings
+      -> consume timestamped normal/Voice/Session PCM rings
+      -> invoke the project remote-audio callback and finish routing
+    -> SessionCaptureRecorder::Push (prepared bounded SPSC)
+```
+
+`AudioProc()` no longer enters `m_locchan_cs`, `m_users_cs`, a WDL codec queue,
+or a filesystem/codec API. It does not construct or destroy channel/decoder
+objects. A source regression isolates this method and rejects direct lock,
+allocation, codec, filesystem, wait, join, resize, and destruction tokens.
+
+The codec worker owns local legacy `BufferQueue::AddBlock()` calls, encoder
+queue growth, live remote decoder continuation, normal interval promotion, and
+live decoder replacement. `Run()` and topology mutation are serialized with
+that worker on a non-audio mutex. The Session worker copies only bounded
+channel descriptors under the topology lock, then owns file open/read, seek,
+decoder construction, continuing decode, and decoder destruction without
+holding a live-user pointer. Worker joins happen only during non-real-time
+preparation or destruction.
+
+WDL's RNG is process-global and was not safe when two instances initialized
+encoders concurrently. The reproducible NINJAM dependency patch now serializes
+that RNG internally. This mutex is reached only from non-real-time constructor
+or codec/network work, never from `AudioProc()`.
+
+### Handoffs and overload policy
+
+All PCM handoffs use 128-frame packets. Their producer and consumer cursors are
+independent atomics; a producer never edits a consumer cursor.
+
+| Handoff | Capacity | Ownership and recovery |
+| --- | ---: | --- |
+| Local PCM | 512 packets / 65,536 frames | Audio -> codec. On overflow the absolute sample timeline advances and the worker later inserts equal-duration silence. Compressed bytes are never truncated. |
+| Local interval/control markers | 4,096 markers | Audio -> codec. Preserves every normal interval boundary and transport rearm across PCM loss. Marker overflow is counted; the connected saturation regression requires zero. |
+| Normal return | 2,048 packets / 262,144 frames | Codec -> audio. Packets carry topology and interval generations plus interval positions. Missing timestamps render silence without moving the interval clock; stale generations are discarded. |
+| Voice return | 2,048 packets; 512-packet backlog limit | Codec -> audio. The next callback consumes the earliest available packet with no prefill. Excess backlog is consumer-trimmed and counted. |
+| Session return | 2,048 packets / 262,144 frames | Session -> audio. Packets carry topology and transport generations plus absolute project samples. Seek/transport changes invalidate obsolete packets; missing positions render silence. |
+
+These are capacities, not startup prefill requirements. Voice has no mandatory
+pre-roll. Normal and Session workers render only a bounded lookahead of twice
+the declared host maximum, clamped to 512--8,192 frames. At a declared maximum
+of 512 frames, the measured prepared storage is 12,165,184 bytes per connected
+instance (11.60 MiB), including all rings, remote tails, Session decoder slots,
+and NINJAM/metronome scratch plus the fixed real-time state object.
+
+The local PCM and marker streams are separate so a saturated PCM ring cannot
+erase musical boundaries. The worker splits any synthesized silence at marker
+timestamps before changing interval or transport state. In the deterministic
+saturation run, 304,001 submitted frames plus 75,393 overflow frames produced
+379,394 processed frames: duration was conserved exactly and no marker was
+lost.
+
+### Connected evidence
+
+`ninjamplugin_connected_realtime_pipeline_test` runs the production bridge and
+client against an in-process NINJAM protocol fixture. It exercises three local
+and remote modes, actual Vorbis stream creation/replacement, interval rollover,
+Session messages/files, two rapid seeks, participant leave/rejoin/rename,
+variable 1/64/127/128/257/512-frame host blocks, a deliberately paused codec
+worker, two simultaneous plug-in instances, recording, disconnect/reconnect,
+and lifecycle teardown.
+
+On the local macOS run the measured callback window reported zero C++
+allocations and zero direct `malloc`/`calloc`/`realloc` calls. Direct C
+allocation interposition is macOS-specific; other platforms retain the source
+regression and connected behavioral test but do not claim equivalent C-runtime
+interposition. Voice publication-to-consumption took one host callback. This is
+the expected scheduling handoff and imposes no fixed 20--50 ms pre-roll. A
+server-side observation was also normally 2--3 128-frame callbacks, but that
+number includes fixture/network scheduling and is not used as a deterministic
+assertion.
+
+The test observes nonzero returned normal, Voice, and Session audio, Session
+capture files, and protocol Session messages. Session underflow is expected
+and counted during the forced worker stall and seek invalidation; it produces
+silence at the missing project timestamp. Recording and metronome remain on the
+callback-owned clocks rather than worker completion time.
+
+### Remaining boundaries
+
+- The broader coherent publication of user-editable routing structures is
+  Issue #6. Phase 2 adds only the atomic projection required to keep upstream
+  topology locks out of the callback.
+- The internal counters are acceptance evidence, not the Issue #7 user-facing
+  diagnostics design.
+- Recording eligibility/export policy remains Issue #8; Phase 2 preserves the
+  existing bounded recorder handoff and alignment.
+- Direct C allocation interposition is currently implemented only for the
+  macOS connected regression. AppleClang ThreadSanitizer passes the final
+  connected two-instance test; its findings and fixes are recorded in
+  `VALIDATION.md`.
+- The fixed SPSC rings provide bounded callback cost, but overload can still be
+  audible as documented silence or Voice backlog trimming. The corresponding
+  counters make every such recovery explicit.
+
+## Phase 1 baseline and findings
+
+The remainder records the original processing-path findings and Phase 1 bridge-storage
 correction for Issue #5. Phase 1 removes lazy growth from bridge-owned and
 NINJAM scratch buffers, but it does not make complete connected NINJAM
-processing real-time safe. Issue #5 remains open for Phase 2, which must remove
+processing real-time safe by itself. Phase 2 removes
 the allocation-capable codec, blocking synchronization, decoder lifetime, and
 Session mode filesystem work described below from the host audio thread.
 
-## Processing call graph
+## Phase 1 processing call graph
 
 The format path is `PluginProcess()` -> `NinjamBridge::ProcessAudio()`. The
 first bridge pass performs routing, NINJAM exchange, capture handoff, and
@@ -21,7 +136,7 @@ audio, decode and resample remote audio, and invoke
 `RemoteChannelAudioCallback()` -> `MixRemoteChannelAudio()`. Session-mix
 recording then calls `SessionCaptureRecorder::Push()`.
 
-## Confirmed allocation-capable operations
+## Phase 1 confirmed allocation-capable operations
 
 | Path | Pre-change behaviour | Execution context | Classification |
 | --- | --- | --- | --- |

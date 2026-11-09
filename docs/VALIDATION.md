@@ -60,6 +60,37 @@ bundle metadata remained at version `0.2.1` with the permanent identities. The
 existing libogg/libvorbis macOS deployment-target linker warnings remain
 unchanged.
 
+Issue #5 Phase 2 adds a deterministic in-process connected NINJAM fixture and
+an `AudioProc()` source-safety check. The connected Release run covers normal,
+Voice and Session transmit/return, interval rollover, two seeks, Session
+rearming and recorded media, participant leave/rejoin/channel rename, forced
+codec-worker saturation and recovery, host blocks from one frame through the
+declared 512-frame maximum, two simultaneous instances, and
+disconnect/reconnect. The measured macOS callback window reported zero C++ and
+zero direct C allocations. Decoded Voice PCM was consumed one callback after
+worker publication, with no mandatory pre-roll. The forced overload accounted
+for all 75,393 dropped PCM frames as silence and lost no interval marker.
+Prepared connected storage measured 12,165,184 bytes per instance at the
+512-frame host maximum.
+
+The source check rejects direct allocation, blocking-lock, codec, filesystem,
+resize, destruction, wait, and join tokens in the connected callback. The
+macOS direct-C interposition uses malloc zones and is not active on other
+platforms. A separate AppleClang ThreadSanitizer build of the connected test
+initially found the process-global WDL RNG and shared worker scratch races. The
+final run passed after serializing the upstream RNG through the reproducible
+dependency patch and giving the Session worker independent scratch. This also
+validates the two-instance case under TSan.
+
+The final Release build produced both CLAP and VST3 bundles and all 17 CTest
+cases passed. The final CLAP validator run reported 16 passes, no failures,
+five inapplicable skips, and no warnings (21 tests total). The Steinberg
+validator passed all 47 tests. Dependency pins were clean, the
+NINJAM patch applied to its pristine pinned revision, artifact path scans and
+permanent identity tests passed, both bundles remained at `0.2.1`, and `otool`
+reported system frameworks/libraries only. Existing Homebrew libogg/libvorbis
+deployment-target linker warnings remain unchanged.
+
 This validation establishes preparation and bounded use of bridge-owned and
 explicit NINJAM scratch storage. It does not establish complete connected-audio
 real-time safety: the test does not exercise genuine server stream transitions

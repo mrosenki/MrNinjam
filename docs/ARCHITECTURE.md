@@ -60,14 +60,21 @@ deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
   failure, clears the main stereo output, invalidates the cached routed output,
   and increments a lock-free diagnostic counter rather than truncating or
   allocating on the audio thread.
-- This preparation is Phase 1 of Issue #5, not a complete connected-processing
-  guarantee. Upstream `NJClient::AudioProc()` still reaches blocking local and
-  remote topology mutexes, allocation-capable local `BufferQueue` growth and
-  continuing codec decode, audio-thread decoder reclamation, and Session mode
-  file opening, reading, decoder construction, and rearming. The approved
-  Phase 2 hybrid design will move codec and session-file work to independent
-  workers while retaining the audio-thread sample clock, interval and Session
-  timing, immediate local monitoring, routing, and recording alignment.
+- Issue #5 Phase 2 implements a hybrid connected path. The callback retains the
+  NINJAM interval/transport clock, metronome, local monitoring, host routing,
+  and recording alignment. It publishes local PCM and interval/transport
+  markers through prepared SPSC rings and consumes generation-tagged decoded
+  PCM. One codec worker per instance owns encoding, live decoding, normal
+  interval promotion, and codec lifetime. A lazily created Session worker owns
+  file open/read/seek and Session decoder lifetime so filesystem latency cannot
+  delay Voice decoding. Normal and Session underflow is timestamped silence;
+  Voice is consumed at the earliest callback without mandatory prefill.
+- The connected `AudioProc()` path does not acquire `m_locchan_cs`,
+  `m_users_cs`, or the worker serialization mutex and does not call the codec,
+  filesystem, buffer-growth, object-destruction, join, or wait paths. Codec and
+  Session worker joins remain non-real-time lifecycle work. Queue ownership,
+  capacities, overload recovery, memory cost, and verification evidence are
+  specified in `REALTIME_ALLOCATION_AUDIT.md`.
 - Main/control-thread work owns connection changes, persistence, topology
   updates, editor state, and other non-real-time tasks.
 - Recording uses bounded handoff to a writer path; export work runs outside the
@@ -97,15 +104,15 @@ callback pump. If a host suspends audio processing and all plug-in main-thread
 or UI timers together, the warning cannot become visible until the host resumes
 one of those callbacks; the plug-in does not create a private polling thread.
 
-The lifecycle part of the real-time safety audit is enforced by a source-level
-regression check over the audio-thread lifecycle callbacks. A processing-path
-regression test also intercepts C++ allocation calls on the audio-test thread
-and exercises prepared minimum, maximum, variable, routed, recording-producer,
-and restart cases. It deliberately excludes genuine connected stream activity
-and cannot observe internal C-library allocation calls, blocking upstream
-mutexes, or filesystem operations. It proves prepared bridge-buffer behavior,
-not complete connected-audio real-time safety. Routing-state concurrency and
-other publication concerns remain the separate Issue #6 audit.
+The lifecycle audit is enforced by source checks over audio-thread lifecycle
+callbacks. Phase 1's disconnected processing regression still covers prepared
+bridge storage. Phase 2 adds a production connected fixture plus a source
+check that isolates `NinjamPluginNJClient::AudioProc()`. On macOS the connected
+test intercepts both C++ allocation and direct C allocation on the callback
+thread. It covers real normal, Voice, and Session streams, topology and decoder
+replacement, seeks, saturation, variable blocks, two concurrent instances,
+recording, reconnect, and teardown. Routing-state concurrency beyond the
+minimal atomic callback projection remains Issue #6.
 
 ## Audio and routing model
 
