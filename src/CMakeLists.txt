@@ -288,6 +288,18 @@ if(NINJAMPLUGIN_ENABLE_TESTS)
     COMMAND ninjamplugin_ninjam_bridge_audio_path_smoke_test
   )
 
+  add_executable(ninjamplugin_routing_snapshot_concurrency_test
+    tests/routing_snapshot_concurrency_test.cpp
+  )
+  target_link_libraries(ninjamplugin_routing_snapshot_concurrency_test PRIVATE
+    ninjamplugin_ninjam_bridge
+  )
+  target_compile_features(ninjamplugin_routing_snapshot_concurrency_test PRIVATE cxx_std_20)
+  ninjamplugin_apply_warnings(ninjamplugin_routing_snapshot_concurrency_test)
+  add_test(NAME ninjamplugin_routing_snapshot_concurrency_test
+    COMMAND ninjamplugin_routing_snapshot_concurrency_test
+  )
+
   add_executable(ninjamplugin_realtime_allocation_smoke_test
     tests/realtime_allocation_smoke_test.cpp
   )
