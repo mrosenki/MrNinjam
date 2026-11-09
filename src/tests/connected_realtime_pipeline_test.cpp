@@ -65,6 +65,25 @@ class SocketLibrary final {
   int error_ = 0;
 };
 
+void CooperativeSchedule(int iteration, int sleep_period = 32) {
+  if ((iteration + 1) % sleep_period == 0)
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  else
+    std::this_thread::yield();
+}
+
+template <typename Predicate, typename Service>
+bool WaitFor(std::chrono::milliseconds timeout, Predicate predicate,
+             Service service) {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  for (int iteration = 0; !predicate(); ++iteration) {
+    if (std::chrono::steady_clock::now() >= deadline) return false;
+    service();
+    CooperativeSchedule(iteration);
+  }
+  return true;
+}
+
 class FixtureServer {
  public:
   bool Start() {
@@ -379,12 +398,26 @@ int main() {
               << std::system_category().message(socket_library.error()) << ")\n";
     return 1;
   }
+  const auto test_started = std::chrono::steady_clock::now();
+  auto phase_started = test_started;
+  auto report_phase = [&](const char* name) {
+    const auto now = std::chrono::steady_clock::now();
+    const auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - test_started).count();
+    const auto phase_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - phase_started).count();
+    std::cerr << "connected_fixture phase=" << name
+              << " total_ms=" << total_ms
+              << " phase_ms=" << phase_ms << std::endl;
+    phase_started = now;
+  };
   FixtureServer server;
   FixtureServer secondary_server;
   if (!server.Start() || !secondary_server.Start()) {
     std::cerr << "failed to start in-process NINJAM fixture\n";
     return 1;
   }
+  report_phase("fixtures-started");
 
   NinjamBridge bridge;
   NinjamBridge secondary_bridge;
@@ -408,6 +441,7 @@ int main() {
     std::cerr << "bridge preparation failed\n";
     return 2;
   }
+  report_phase("bridges-prepared");
   bridge.SetActiveDawInputChannelCount(6);
   auto routes = std::array<ninjamplugin::core::LocalInputRouteConfig,
                            NinjamBridge::kMaxSupportedLocalInputPairs>{};
@@ -434,19 +468,20 @@ int main() {
   bridge.SetConnectRequested(true);
   secondary_bridge.SetConnectRequested(true);
 
-  for (int attempt = 0; attempt < 500 &&
-       (!bridge.IsConnected() || !secondary_bridge.IsConnected()); ++attempt) {
+  const bool initially_connected = WaitFor(std::chrono::seconds(5), [&] {
+    return bridge.IsConnected() && secondary_bridge.IsConnected();
+  }, [&] {
     bridge.MainThreadTick();
     secondary_bridge.MainThreadTick();
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-  }
-  if (!bridge.IsConnected() || !secondary_bridge.IsConnected()) {
+  });
+  if (!initially_connected) {
     std::cerr << "fixture client did not connect server_thread_socket_error="
               << server.thread_socket_error()
               << " secondary_thread_socket_error="
               << secondary_server.thread_socket_error() << '\n';
     return 3;
   }
+  report_phase("initial-connect");
 
   constexpr int kMaximumFrames = 512;
   std::array<std::array<float, kMaximumFrames>, 6> inputs{};
@@ -467,9 +502,16 @@ int main() {
   int first_voice_block = -1;
   int voice_source_block_at_first_output = -1;
   constexpr std::array<int, 6> kVariableFrames = {1, 64, 127, 128, 257, 512};
+  report_phase("audio-start");
   for (int block = 0; block < 2500; ++block) {
-    if (block == 1000) bridge.SetRealtimeWorkerPausedForTesting(true);
-    if (block == 2100) bridge.SetRealtimeWorkerPausedForTesting(false);
+    if (block == 1000) {
+      bridge.SetRealtimeWorkerPausedForTesting(true);
+      report_phase("worker-saturation-start");
+    }
+    if (block == 2100) {
+      bridge.SetRealtimeWorkerPausedForTesting(false);
+      report_phase("worker-saturation-end");
+    }
     server.SetCurrentAudioBlock(block);
     secondary_server.SetCurrentAudioBlock(block);
     const int block_frames = block < 2100
@@ -519,13 +561,28 @@ int main() {
       first_voice_block = block;
       voice_source_block_at_first_output = server.latest_voice_upload_block();
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    CooperativeSchedule(block);
   }
-  for (int i = 0; i < 500; ++i) {
+  report_phase("audio-complete");
+  const auto before_drain = bridge.GetRealtimePipelineDiagnostics();
+  const auto drain_target =
+      before_drain.local_submitted_frames + before_drain.local_overflow_frames;
+  const bool worker_drained = WaitFor(std::chrono::seconds(5), [&] {
+    const auto diagnostics = bridge.GetRealtimePipelineDiagnostics();
+    return diagnostics.local_processed_frames >= drain_target &&
+        server.normal_uploads() > 0 && server.voice_uploads() > 0 &&
+        server.session_uploads() > 0;
+  }, [&] {
     bridge.MainThreadTick();
     secondary_bridge.MainThreadTick();
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  });
+  if (!worker_drained) {
+    const auto diagnostics = bridge.GetRealtimePipelineDiagnostics();
+    std::cerr << "worker drain timeout target=" << drain_target
+              << " processed=" << diagnostics.local_processed_frames << '\n';
+    return 5;
   }
+  report_phase("worker-drained");
 
   // Leave current-generation PCM and control markers queued while the codec
   // worker is stopped. Reconnect must discard them rather than feed them to
@@ -544,11 +601,18 @@ int main() {
   }
 
   bridge.SetConnectRequested(false);
-  for (int i = 0; i < 100; ++i) {
+  const bool disconnected = WaitFor(std::chrono::seconds(3), [&] {
+    return !bridge.IsConnected();
+  }, [&] {
     bridge.MainThreadTick();
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  });
+  if (!disconnected) {
+    std::cerr << "fixture client did not disconnect\n";
+    return 5;
   }
+  report_phase("disconnected");
   server.Stop();
+  report_phase("first-fixture-stopped");
   FixtureServer reconnect_server;
   if (!reconnect_server.Start()) {
     std::cerr << "failed to start reconnect fixture\n";
@@ -557,15 +621,17 @@ int main() {
   settings.host = "127.0.0.1:" + std::to_string(reconnect_server.port());
   bridge.ApplyConnectionSettings(settings);
   bridge.SetConnectRequested(true);
-  for (int attempt = 0; attempt < 500 && !bridge.IsConnected(); ++attempt) {
+  const bool reconnected = WaitFor(std::chrono::seconds(5), [&] {
+    return bridge.IsConnected();
+  }, [&] {
     bridge.MainThreadTick();
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-  }
-  if (!bridge.IsConnected()) {
+  });
+  if (!reconnected) {
     std::cerr << "fixture client did not reconnect server_thread_socket_error="
               << reconnect_server.thread_socket_error() << '\n';
     return 5;
   }
+  report_phase("reconnected");
   bridge.SetRealtimeWorkerPausedForTesting(false);
   for (int block = 0; block < 300; ++block) {
     reconnect_server.SetCurrentAudioBlock(block);
@@ -585,8 +651,9 @@ int main() {
     position += 128.0 / 48000.0;
     bridge.MainThreadTick();
     secondary_bridge.MainThreadTick();
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    CooperativeSchedule(block, 16);
   }
+  report_phase("reconnect-audio-complete");
   const bool interval_valid = bridge.HasSessionIntervalPosition();
   const double interval_progress = bridge.GetSessionIntervalProgress();
   const auto realtime = bridge.GetRealtimePipelineDiagnostics();
@@ -601,17 +668,26 @@ int main() {
   bridge.SetRecordingRequested(false);
   bridge.SetConnectRequested(false);
   secondary_bridge.SetConnectRequested(false);
-  for (int i = 0; i < 100; ++i) {
+  const bool final_disconnect = WaitFor(std::chrono::seconds(3), [&] {
+    return !bridge.IsConnected() && !secondary_bridge.IsConnected();
+  }, [&] {
     bridge.MainThreadTick();
     secondary_bridge.MainThreadTick();
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  });
+  if (!final_disconnect) {
+    std::cerr << "fixture clients did not disconnect during teardown\n";
+    return 5;
   }
+  report_phase("teardown-disconnected");
   bridge.StopProcessing();
   bridge.Deactivate();
+  report_phase("primary-deactivated");
   secondary_bridge.StopProcessing();
   secondary_bridge.Deactivate();
+  report_phase("secondary-deactivated");
   reconnect_server.Stop();
   secondary_server.Stop();
+  report_phase("fixtures-stopped");
   std::error_code cleanup_error;
   if (std::getenv("NINJAMPLUGIN_KEEP_CONNECTED_FIXTURE") == nullptr)
     std::filesystem::remove_all(recordings_root, cleanup_error);
