@@ -109,6 +109,25 @@ struct LocalInputRouteConfig {
   }
 };
 
+struct RealtimePipelineDiagnostics {
+  std::uint64_t local_submitted_frames = 0;
+  std::uint64_t local_processed_frames = 0;
+  std::uint64_t local_overflow_frames = 0;
+  std::uint64_t local_marker_overflows = 0;
+  std::uint64_t stale_local_frames = 0;
+  std::uint64_t stale_local_markers = 0;
+  std::uint64_t normal_underflow_frames = 0;
+  std::uint64_t normal_overflow_packets = 0;
+  std::uint64_t voice_overflow_packets = 0;
+  std::uint64_t voice_backlog_drops = 0;
+  std::uint64_t voice_peak_queued_packets = 0;
+  std::uint64_t voice_first_schedule_callbacks = 0;
+  std::uint64_t session_underflow_frames = 0;
+  std::uint64_t session_overflow_packets = 0;
+  std::uint64_t stale_session_packets = 0;
+  std::size_t prepared_memory_bytes = 0;
+};
+
 // Thin bridge point for integrating upstream NINJAM protocol/runtime modules.
 class NinjamBridge {
  public:
@@ -335,6 +354,8 @@ class NinjamBridge {
                              std::size_t frame_count) const;
 
   bool ProtocolSelfTest() const;
+  RealtimePipelineDiagnostics GetRealtimePipelineDiagnostics() const;
+  void SetRealtimeWorkerPausedForTesting(bool paused);
 
  private:
   static constexpr int kMaxRemoteUsers = 32;
@@ -404,6 +425,7 @@ class NinjamBridge {
   bool session_bpm_sync_pending_ = false;
   bool session_bpi_sync_pending_ = false;
   bool connection_config_loaded_ = false;
+  bool socket_library_open_ = false;
   std::string connection_host_;
   std::string connection_user_;
   std::string connection_pass_;

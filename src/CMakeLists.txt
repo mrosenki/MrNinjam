@@ -300,6 +300,38 @@ if(NINJAMPLUGIN_ENABLE_TESTS)
     COMMAND ninjamplugin_realtime_allocation_smoke_test
   )
 
+  add_executable(ninjamplugin_realtime_packet_continuity_test
+    tests/realtime_packet_continuity_test.cpp
+  )
+  target_link_libraries(ninjamplugin_realtime_packet_continuity_test PRIVATE
+    ninjamplugin_ninjam_bridge
+  )
+  target_compile_features(ninjamplugin_realtime_packet_continuity_test PRIVATE cxx_std_20)
+  ninjamplugin_apply_warnings(ninjamplugin_realtime_packet_continuity_test)
+  add_test(NAME ninjamplugin_realtime_packet_continuity_test
+    COMMAND ninjamplugin_realtime_packet_continuity_test
+  )
+
+  add_executable(ninjamplugin_connected_realtime_pipeline_test
+    tests/connected_realtime_pipeline_test.cpp
+  )
+  target_link_libraries(ninjamplugin_connected_realtime_pipeline_test PRIVATE
+    ninjamplugin_ninjam_bridge
+  )
+  target_compile_features(ninjamplugin_connected_realtime_pipeline_test PRIVATE cxx_std_20)
+  ninjamplugin_apply_warnings(ninjamplugin_connected_realtime_pipeline_test)
+  add_test(NAME ninjamplugin_connected_realtime_pipeline_test
+    COMMAND ninjamplugin_connected_realtime_pipeline_test
+  )
+  set_tests_properties(ninjamplugin_connected_realtime_pipeline_test PROPERTIES
+    TIMEOUT 30
+  )
+  add_test(NAME ninjamplugin_connected_realtime_callback_source_check
+    COMMAND "${CMAKE_COMMAND}"
+      "-DNJCLIENT_SOURCE=${PROJECT_SOURCE_DIR}/src/core/njclient_extended.cpp"
+      -P "${PROJECT_SOURCE_DIR}/scripts/check_connected_realtime_callback.cmake"
+  )
+
   add_executable(ninjamplugin_ninjam_bridge_control_smoke_test
     tests/ninjam_bridge_control_smoke_test.cpp
   )
