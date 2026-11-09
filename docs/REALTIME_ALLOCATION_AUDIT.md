@@ -190,25 +190,26 @@ during activation, when CLAP excludes processing. It adds no mutex, filesystem
 operation, or wait to `ProcessAudio()`. Existing upstream mutexes, filesystem
 operations, and codec work are not corrected by that buffer preparation.
 
-Phase 2 will use the approved hybrid architecture: the host audio thread keeps
-the NINJAM sample clock, exact interval and Session playback timing, immediate
-local monitoring, routing, and recording alignment; independently scheduled
-codec and session-file workers own allocation-capable codec and filesystem
-work. Its bounded queues, memory budget, overflow/recovery policy, lifetime
-generations, Session decoder rearming, and Voice latency require implementation
-and connected-path validation before Issue #5 is complete.
+Phase 2 uses the approved hybrid architecture described above: the host audio
+thread keeps the NINJAM sample clock, exact interval and Session playback
+timing, immediate local monitoring, routing, and recording alignment;
+independently scheduled codec and session-file workers own allocation-capable
+codec and filesystem work. The bounded queues, memory budget,
+overflow/recovery policy, lifetime generations, Session decoder rearming, and
+Voice latency are implemented and covered by the connected regressions.
 
-Route structures remain fixed-size, but their broader control/audio publication
-race is the dedicated Issue #6 and is not redesigned in Phase 1. Phase 2 may
-introduce only the minimal internal audio-state projection needed to remove
-upstream callback locks. Diagnostic presentation is tracked by Issue #7.
+Route structures remain fixed-size. Phase 2 introduced only the minimal
+internal projection needed to remove upstream callback locks; Issue #6 now
+adds the coherent control-to-audio routing publication used by the bridge.
+Diagnostic presentation remains tracked by Issue #7.
 
-The regression allocation counter covers C++ allocation calls in the exercised
-bridge path. It cannot prove that platform codec or system libraries avoid
-direct `malloc`, observe blocking mutex or filesystem calls, or synthesize a
-live NINJAM server and decoder transition. The measured window therefore proves
-the Phase 1 bridge-storage property only. It does not establish an
-allocation-free, nonblocking connected-audio callback.
+The Phase 1 allocation counter covers C++ allocation calls in the exercised
+bridge path. Phase 2 supplements it with the deterministic connected fixture,
+the callback source regression, and macOS direct-C allocation interposition.
+Together those checks cover the connected hybrid path described above, but do
+not prove behavior against every platform library, genuine public server, or
+representative DAW host. Direct-C interposition is not currently available on
+Windows or Linux.
 
 ## Phase 1 implemented correction
 
