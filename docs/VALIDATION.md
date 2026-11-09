@@ -38,14 +38,16 @@ private GitHub Actions jobs: macOS Visage, Windows Classic and Visage, and
 Linux Classic and Visage. This established a healthy cross-platform baseline
 before the `0.2.1` single-editor consolidation.
 
-For `0.2.1`, local macOS validation currently covers the single production
-configuration, 14 CTest cases (including UI layout, editor-shell, identity,
-audio-heartbeat, state-codec, bridge, and artifact-path checks), and both CLAP
-and VST3 products named `NinjamPlugin`. The CLAP validator completed with 15
-passes, no failures, five inapplicable skips, and one scan-time warning; the
-Steinberg VST3 validator passed all 47 tests and reported the permanent CID.
-Bundle metadata reports version `0.2.1` and the `.clap`/`.vst3` bundle IDs. The
-PR workflow remains the required Windows/Linux and clean-run confirmation.
+The initial `0.2.1` consolidation local validation covered the single
+production configuration, 14 CTest cases (including UI layout, editor-shell,
+identity, audio-heartbeat, state-codec, bridge, and artifact-path checks), and
+both CLAP and VST3 products named `NinjamPlugin`. The CLAP validator completed
+with 15 passes, no failures, five inapplicable skips, and one scan-time warning;
+the Steinberg VST3 validator passed all 47 tests and reported the permanent CID.
+Bundle metadata reported version `0.2.1` and the `.clap`/`.vst3` bundle IDs.
+The consolidation PR and subsequent main runs supplied clean macOS, Windows,
+and Linux confirmation. The post-merge workflow at source baseline
+`f351f1261819ecb9715862eed906f851c9dce60e` passed all three matrix jobs.
 
 The Issue #5 Phase 1 bridge-storage correction was validated from the Release
 configuration with both CLAP and wrapped VST3 enabled. Both products built, all
@@ -120,9 +122,10 @@ reported version `0.2.1` and the permanent identifiers, and `otool` showed only
 system frameworks/libraries. Existing source warnings and the Homebrew static
 libogg/libvorbis macOS 14-to-11 deployment-target linker warnings remain.
 
-Direct C allocation interposition remains macOS-specific. This local run does
-not replace the required Windows/Linux CI coverage or representative DAW and
-public-server validation.
+Direct C allocation interposition remains macOS-specific. Windows and Linux CI
+exercise the connected behavioural and source regressions, but do not replace
+the macOS interposition result or representative DAW and public-server
+validation.
 
 This completes the Issue #5 Phase 2 validation scope for the deterministic
 connected fixture: codec continuation, decoder replacement and lifetime,
@@ -133,7 +136,7 @@ public-server transition coverage. Direct C allocation interposition also
 remains macOS-specific; Windows and Linux retain the connected behavioral and
 source regressions.
 
-The migration completion review also confirmed:
+The initial migration completion review confirmed:
 
 - the independent Git history contains no imported historical commits;
 - the non-generated source tree contains no historical absolute path, private
@@ -144,16 +147,32 @@ The migration completion review also confirmed:
 - project C/C++ differences from the baseline are limited to dependency-path
   indirection needed for build-owned patched sources.
 
+The public-source readiness audit at
+`f351f1261819ecb9715862eed906f851c9dce60e` rechecked all 38 reachable commits,
+all remote branch tips, tracked source, commit metadata, PR and issue text, and
+all 26 completed workflow logs. It found no committed credential, private key,
+personal machine path, real connection configuration, recording, compiled
+plug-in, archive, or other non-text blob. Historical compiled workflow
+artifacts remain an external repository-cleanup item before visibility changes;
+the publication-hardening workflow no longer uploads future plug-in packages.
+
 The historical checkout remained at its recorded baseline with its pre-existing
 dirty state intact. This document makes no claim that representative DAW hosts
 or final release packages have been validated.
 
-## Remaining release validation
+## Remaining official binary-release validation
 
-- repeat fresh-clone dependency reconstruction for the consolidated `0.2.1`
-  configuration on all supported platforms;
-- complete the `0.2.1` macOS, Windows, and Linux CI run;
-- CLAP and VST3 validators, package/runtime dependency inspection, and licence
-  material checks;
-- secret, large-file, prohibited-path, and generated-file controls; and
-- representative DAW and runtime filesystem observation.
+- pin or otherwise make Ogg/Vorbis reconstruction reproducible across all
+  supported platforms and verify the macOS 11 deployment target;
+- resolve Visage icon and prebuilt shader-tool provenance for official builds;
+- rerun CLAP and VST3 validators against the final package candidates and
+  inspect platform-specific runtime dependencies and bundle contents;
+- generate complete package notices and provide equivalent access to complete
+  Corresponding Source for every GPL-covered binary;
+- perform representative DAW, public-server, and runtime-filesystem testing;
+  and
+- complete checksums, signing/notarization decisions, VST trademark treatment,
+  distribution-channel review, and explicit binary-release approval.
+
+These items limit official package claims and distribution; they do not
+invalidate the development-stage public source preview.

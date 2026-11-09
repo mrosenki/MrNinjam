@@ -70,7 +70,8 @@ components even when the project does not directly call every image format:
 The component licence texts or notices are retained under
 `third_party/licenses/`. CI has built the Visage configuration on macOS,
 Windows, and Linux, but a final platform-specific binary-package scan must
-still confirm the exact object graph and notice closure before public release.
+still confirm the exact object graph and notice closure before official binary
+distribution. It is not a source-publication gate.
 
 ## Fonts and resources
 
@@ -80,9 +81,11 @@ and resource uncertainties are recorded in `docs/SOURCE_PROVENANCE.md`.
 
 The Visage source also invokes a prebuilt host `shaderc` tool when generating
 embedded shaders. It is not packaged into the plug-in, but its independent
-provenance and checksum have not yet been recorded.
+provenance and checksum have not yet been recorded for trusted, reproducible
+official builds. Neither the tool nor generated plug-in binaries are tracked
+in this repository.
 
-## Ogg/Vorbis: preferred next technical task
+## Ogg/Vorbis: deferred official-binary task
 
 The inspected macOS baseline used libogg 1.3.5 and libvorbis 1.3.7. Current
 macOS and Linux builds discover machine/package-manager libraries, while
@@ -110,6 +113,11 @@ The provisional vcpkg baseline
 and libvorbis 1.3.7 port 4. Adopting that route would upgrade libogg relative
 to the migration baseline and therefore requires a separate decision.
 
+The repository distributes neither codec source nor compiled codec libraries.
+The unresolved policy affects build reproducibility, deployment-target claims,
+and official binary certification; it does not prevent publication of the
+tracked source preview.
+
 ## CI and tool pins
 
 The workflow currently pins:
@@ -117,7 +125,6 @@ The workflow currently pins:
 | Tool | Full commit | Reviewed tag |
 | --- | --- | --- |
 | actions/checkout | `3d3c42e5aac5ba805825da76410c181273ba90b1` | `v7.0.1` |
-| actions/upload-artifact | `cf430e030ddbb5b0abf93d22962f4752f3646cd9` | `v7.0.2` |
 | vcpkg | `afa249f12f52ed8a3b919f195495ba8b330288d1` | immutable tooling baseline |
 
 The workflow grants only `contents: read` and checkout uses
@@ -125,8 +132,9 @@ The workflow grants only `contents: read` and checkout uses
 major-version/runtime requirements and future update policy remain part of the
 provisional CI review. Runner images, apt/Homebrew packages, compilers, CMake,
 and codec resolution float; Linux excludes the VST3 validator; and there is no
-CLAP validator. Uploaded artifacts must remain private until
-public-distribution gates are complete.
+CLAP validator. CI builds and validates the plug-ins in runner-local storage
+but does not upload or retain the compiled packages. A future official binary
+release requires a separate, explicitly approved distribution mechanism.
 
 The Apple Silicon CI job uses the explicit `macos-15` GitHub-hosted runner.
 That build environment is independent of the plug-in deployment target, which

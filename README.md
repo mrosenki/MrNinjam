@@ -6,10 +6,12 @@ VST3 through clap-wrapper.
 
 The current development baseline is version `0.2.1`. The independent Git
 history began with the reviewed `0.1.132` migration snapshot; that historical
-baseline remains preserved in the initial commit. This source tree is private,
-pre-publication, and not yet release-ready. The project licence has been
-selected; complete packaged notices, reproducible codec resolution,
-clean-clone validation, and the remaining public-release checks are still open.
+baseline remains preserved in the initial commit. Version `0.2.1` is a
+development-stage source-code preview, not a production-ready release. The
+GPL-licensed source is available for inspection, building, testing, and
+contribution, but the project does not provide official CLAP or VST3 binaries.
+Binary packaging, representative host testing, release notices, reproducible
+codec resolution, signing, and final release certification remain open.
 
 ## Implemented product
 
@@ -85,7 +87,9 @@ version 3 or (at your option) any later version. See [LICENSE](LICENSE) and
 [Licensing](docs/LICENSING.md). Third-party code and assets retain their own
 terms as listed in [Third-party notices](THIRD_PARTY_NOTICES.md).
 
-No public redistribution should occur until the complete third-party package
-notice audit, Corresponding Source plan, clean-clone validation, and remaining
-release gates in the [Public release roadmap](docs/public_release_roadmap.md)
-are complete.
+The source may be used, modified, and redistributed under the GPL and the
+applicable third-party terms. No official binary release is provided. Anyone
+distributing compiled CLAP or VST3 packages must satisfy the applicable licence
+and Corresponding Source obligations; the project's own binary distribution
+remains deferred until the package gates in the
+[Public release roadmap](docs/public_release_roadmap.md) are complete.

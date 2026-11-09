@@ -13,7 +13,7 @@ components below retain their own copyrights and terms.
 | Component | Use | Licence or notice |
 | --- | --- | --- |
 | NINJAM client, Cockos Incorporated | Session protocol and audio runtime | GPL-2.0-or-later. `njclient.cpp` and `njclient.h` are modified by the project patch, which records the modification and 2026-07-27 date. |
-| WDL/JNetLib | Networking and runtime support | Permissive file-level notices; retain notices with corresponding source. |
+| WDL/JNetLib | Networking and runtime support | Permissive file-level notices. The project patch modifies `WDL/rng.cpp`, plainly marks the alteration and its 2026-11-09 date, and retains the upstream WDL notice. |
 | CLAP | Native plug-in API | MIT |
 | clap-wrapper | VST3 adaptation and packaging | MIT |
 | fmt bundled by clap-wrapper | Formatting | MIT with the notice retained from the pinned header |
@@ -36,8 +36,8 @@ Technologies GmbH.”
 | Lato Regular 1.104 | Embedded editor font | Copyright 2010-2011 tyPoland Lukasz Dziedzic; SIL Open Font License 1.1; Reserved Font Name “Lato”. |
 | Droid Sans Mono 1.00 | Embedded editor font | Digitized data copyright 2007 Google Corporation; Apache-2.0. |
 | Twemoji Mozilla 0.7.0 | Linux embedded emoji font | Code/font work copyright 2016-2018 Mozilla Foundation under Apache-2.0; incorporated Twemoji visual design under CC BY 4.0. Credit Twemoji and link the CC BY 4.0 terms; indicate changes if the asset is modified. |
-| Visage shaders and SVG icons | Embedded editor resources | Present in the pinned Visage source. No separate notice was found for the three SVG icons; `menu.svg` carries an IcoMoon generation marker. Exact icon provenance remains a public-release requirement. |
-| Visage host shaderc binaries | Build-time shader generation | Not packaged. Provenance and integrity checks remain outstanding. |
+| Visage shaders and SVG icons | Embedded editor resources | Present in the separately fetched pinned Visage source. No separate notice was found for the three SVG icons; `menu.svg` carries an IcoMoon generation marker. Exact icon provenance remains an official-binary-release requirement. |
+| Visage host shaderc binaries | Build-time shader generation | Not tracked or packaged. Provenance and integrity checks remain outstanding for official builds. |
 
 The Lato font remains under OFL 1.1 and is not relicensed under the project GPL.
 The font is unmodified; derivatives may not use the Reserved Font Name without
@@ -85,6 +85,15 @@ Tools; the VST3 module texts; Apache-2.0; Lato OFL 1.1; the Mozilla/Twemoji
 notice; FreeType's FTL and alternative-licence documentation; the bgfx/bx/bimg
 top-level texts; the identified bimg transitive notices; and Xiph Ogg/Vorbis
 texts.
+
+## Public source preview
+
+The published Git tree contains project source, integration patches, build
+metadata, documentation, and retained licence texts. It does not vendor the
+dependency checkouts, their embedded fonts/icons/shaders, prebuilt shader
+tools, codec libraries, or compiled plug-in packages. The unresolved package
+items below therefore remain deferred official-binary requirements rather than
+source-publication restrictions.
 
 ## Before public binary distribution
 

@@ -99,16 +99,19 @@ Release candidates additionally require:
 - runtime filesystem observation to prove that settings, logs, recordings,
   recovery files, exports, and preferences never target a source checkout.
 
-The migration tree must not be described as reproducible or release-ready
-until clean-clone, cross-platform, and CI validation have actually passed. See
-`docs/VALIDATION.md` for the results recorded so far.
+The public tree is a development-stage source preview. Successful development
+builds do not establish reproducible official packages, representative host
+compatibility, or release readiness. See `docs/VALIDATION.md` for the results
+and limitations recorded so far.
 
 The checked-in GitHub Actions configuration remains provisional. It builds the
 single production configuration on macOS, Windows, and Linux. Its Action and
 vcpkg references are full-commit pins and its permissions are restricted, but
 runner images, system packages, Homebrew packages, compilers, CMake, and codec
 resolution still float. The preceding `0.2.0` configuration passed all five
-matrix jobs; the consolidated `0.2.1` workflow still requires its PR run.
+matrix jobs, and the consolidated `0.2.1` source passed its macOS, Windows, and
+Linux CI jobs through baseline `f351f1261819ecb9715862eed906f851c9dce60e`.
+CI build products remain runner-local and are not uploaded for download.
 
 ## Live connection probes
 
