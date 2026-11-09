@@ -98,6 +98,32 @@ permanent identity tests passed, both bundles remained at `0.2.1`, and `otool`
 reported system frameworks/libraries only. Existing Homebrew libogg/libvorbis
 deployment-target linker warnings remain unchanged.
 
+Issue #7 adds a real-time diagnostic scope and violation counter around both
+the CLAP/VST3 process callback and direct bridge processing. The new focused
+CLAP regression covers logging disabled and enabled, repeated parameter events,
+status-event output, and two simultaneous instances. The connected fixture and
+routing-publication stress now enable diagnostic logging and require zero
+callback violations while exercising overload/recovery and concurrent control
+updates. The debug-log test deliberately invokes logging, formatting,
+enablement, and path queries in a marked scope and verifies that the log file
+does not change and all attempts are counted. Source checks reject logger calls
+from CLAP parameter/status handlers and from `AudioProc()`.
+
+The Issue #7 macOS Release validation built both CLAP and wrapped VST3 products
+and passed all 21 CTest cases. A fresh AppleClang 16 ThreadSanitizer build
+passed the connected pipeline, routing-publication concurrency, and two-instance
+CLAP diagnostic regressions with no findings. The CLAP validator ran 20 tests:
+15 passed, none failed, five were inapplicable skips, and its scan-time test
+warned at 102 ms. The Steinberg VST3 validator passed all 47 tests. Dependency
+pins and project patches were clean, bundle path scans passed, both products
+reported version `0.2.1` and the permanent identifiers, and `otool` showed only
+system frameworks/libraries. Existing source warnings and the Homebrew static
+libogg/libvorbis macOS 14-to-11 deployment-target linker warnings remain.
+
+Direct C allocation interposition remains macOS-specific. This local run does
+not replace the required Windows/Linux CI coverage or representative DAW and
+public-server validation.
+
 This completes the Issue #5 Phase 2 validation scope for the deterministic
 connected fixture: codec continuation, decoder replacement and lifetime,
 Session file/seek work, upstream callback locks, direct C allocation on macOS,

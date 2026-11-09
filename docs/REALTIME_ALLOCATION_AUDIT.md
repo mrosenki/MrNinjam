@@ -1,4 +1,66 @@
-# Real-time allocation audit — Issue #5 Phase 2
+# Real-time processing audit — Issues #5 and #7
+
+## Issue #7 diagnostic audit and correction
+
+The callback-reachable diagnostic graph is:
+
+```text
+CLAP/VST3 process
+  -> ApplyInputEvents -> ApplyParamEvent
+  -> NinjamBridge::ProcessAudio -> NinjamPluginNJClient::AudioProc
+       -> bounded queue/counter updates and SessionCaptureRecorder::Push
+  -> EmitPendingStatusParamEvents
+```
+
+Before Issue #7, `ApplyParamEvent()` called `DebugLogf()` once for every
+non-gain control event and `EmitPendingStatusParamEvents()` called it after
+every successfully emitted status event. With logging enabled, `DebugLogf()`
+formatted into a fixed local buffer and then entered `WriteLogLine()`, which
+took the process-wide log mutex, created and manipulated `std::string` and
+`std::filesystem` values, checked/created directories, queried file size,
+opened/appended/closed the log, formatted a timestamp, and could enumerate,
+sort, and delete old logs. Its enablement query could also lazily open and
+parse `diagnostics.conf`. These were confirmed real-time violations, including
+the first enablement query when no preference had yet been cached.
+
+The complete classification is:
+
+| Path | Context and frequency | Allocation, locking, and I/O classification | Issue #7 result |
+| --- | --- | --- | --- |
+| `PluginProcess()` -> `ApplyParamEvent()` -> `DebugLogf()` | Audio callback; once per non-gain CLAP parameter event | Confirmed formatting, possible lazy preference file read, log mutex, strings/filesystem, append/rotation | Removed. Existing atomics hand the value to `on_main_thread`, whose apply log retains the useful value. |
+| `PluginProcess()` -> `EmitPendingStatusParamEvents()` -> `DebugLogf()` | Audio callback; once per successfully emitted dirty status | Confirmed same unsafe logger path | Removed. `PluginOnMainThread()` already logs each changed connection state, BPM, attempt count, and failure reason. |
+| `DebugLogInstanceScope` in `PluginProcess()` | Every callback | Two bounded thread-local integer assignments; no allocation, lock, formatting, or I/O | Retained for instance identity and classified real-time safe. |
+| `NinjamBridge::ProcessAudio()` and `NinjamPluginNJClient::AudioProc()` overflow, underflow, stale-generation, and pacing evidence | Audio callback; atomics update only when the corresponding condition occurs | Fixed prepared rings plus bounded atomic counters; no diagnostic string or logger call | Retained. `GetRealtimePipelineDiagnostics()` exposes the accumulated evidence off the audio thread. |
+| Level metering/diagnostics | Audio callback accumulation per prepared block; report at most once per second from `MainThreadTick()` | Frame-count-bounded sample scan and atomics in the callback; formatting/file logging only on the main thread | Retained. |
+| `SessionCaptureRecorder::Push()` drop accounting | Audio callback when capture is active | Prepared SPSC copy and atomic dropped-frame counter; no file or logger call | Retained. File writes, conversion buffers, checkpoint/finalize messages, and recorder logs remain on its writer thread. |
+| Start/stop/reset diagnostics | CLAP/VST3 processing lifecycle callbacks | Callback publishes lifecycle bits only; session-feed cleanup and logging are serviced later | Retained through `ServiceRealtimeLifecycleRequests()` on the main thread. |
+| Activation, deactivation, connection, recording/export, keepalive, UI/control, and destruction logs | Host main/control thread or owned non-real-time worker | May format, lock, allocate, wait, and access files according to that service's ownership | Unchanged; these calls are not reachable from sample processing. |
+
+No diagnostic event queue was added. The existing parameter-control atomics,
+status atomics, pipeline counters, recorder drop counter, and lifecycle bitset
+already preserve the required evidence without another producer/consumer
+channel. Repetitive queue conditions remain coalesced into monotonic counters,
+so overload cannot flood the log.
+
+`PluginProcess()` and both public bridge processing entry paths now establish
+a nesting-safe `RealtimeDebugLogScope`. All preference, path, directory, and
+logging entry points reject calls in that scope before any environment or
+preference lookup, formatting, mutex acquisition, allocation, or filesystem
+operation. Rejection increments one process-wide relaxed atomic violation
+counter used by tests; it does not carry diagnostic event content or combine
+instance logs. Normal processing pays only a thread-local depth increment and
+decrement, and normal non-real-time logging keeps its file location, rotation,
+redaction, and per-instance identifiers.
+
+The focused CLAP regression exercises ordinary and parameter-split processing,
+status-event output, logging disabled and enabled, repeated events, and two
+instances processing concurrently. The connected fixture enables logging
+while exercising connected/disconnected transitions, underrun/overflow,
+recovery, recording, and two instances. The routing publication stress also
+runs logging-enabled concurrent control updates and audio processing. Every
+case requires zero callback diagnostic violations; the debug-log unit test
+deliberately attempts prohibited operations in a marked scope and requires the
+counter to report them while the log file remains unchanged.
 
 ## Phase 2 result
 
@@ -106,11 +168,11 @@ generation is accepted.
 
 ### Remaining boundaries
 
-- The broader coherent publication of user-editable routing structures is
-  Issue #6. Phase 2 adds only the atomic projection required to keep upstream
-  topology locks out of the callback.
-- The internal counters are acceptance evidence, not the Issue #7 user-facing
-  diagnostics design.
+- Issue #6 supplies the coherent publication of user-editable routing
+  structures; Issue #7 does not change that design.
+- The real-time diagnostic violation counter is regression instrumentation,
+  not an event transport or a user-facing log. Expected audio conditions use
+  the established per-instance pipeline and recorder counters instead.
 - Recording eligibility/export policy remains Issue #8; Phase 2 preserves the
   existing bounded recorder handoff and alignment.
 - Direct C allocation interposition is currently implemented only for the
