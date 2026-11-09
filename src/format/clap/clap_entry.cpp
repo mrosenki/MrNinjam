@@ -470,8 +470,6 @@ void EmitPendingStatusParamEvents(NinjamPluginInstance* instance, const clap_out
         static_cast<double>(instance->pending_connection_state.load(std::memory_order_acquire));
     if (!EmitParamValueEvent(out, kConnectionStateParamId, state)) {
       instance->pending_connection_state_dirty.store(true, std::memory_order_release);
-    } else {
-      ninjamplugin::core::DebugLogf("clap", "Emit status event: ConnectionState=%.0f", state);
     }
   }
 
@@ -479,8 +477,6 @@ void EmitPendingStatusParamEvents(NinjamPluginInstance* instance, const clap_out
     const double bpm = instance->pending_actual_session_bpm.load(std::memory_order_acquire);
     if (!EmitParamValueEvent(out, kActualSessionBpmParamId, bpm)) {
       instance->pending_actual_session_bpm_dirty.store(true, std::memory_order_release);
-    } else {
-      ninjamplugin::core::DebugLogf("clap", "Emit status event: ActualSessionBpm=%.2f", bpm);
     }
   }
 
@@ -489,8 +485,6 @@ void EmitPendingStatusParamEvents(NinjamPluginInstance* instance, const clap_out
         instance->pending_connect_attempt_count.load(std::memory_order_acquire));
     if (!EmitParamValueEvent(out, kConnectAttemptCountParamId, attempts)) {
       instance->pending_connect_attempt_count_dirty.store(true, std::memory_order_release);
-    } else {
-      ninjamplugin::core::DebugLogf("clap", "Emit status event: ConnectAttempts=%.0f", attempts);
     }
   }
 
@@ -499,8 +493,6 @@ void EmitPendingStatusParamEvents(NinjamPluginInstance* instance, const clap_out
         instance->pending_last_failure_reason.load(std::memory_order_acquire));
     if (!EmitParamValueEvent(out, kLastFailureReasonParamId, reason)) {
       instance->pending_last_failure_reason_dirty.store(true, std::memory_order_release);
-    } else {
-      ninjamplugin::core::DebugLogf("clap", "Emit status event: LastFailureReason=%.0f", reason);
     }
   }
 }
@@ -1283,58 +1275,30 @@ void ApplyParamEvent(NinjamPluginInstance* instance, const clap_event_header_t* 
   }
   if (param_event->param_id == kConnectParamId) {
     QueueConnectRequestedOnMainThread(instance, param_event->value >= 0.5);
-    ninjamplugin::core::DebugLogf("clap",
-                                  "Param ConnectRequest=%.3f processing=%d queued=1",
-                                  param_event->value,
-                                  instance->runtime.IsProcessing() ? 1 : 0);
     return;
   }
   if (param_event->param_id == kSessionBpmParamId) {
     QueueTargetSessionBpmOnMainThread(instance, param_event->value);
-    ninjamplugin::core::DebugLogf("clap",
-                                  "Param TargetSessionBpm=%.3f processing=%d queued=1",
-                                  param_event->value,
-                                  instance->runtime.IsProcessing() ? 1 : 0);
     return;
   }
   if (param_event->param_id == kSessionBpiParamId) {
     QueueTargetSessionBpiOnMainThread(instance, static_cast<int>(std::lround(param_event->value)));
-    ninjamplugin::core::DebugLogf("clap",
-                                  "Param TargetSessionBpi=%.3f processing=%d queued=1",
-                                  param_event->value,
-                                  instance->runtime.IsProcessing() ? 1 : 0);
     return;
   }
   if (param_event->param_id == kMonitorMixParamId) {
     QueueMonitorMixOnMainThread(instance, param_event->value);
-    ninjamplugin::core::DebugLogf("clap",
-                                  "Param RemoteReturn=%.3f processing=%d queued=1",
-                                  param_event->value,
-                                  instance->runtime.IsProcessing() ? 1 : 0);
     return;
   }
   if (param_event->param_id == kMetronomeLevelParamId) {
     QueueMetronomeLevelOnMainThread(instance, param_event->value);
-    ninjamplugin::core::DebugLogf("clap",
-                                  "Param MetronomeLevel=%.3f processing=%d queued=1",
-                                  param_event->value,
-                                  instance->runtime.IsProcessing() ? 1 : 0);
     return;
   }
   if (param_event->param_id == kTransmitModeParamId) {
     QueueTransmitModeOnMainThread(instance, param_event->value);
-    ninjamplugin::core::DebugLogf("clap",
-                                  "Param TransmitMode=%.3f processing=%d queued=1",
-                                  param_event->value,
-                                  instance->runtime.IsProcessing() ? 1 : 0);
     return;
   }
   if (param_event->param_id == kTransmitBitrateParamId) {
     QueueTransmitBitrateOnMainThread(instance, param_event->value);
-    ninjamplugin::core::DebugLogf("clap",
-                                  "Param TransmitBitrate=%.3f processing=%d queued=1",
-                                  param_event->value,
-                                  instance->runtime.IsProcessing() ? 1 : 0);
     return;
   }
 }
@@ -1540,6 +1504,7 @@ void CLAP_ABI PluginReset(const clap_plugin_t* plugin) {
 
 clap_process_status CLAP_ABI PluginProcess(const clap_plugin_t* plugin,
                                            const clap_process_t* process) {
+  const ninjamplugin::core::RealtimeDebugLogScope realtime_debug_log_scope;
   auto* instance = ToInstance(plugin);
   if (instance == nullptr || process == nullptr) {
     return CLAP_PROCESS_ERROR;

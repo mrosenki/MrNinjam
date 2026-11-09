@@ -23,6 +23,8 @@
 namespace ninjamplugin::core {
 namespace {
 
+static_assert(std::atomic<std::uint64_t>::is_always_lock_free);
+
 constexpr std::uintmax_t kMaximumDebugLogBytes = 10U * 1024U * 1024U;
 constexpr std::size_t kMaximumRetainedDebugLogs = 10U;
 
@@ -57,7 +59,20 @@ std::atomic<std::uint64_t>& NextInstanceId() {
   return value;
 }
 
+std::atomic<std::uint64_t>& RealtimeViolationCount() {
+  static std::atomic<std::uint64_t> value{0};
+  return value;
+}
+
 thread_local std::uint64_t current_instance_id = 0;
+thread_local std::uint32_t realtime_scope_depth = 0;
+
+bool RejectRealtimeDiagnosticCall() {
+  if (realtime_scope_depth == 0)
+    return false;
+  RealtimeViolationCount().fetch_add(1, std::memory_order_relaxed);
+  return true;
+}
 
 const char* ReadEnvNonEmpty(const char* key) {
   const char* value = std::getenv(key);
@@ -300,6 +315,8 @@ void EnsurePathConfiguredLocked() {
 }
 
 void WriteLogLine(const char* context, const char* message) {
+  if (RejectRealtimeDiagnosticCall())
+    return;
   if (!IsDebugLogEnabled())
     return;
   std::lock_guard<std::mutex> lock(LogMutex());
@@ -335,12 +352,16 @@ void WriteLogLine(const char* context, const char* message) {
 }  // namespace
 
 bool IsDebugLogEnabled() {
+  if (RejectRealtimeDiagnosticCall())
+    return false;
   if (const char* env = ReadEnvNonEmpty("NINJAMPLUGIN_DEBUG_LOG"))
     return ParseEnabled(env, false);
   return PersistedEnabled();
 }
 
 bool SetDebugLogEnabled(const bool enabled) {
+  if (RejectRealtimeDiagnosticCall())
+    return false;
   const bool saved = SavePersistedEnabled(enabled);
   if (saved)
     PersistedEnabledCache().store(enabled ? 1 : 0, std::memory_order_release);
@@ -348,12 +369,16 @@ bool SetDebugLogEnabled(const bool enabled) {
 }
 
 const char* GetDebugLogPath() {
+  if (RejectRealtimeDiagnosticCall())
+    return "";
   std::lock_guard<std::mutex> lock(LogMutex());
   EnsurePathConfiguredLocked();
   return DebugLogPathStorage().c_str();
 }
 
 const char* GetDebugLogDirectory() {
+  if (RejectRealtimeDiagnosticCall())
+    return "";
   std::lock_guard<std::mutex> lock(LogMutex());
   if (DebugLogDirectoryStorage().empty()) {
     if (const char* override_path = ReadEnvNonEmpty("NINJAMPLUGIN_DEBUG_LOG_PATH"))
@@ -365,6 +390,8 @@ const char* GetDebugLogDirectory() {
 }
 
 bool EnsureDebugLogDirectoryExists() {
+  if (RejectRealtimeDiagnosticCall())
+    return false;
   const std::filesystem::path directory(GetDebugLogDirectory());
   std::error_code error;
   std::filesystem::create_directories(directory, error);
@@ -372,12 +399,31 @@ bool EnsureDebugLogDirectoryExists() {
 }
 
 void ConfigureDebugLogHostSession(const char* host_name, const char* host_version) {
+  if (RejectRealtimeDiagnosticCall())
+    return;
   std::lock_guard<std::mutex> lock(LogMutex());
   ConfigurePathLocked(host_name, host_version);
 }
 
 std::uint64_t AllocateDebugLogInstanceId() {
   return NextInstanceId().fetch_add(1, std::memory_order_relaxed);
+}
+
+RealtimeDebugLogScope::RealtimeDebugLogScope() {
+  ++realtime_scope_depth;
+}
+
+RealtimeDebugLogScope::~RealtimeDebugLogScope() {
+  if (realtime_scope_depth > 0)
+    --realtime_scope_depth;
+}
+
+std::uint64_t GetRealtimeDebugLogViolationCount() {
+  return RealtimeViolationCount().load(std::memory_order_acquire);
+}
+
+void ResetRealtimeDebugLogViolationCount() {
+  RealtimeViolationCount().store(0, std::memory_order_release);
 }
 
 DebugLogInstanceScope::DebugLogInstanceScope(const std::uint64_t instance_id)
@@ -390,10 +436,14 @@ DebugLogInstanceScope::~DebugLogInstanceScope() {
 }
 
 void DebugLog(const char* context, const char* message) {
+  if (RejectRealtimeDiagnosticCall())
+    return;
   WriteLogLine(context, message);
 }
 
 void DebugLogf(const char* context, const char* format, ...) {
+  if (RejectRealtimeDiagnosticCall())
+    return;
   if (!IsDebugLogEnabled() || format == nullptr)
     return;
   char buffer[1024];

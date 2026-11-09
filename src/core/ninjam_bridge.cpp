@@ -3030,6 +3030,7 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
                                 const float gain,
                                 const bool apply_gain,
                                 const HostTransportState transport) const {
+  const RealtimeDebugLogScope realtime_debug_log_scope;
   if (input_channels == nullptr || input_channel_count < 2 || input_channels[0] == nullptr ||
       input_channels[1] == nullptr || output_left == nullptr || output_right == nullptr ||
       !std::isfinite(gain)) {

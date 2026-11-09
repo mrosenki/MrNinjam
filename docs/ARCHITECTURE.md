@@ -77,6 +77,17 @@ deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
   specified in `REALTIME_ALLOCATION_AUDIT.md`.
 - Main/control-thread work owns connection changes, persistence, topology
   updates, editor state, and other non-real-time tasks.
+- Diagnostic file logging is also a non-real-time service. `PluginProcess()`
+  and `NinjamBridge::ProcessAudio()` establish a nested thread-local real-time
+  scope. Every logging entry point checks that scope before reading the
+  persisted enablement preference, formatting, locking, constructing paths,
+  rotating logs, or opening a file. An attempted callback log is suppressed
+  with one relaxed atomic counter increment so the regression fails visibly;
+  normal callbacks perform only the bounded scope enter/leave. Parameter and
+  status values are logged when the existing main-thread control/status paths
+  apply or observe them, not when CLAP consumes or emits the audio-thread
+  events. Instance IDs and all ordinary non-real-time file logging are
+  preserved.
 - Recording uses bounded handoff to a writer path; export work runs outside the
   audio callback.
 - A processing stop atomically asks the capture writer to drain and finalize;
@@ -105,14 +116,17 @@ or UI timers together, the warning cannot become visible until the host resumes
 one of those callbacks; the plug-in does not create a private polling thread.
 
 The lifecycle audit is enforced by source checks over audio-thread lifecycle
-callbacks. Phase 1's disconnected processing regression still covers prepared
-bridge storage. Phase 2 adds a production connected fixture plus a source
-check that isolates `NinjamPluginNJClient::AudioProc()`. On macOS the connected
-test intercepts both C++ allocation and direct C allocation on the callback
-thread. It covers real normal, Voice, and Session streams, topology and decoder
-replacement, seeks, saturation, variable blocks, two concurrent instances,
-recording, reconnect, and teardown. Routing-state concurrency beyond the
-minimal atomic callback projection remains Issue #6.
+callbacks, CLAP parameter/status-event handlers, and
+`NinjamPluginNJClient::AudioProc()`. Phase 1's disconnected processing
+regression still covers prepared bridge storage. Phase 2 adds a production
+connected fixture. On macOS the connected test intercepts both C++ allocation
+and direct C allocation on the callback thread. It covers real normal, Voice,
+and Session streams, topology and decoder replacement, seeks, saturation,
+variable blocks, two concurrent instances, recording, reconnect, and
+teardown. The Issue #7 regression additionally runs CLAP parameter and status
+events with logging enabled and disabled, stresses two simultaneous plug-in
+instances, and requires the real-time diagnostic violation counter to remain
+zero. Routing publication is the completed Issue #6 design.
 
 ## Audio and routing model
 
