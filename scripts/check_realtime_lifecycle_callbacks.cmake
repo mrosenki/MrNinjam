@@ -37,6 +37,14 @@ check_region("${CLAP_ENTRY}"
   "void CLAP_ABI PluginReset"
   "clap_process_status CLAP_ABI PluginProcess"
   "CLAP PluginReset")
+check_region("${CLAP_ENTRY}"
+  "void EmitPendingStatusParamEvents"
+  "bool ParseDoubleStrict"
+  "CLAP status-event emission")
+check_region("${CLAP_ENTRY}"
+  "void ApplyParamEvent"
+  "bool CLAP_ABI PluginInit"
+  "CLAP parameter-event processing")
 
 check_region("${BRIDGE_SOURCE}"
   "bool NinjamBridge::StartProcessing"

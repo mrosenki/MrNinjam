@@ -31,6 +31,8 @@ set(forbidden
   "new "
   "delete "
   ".Resize("
+  "DebugLog("
+  "DebugLogf("
   "sleep_for"
   ".join("
 )

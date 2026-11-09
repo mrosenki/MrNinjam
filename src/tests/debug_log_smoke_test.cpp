@@ -108,6 +108,23 @@ int main() {
   ninjamplugin::core::DebugLog(
       "test", ("private path " + root.string() + "/recording.wav").c_str());
 
+  const auto size_before_realtime_scope = std::filesystem::file_size(log_path, error);
+  ninjamplugin::core::ResetRealtimeDebugLogViolationCount();
+  {
+    const ninjamplugin::core::RealtimeDebugLogScope realtime_scope;
+    ninjamplugin::core::DebugLog("test", "must be rejected on the audio thread");
+    ninjamplugin::core::DebugLogf("test", "formatted value=%d", 7);
+    ok &= Require(!ninjamplugin::core::IsDebugLogEnabled(),
+                  "real-time scope inspected diagnostic enablement");
+    ok &= Require(std::string(ninjamplugin::core::GetDebugLogPath()).empty(),
+                  "real-time scope exposed an allocation/lock-capable path query");
+  }
+  const auto size_after_realtime_scope = std::filesystem::file_size(log_path, error);
+  ok &= Require(size_before_realtime_scope == size_after_realtime_scope,
+                "a real-time diagnostic call reached the log file");
+  ok &= Require(ninjamplugin::core::GetRealtimeDebugLogViolationCount() == 4U,
+                "real-time diagnostic attempts were not reported to the regression");
+
   std::ifstream input(log_path);
   const std::string contents((std::istreambuf_iterator<char>(input)),
                              std::istreambuf_iterator<char>());

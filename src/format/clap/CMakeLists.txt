@@ -56,6 +56,23 @@ if(NINJAMPLUGIN_ENABLE_TESTS)
     COMMAND ninjamplugin_plugin_identity_smoke_test
   )
 
+  add_executable(ninjamplugin_realtime_diagnostic_safety_test
+    ../../tests/realtime_diagnostic_safety_test.cpp
+  )
+  target_link_libraries(ninjamplugin_realtime_diagnostic_safety_test PRIVATE
+    ninjamplugin_clap_impl
+  )
+  target_include_directories(ninjamplugin_realtime_diagnostic_safety_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
+    "${NINJAMPLUGIN_CLAP_WRAPPER_SOURCE_DIR}/include"
+  )
+  target_compile_features(ninjamplugin_realtime_diagnostic_safety_test PRIVATE cxx_std_20)
+  ninjamplugin_apply_warnings(ninjamplugin_realtime_diagnostic_safety_test)
+  add_test(NAME ninjamplugin_realtime_diagnostic_safety_test
+    COMMAND ninjamplugin_realtime_diagnostic_safety_test
+  )
+
   add_executable(ninjamplugin_audio_processing_heartbeat_smoke_test
     ../../tests/audio_processing_heartbeat_smoke_test.cpp
   )

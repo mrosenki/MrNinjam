@@ -1,9 +1,12 @@
+#include "ninjamplugin/core/debug_log.h"
 #include "ninjamplugin/core/ninjam_bridge.h"
 
 #include <array>
 #include <atomic>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -59,6 +62,17 @@ bool IsExpectedSample(const float value) {
 }  // namespace
 
 int main() {
+  const auto log_root = std::filesystem::temp_directory_path() /
+                        "ninjamplugin-routing-diagnostic-test";
+#if defined(_WIN32)
+  _putenv_s("NINJAMPLUGIN_DEBUG_LOG", "1");
+  _putenv_s("NINJAMPLUGIN_DEBUG_LOG_PATH",
+            (log_root / "diagnostics.log").string().c_str());
+#else
+  setenv("NINJAMPLUGIN_DEBUG_LOG", "1", 1);
+  setenv("NINJAMPLUGIN_DEBUG_LOG_PATH",
+         (log_root / "diagnostics.log").string().c_str(), 1);
+#endif
   NinjamBridge bridge;
   bridge.ApplyConnectionSettings({});
   if (!bridge.Initialize(48000.0) || !bridge.Activate(kMaximumFrames) ||
@@ -85,6 +99,7 @@ int main() {
   std::atomic_bool writer_done{false};
   std::atomic_bool failed{false};
   std::atomic<std::uint64_t> processed_blocks{0};
+  ninjamplugin::core::ResetRealtimeDebugLogViolationCount();
 
   std::thread audio_thread([&] {
     constexpr std::array<std::size_t, 7> frame_counts = {1, 7, 64, 127, 256, 511, 512};
@@ -137,6 +152,10 @@ int main() {
               << processed_blocks.load(std::memory_order_relaxed) << " blocks\n";
     return 1;
   }
+  if (ninjamplugin::core::GetRealtimeDebugLogViolationCount() != 0U) {
+    std::cerr << "Routing stress reached a prohibited diagnostic operation\n";
+    return 1;
+  }
 
   // Exercise topology edits after the atomic-publication stress: all route
   // slots, mono/stereo sources, output changes, and route removal/recreation.
@@ -169,6 +188,13 @@ int main() {
   bridge.MainThreadTick();
   bridge.StopProcessing();
   bridge.Deactivate();
+#if defined(_WIN32)
+  _putenv_s("NINJAMPLUGIN_DEBUG_LOG", "0");
+#else
+  setenv("NINJAMPLUGIN_DEBUG_LOG", "0", 1);
+#endif
+  std::error_code cleanup_error;
+  std::filesystem::remove_all(log_root, cleanup_error);
   std::cout << "Routing snapshot concurrency test passed across "
             << processed_blocks.load(std::memory_order_relaxed) << " audio blocks\n";
   return 0;

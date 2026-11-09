@@ -12,6 +12,21 @@ bool EnsureDebugLogDirectoryExists();
 void ConfigureDebugLogHostSession(const char* host_name, const char* host_version);
 std::uint64_t AllocateDebugLogInstanceId();
 
+// Marks a host audio callback while adding only bounded thread-local work.
+// Logging entry points reject and count calls made in this scope before they
+// inspect preferences, format text, acquire a mutex, or touch the filesystem.
+class RealtimeDebugLogScope {
+ public:
+  RealtimeDebugLogScope();
+  ~RealtimeDebugLogScope();
+
+  RealtimeDebugLogScope(const RealtimeDebugLogScope&) = delete;
+  RealtimeDebugLogScope& operator=(const RealtimeDebugLogScope&) = delete;
+};
+
+std::uint64_t GetRealtimeDebugLogViolationCount();
+void ResetRealtimeDebugLogViolationCount();
+
 class DebugLogInstanceScope {
  public:
   explicit DebugLogInstanceScope(std::uint64_t instance_id);

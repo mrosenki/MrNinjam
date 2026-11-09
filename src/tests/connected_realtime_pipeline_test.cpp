@@ -17,6 +17,7 @@
 #endif
 
 #include "ninjamplugin/core/connection_config.h"
+#include "ninjamplugin/core/debug_log.h"
 #include "ninjamplugin/core/ninjam_bridge.h"
 #if defined(_WIN32)
 #include "ninjamplugin/platform/windows_upstream_compat.h"
@@ -419,12 +420,21 @@ int main() {
   }
   report_phase("fixtures-started");
 
-  NinjamBridge bridge;
-  NinjamBridge secondary_bridge;
   const auto recordings_root = std::filesystem::temp_directory_path() /
       ("ninjamplugin-phase2-" + std::to_string(
           std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(recordings_root);
+#if defined(_WIN32)
+  _putenv_s("NINJAMPLUGIN_DEBUG_LOG", "1");
+  _putenv_s("NINJAMPLUGIN_DEBUG_LOG_PATH",
+            (recordings_root / "diagnostics.log").string().c_str());
+#else
+  setenv("NINJAMPLUGIN_DEBUG_LOG", "1", 1);
+  setenv("NINJAMPLUGIN_DEBUG_LOG_PATH",
+         (recordings_root / "diagnostics.log").string().c_str(), 1);
+#endif
+  NinjamBridge bridge;
+  NinjamBridge secondary_bridge;
   ConnectionSettings settings;
   settings.host = "127.0.0.1:" + std::to_string(server.port());
   settings.user = "fixture";
@@ -467,6 +477,7 @@ int main() {
   bridge.SetRecordingRequested(true);
   bridge.SetConnectRequested(true);
   secondary_bridge.SetConnectRequested(true);
+  ninjamplugin::core::ResetRealtimeDebugLogViolationCount();
 
   const bool initially_connected = WaitFor(std::chrono::seconds(5), [&] {
     return bridge.IsConnected() && secondary_bridge.IsConnected();
@@ -689,6 +700,11 @@ int main() {
   secondary_server.Stop();
   report_phase("fixtures-stopped");
   std::error_code cleanup_error;
+#if defined(_WIN32)
+  _putenv_s("NINJAMPLUGIN_DEBUG_LOG", "0");
+#else
+  setenv("NINJAMPLUGIN_DEBUG_LOG", "0", 1);
+#endif
   if (std::getenv("NINJAMPLUGIN_KEEP_CONNECTED_FIXTURE") == nullptr)
     std::filesystem::remove_all(recordings_root, cleanup_error);
   else
@@ -696,6 +712,11 @@ int main() {
 
   if (audio_allocations != 0U) {
     std::cerr << "connected callback allocations=" << audio_allocations << '\n';
+    return 5;
+  }
+  if (ninjamplugin::core::GetRealtimeDebugLogViolationCount() != 0U) {
+    std::cerr << "connected callback diagnostic violations="
+              << ninjamplugin::core::GetRealtimeDebugLogViolationCount() << '\n';
     return 5;
   }
 #if defined(__APPLE__)
