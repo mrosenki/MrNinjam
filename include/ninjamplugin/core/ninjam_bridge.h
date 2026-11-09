@@ -425,6 +425,7 @@ class NinjamBridge {
   bool session_bpm_sync_pending_ = false;
   bool session_bpi_sync_pending_ = false;
   bool connection_config_loaded_ = false;
+  bool socket_library_open_ = false;
   std::string connection_host_;
   std::string connection_user_;
   std::string connection_pass_;

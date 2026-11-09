@@ -1,5 +1,6 @@
 #include <array>
 #include <atomic>
+#include <cerrno>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -8,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <new>
+#include <system_error>
 #include <thread>
 
 #if defined(__APPLE__)
@@ -37,6 +39,32 @@ void CountCAllocation() {
   if (g_measure_allocations) ++g_c_allocation_count;
 }
 
+int SocketErrorCode() {
+#if defined(_WIN32)
+  return WSAGetLastError();
+#else
+  return errno;
+#endif
+}
+
+class SocketLibrary final {
+ public:
+  SocketLibrary() : open_(JNL::open_socketlib() == 0), error_(SocketErrorCode()) {}
+  ~SocketLibrary() {
+    if (open_) JNL::close_socketlib();
+  }
+
+  SocketLibrary(const SocketLibrary&) = delete;
+  SocketLibrary& operator=(const SocketLibrary&) = delete;
+
+  bool is_open() const { return open_; }
+  int error() const { return error_; }
+
+ private:
+  bool open_ = false;
+  int error_ = 0;
+};
+
 class FixtureServer {
  public:
   bool Start() {
@@ -45,14 +73,22 @@ class FixtureServer {
     for (int attempt = 0; attempt < 64; ++attempt) {
       const int candidate = 20000 + static_cast<int>(
           (seed + static_cast<unsigned int>(attempt) * 7919U) % 10000U);
-      auto listener = std::make_unique<JNL_Listen>(static_cast<short>(candidate), 0x0100007fU);
+      auto listener = std::make_unique<JNL_Listen>(static_cast<short>(candidate),
+          JNL::ipstr_to_addr("127.0.0.1"));
       if (!listener->is_error()) {
         port_ = candidate;
         listener_ = std::move(listener);
         break;
       }
+      listener_error_ = SocketErrorCode();
+      listener_error_port_ = candidate;
     }
-    if (!listener_) return false;
+    if (!listener_) {
+      std::cerr << "failed to create fixture listener port=" << listener_error_port_
+                << " socket_error=" << listener_error_ << " ("
+                << std::system_category().message(listener_error_) << ")\n";
+      return false;
+    }
     thread_ = std::thread(&FixtureServer::Run, this);
     return true;
   }
@@ -71,6 +107,9 @@ class FixtureServer {
   int upload_begins() const { return upload_begins_.load(std::memory_order_acquire); }
   int channel_updates() const { return channel_updates_.load(std::memory_order_acquire); }
   int presence_updates() const { return presence_updates_.load(std::memory_order_acquire); }
+  int thread_socket_error() const {
+    return thread_socket_error_.load(std::memory_order_acquire);
+  }
   void SetCurrentAudioBlock(int block) { current_audio_block_.store(block, std::memory_order_release); }
   int first_voice_upload_block() const {
     return first_voice_upload_block_.load(std::memory_order_acquire);
@@ -164,6 +203,14 @@ class FixtureServer {
   }
 
   void Run() {
+    // Follow JNetLib's documented convention for each thread using network
+    // objects. The main test lifetime remains open until every fixture and
+    // bridge object has been destroyed.
+    SocketLibrary thread_socket_library;
+    if (!thread_socket_library.is_open()) {
+      thread_socket_error_.store(thread_socket_library.error(), std::memory_order_release);
+      return;
+    }
     JNL_IConnection* accepted = nullptr;
     while (!stop_.load(std::memory_order_acquire) && accepted == nullptr) {
       accepted = listener_->get_connect(1 << 20, 1 << 20);
@@ -272,6 +319,9 @@ class FixtureServer {
   std::thread thread_;
   std::atomic_bool stop_{false};
   int port_ = 0;
+  int listener_error_ = 0;
+  int listener_error_port_ = 0;
+  std::atomic<int> thread_socket_error_{0};
   std::array<std::array<unsigned char, 16>, 3> channel_guids_{};
   std::array<bool, 3> channel_guid_valid_{};
   std::array<unsigned char, 16> mirror_voice_guid_{};
@@ -320,6 +370,15 @@ void operator delete[](void* memory, std::size_t) noexcept { std::free(memory); 
 int main() {
   using ninjamplugin::core::ConnectionSettings;
   using ninjamplugin::core::NinjamBridge;
+  // This guard is constructed before, and therefore destroyed after, every
+  // fixture server and bridge client that owns a JNetLib socket.
+  SocketLibrary socket_library;
+  if (!socket_library.is_open()) {
+    std::cerr << "failed to initialise JNetLib socket library error="
+              << socket_library.error() << " ("
+              << std::system_category().message(socket_library.error()) << ")\n";
+    return 1;
+  }
   FixtureServer server;
   FixtureServer secondary_server;
   if (!server.Start() || !secondary_server.Start()) {
@@ -382,7 +441,10 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
   if (!bridge.IsConnected() || !secondary_bridge.IsConnected()) {
-    std::cerr << "fixture client did not connect\n";
+    std::cerr << "fixture client did not connect server_thread_socket_error="
+              << server.thread_socket_error()
+              << " secondary_thread_socket_error="
+              << secondary_server.thread_socket_error() << '\n';
     return 3;
   }
 
@@ -500,7 +562,8 @@ int main() {
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
   if (!bridge.IsConnected()) {
-    std::cerr << "fixture client did not reconnect\n";
+    std::cerr << "fixture client did not reconnect server_thread_socket_error="
+              << reconnect_server.thread_socket_error() << '\n';
     return 5;
   }
   bridge.SetRealtimeWorkerPausedForTesting(false);

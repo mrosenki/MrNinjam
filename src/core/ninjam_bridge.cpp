@@ -21,6 +21,7 @@
 #endif
 
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#include "jnetlib/util.h"
 #include "ninjamplugin/core/njclient_extended.h"
 #endif
 
@@ -451,6 +452,11 @@ void NinjamBridge::StopKeepaliveThread() {
 
 void NinjamBridge::KeepaliveThreadLoop() {
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+  const bool thread_socket_library_open = JNL::open_socketlib() == 0;
+  if (!thread_socket_library_open) {
+    DebugLog("bridge", "Keepalive socket library initialization failed");
+    return;
+  }
   while (!keepalive_thread_stop_.load(std::memory_order_acquire)) {
     const bool should_pump =
         connect_requested_.load(std::memory_order_acquire) && !connection_host_.empty();
@@ -463,6 +469,7 @@ void NinjamBridge::KeepaliveThreadLoop() {
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
+  JNL::close_socketlib();
 #endif
 }
 
@@ -486,6 +493,10 @@ NinjamBridge::~NinjamBridge() {
       delete client_;
       client_ = nullptr;
     }
+  }
+  if (socket_library_open_) {
+    JNL::close_socketlib();
+    socket_library_open_ = false;
   }
 #endif
   DebugLog("bridge", "Destroy complete");
@@ -559,6 +570,13 @@ bool NinjamBridge::Initialize(const double sample_rate) {
   }
 
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+  if (!socket_library_open_) {
+    if (JNL::open_socketlib() != 0) {
+      DebugLog("bridge", "Socket library initialization failed");
+      return false;
+    }
+    socket_library_open_ = true;
+  }
   if (client_ == nullptr) {
     client_ = new NinjamPluginNJClient();
   }
