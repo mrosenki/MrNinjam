@@ -4,18 +4,18 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_TYPE="${1:-Release}"
 BUILD_DIR="${ROOT_DIR}/build/${BUILD_TYPE}"
-CLAP_ARTIFACT="${BUILD_DIR}/plugin/NinjamPlugin.clap"
-VST3_ARTIFACT="${BUILD_DIR}/plugin/NinjamPlugin.vst3"
+CLAP_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.clap"
+VST3_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.vst3"
 
 "${ROOT_DIR}/scripts/check_submodule_clean.sh"
 
-printf "Configuring NinjamPlugin (%s)...\n" "$BUILD_TYPE"
+printf "Configuring MrNinjam (%s)...\n" "$BUILD_TYPE"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
   -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON \
   -DNINJAMPLUGIN_ENABLE_VST3=ON
 
-printf "Building NinjamPlugin targets...\n"
+printf "Building MrNinjam targets...\n"
 cmake --build "$BUILD_DIR" -j 8
 
 ctest --test-dir "$BUILD_DIR" -C "$BUILD_TYPE" --output-on-failure

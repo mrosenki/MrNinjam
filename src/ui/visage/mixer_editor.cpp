@@ -5501,7 +5501,7 @@ MixerEditor::MixerEditor(MixerScenario scenario,
                                            bool persist_layout_preferences)
     : content_(std::make_unique<Content>(std::move(scenario),
                                          persist_layout_preferences)) {
-  setTitle("NinjamPlugin");
+  setTitle("MrNinjam");
   setFlexLayout(true);
   addChild(content_.get());
   content_->layout().setFlexGrow(1.0f);

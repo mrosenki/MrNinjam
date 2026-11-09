@@ -199,8 +199,8 @@ int main() {
   clap_host_t host{};
   host.clap_version = CLAP_VERSION;
   host.name = "Real-time diagnostics regression";
-  host.vendor = "NinjamPlugin";
-  host.url = "https://github.com/mrosenki/NinjamPlugin-Public";
+  host.vendor = "MrNinjam";
+  host.url = "https://github.com/mrosenki/MrNinjam";
   host.version = "1";
   host.get_extension = HostGetExtension;
   host.request_restart = HostRequest;

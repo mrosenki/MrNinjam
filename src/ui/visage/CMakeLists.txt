@@ -46,6 +46,9 @@ if(NINJAMPLUGIN_BUILD_UI_HARNESS)
   )
 
   target_compile_features(ninjamplugin_ui_harness PRIVATE cxx_std_20)
+  set_target_properties(ninjamplugin_ui_harness PROPERTIES
+    OUTPUT_NAME "MrNinjamUiHarness"
+  )
 
   if(NINJAMPLUGIN_ENABLE_STRICT_WARNINGS)
     ninjamplugin_apply_warnings(ninjamplugin_ui_harness)

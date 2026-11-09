@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(NinjamPlugin VERSION 0.2.1 LANGUAGES C CXX)
+project(MrNinjam VERSION 0.2.1 LANGUAGES C CXX)
 
 # Keep the host-visible CLAP version (also consumed by clap-wrapper for VST3)
 # and vcpkg package metadata aligned with the authoritative project version.
@@ -78,7 +78,7 @@ endif()
 option(NINJAMPLUGIN_ENABLE_STRICT_WARNINGS "Enable strict compiler warnings" ON)
 option(NINJAMPLUGIN_ENABLE_TESTS "Build unit/smoke tests" ON)
 option(NINJAMPLUGIN_BUILD_UI_HARNESS
-  "Build the standalone NinjamPlugin UI test harness"
+  "Build the standalone MrNinjam UI test harness"
   OFF
 )
 option(NINJAMPLUGIN_ENABLE_VST3
@@ -220,7 +220,7 @@ if(NOT EXISTS "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include/clap/clap.h")
   )
 endif()
 
-# NinjamPlugin needs decoded remote-channel audio before NJClient applies its
+# MrNinjam needs decoded remote-channel audio before NJClient applies its
 # legacy monitor gain/pan/output stage. Keep that small integration hook as a
 # project-owned patch so clean CI and developer clones build the same sources
 # as the working tree used to develop the feature.

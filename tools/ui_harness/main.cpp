@@ -264,7 +264,7 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
 
 int main(int argc, char** argv) {
   bool verify = false;
-  std::filesystem::path output_directory = "ninjamplugin-ui-harness-renders";
+  std::filesystem::path output_directory = "mrninjam-ui-harness-renders";
   for (int index = 1; index < argc; ++index) {
     const std::string argument = argv[index];
     if (argument == "--verify")

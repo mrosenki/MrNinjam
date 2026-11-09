@@ -2711,7 +2711,7 @@ const clap_plugin_descriptor_t kPluginDescriptor = {
     ninjamplugin::format::clap::kPluginId,
     ninjamplugin::format::clap::kPluginName,
     ninjamplugin::format::clap::kPluginVendor,
-    "",
+    ninjamplugin::format::clap::kPluginUrl,
     "",
     "",
     ninjamplugin::format::clap::kPluginVersion,
@@ -2788,7 +2788,7 @@ const clap_plugin_info_as_vst3_t* CLAP_ABI FactoryGetVst3Info(
 
 const clap_plugin_factory_as_vst3_t kPluginFactoryAsVst3 = {
     ninjamplugin::format::clap::kPluginVendor,
-    "https://github.com/mrosenki/NinjamPlugin-Public",
+    ninjamplugin::format::clap::kPluginUrl,
     nullptr,
     FactoryGetVst3Info,
     nullptr,
