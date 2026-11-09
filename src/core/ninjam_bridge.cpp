@@ -473,6 +473,86 @@ void NinjamBridge::KeepaliveThreadLoop() {
 #endif
 }
 
+NinjamBridge::NinjamBridge() {
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
+  PublishLocalInputRoutingSnapshotLocked();
+}
+
+void NinjamBridge::PublishLocalInputRoutingSnapshotLocked() {
+  LocalInputRoutingSnapshot next{};
+  for (std::size_t index = 0; index < local_input_routes_.size(); ++index) {
+    const auto& source = local_input_routes_[index];
+    auto& destination = next.routes[index];
+    destination.configured = source.configured;
+    destination.enabled = source.enabled;
+    destination.monitor_enabled = source.monitor_enabled;
+    destination.source_channel_index = RouteSourceStart(source);
+    destination.source_channel_count = RouteSourceCount(source);
+    destination.send_level = source.send_level;
+    destination.monitor_level = source.monitor_level;
+    destination.output_pair_index = source.output_pair_index;
+    destination.monitor_pan = source.monitor_pan;
+    destination.monitor_muted = source.monitor_muted;
+    destination.monitor_solo = source.monitor_solo;
+    destination.send_pan = source.send_pan;
+    destination.send_muted = source.send_muted;
+    destination.send_solo = source.send_solo;
+    destination.audition_send = source.audition_send;
+    next.send_solo_active =
+        next.send_solo_active || (source.configured && source.enabled && source.send_solo);
+    next.monitor_solo_active =
+        next.monitor_solo_active ||
+        (source.configured && source.monitor_enabled && source.monitor_solo);
+  }
+
+  while (local_input_routing_readers_acquiring_.load(std::memory_order_seq_cst) != 0) {
+    std::this_thread::yield();
+  }
+  const std::uint32_t current =
+      published_local_input_routing_snapshot_.load(std::memory_order_seq_cst);
+  for (std::uint32_t offset = 1;
+       offset < static_cast<std::uint32_t>(kLocalInputRoutingSnapshotSlotCount);
+       ++offset) {
+    const std::uint32_t candidate =
+        (current + offset) %
+        static_cast<std::uint32_t>(kLocalInputRoutingSnapshotSlotCount);
+    auto& slot = local_input_routing_snapshots_[candidate];
+    if (slot.readers.load(std::memory_order_seq_cst) != 0) continue;
+    slot.snapshot = next;
+    while (local_input_routing_readers_acquiring_.load(std::memory_order_seq_cst) != 0) {
+      std::this_thread::yield();
+    }
+    published_local_input_routing_snapshot_.store(candidate,
+                                                  std::memory_order_seq_cst);
+    return;
+  }
+
+  // A conforming host has one process callback in flight per instance. With
+  // one published slot and at most one older pinned slot, the third slot is
+  // always reusable. Keep the previous complete publication if a host breaks
+  // that contract instead of waiting or overwriting storage still in use.
+  DebugLog("bridge", "Routing snapshot publication deferred: all spare slots are pinned");
+}
+
+NinjamBridge::LocalInputRoutingSnapshotRead
+NinjamBridge::AcquireLocalInputRoutingSnapshot() const {
+  local_input_routing_readers_acquiring_.fetch_add(1,
+                                                   std::memory_order_seq_cst);
+  const std::uint32_t slot =
+      published_local_input_routing_snapshot_.load(std::memory_order_seq_cst);
+  local_input_routing_snapshots_[slot].readers.fetch_add(1,
+                                                        std::memory_order_seq_cst);
+  local_input_routing_readers_acquiring_.fetch_sub(1,
+                                                   std::memory_order_seq_cst);
+  return LocalInputRoutingSnapshotRead{
+      &local_input_routing_snapshots_[slot].snapshot, slot};
+}
+
+void NinjamBridge::ReleaseLocalInputRoutingSnapshot(const std::uint32_t slot) const {
+  local_input_routing_snapshots_[slot].readers.fetch_sub(1,
+                                                        std::memory_order_seq_cst);
+}
+
 NinjamBridge::~NinjamBridge() {
   ServiceRealtimeLifecycleRequests();
   DebugLogf("bridge",
@@ -604,7 +684,7 @@ bool NinjamBridge::Initialize(const double sample_rate) {
   connect_attempt_count_ = 0;
   session_bpm_last_changed_ms_ = 0;
   session_bpi_last_changed_ms_ = 0;
-  local_channel_config_initialized_ = false;
+  applied_local_channel_topology_revision_.store(0, std::memory_order_release);
   disconnect_pending_ = false;
   disconnect_pending_since_ms_ = 0;
   disconnect_completed_ms_ = 0;
@@ -921,7 +1001,7 @@ void NinjamBridge::MainThreadTick() {
       disconnect_pending_since_ms_ = 0;
       disconnect_completed_ms_ = MonotonicNowMs();
       status = NJClient::NJC_STATUS_DISCONNECTED;
-      local_channel_config_initialized_ = false;
+      applied_local_channel_topology_revision_.store(0, std::memory_order_release);
       ClearSessionFeedState();
       DebugLog("bridge", "Deferred disconnect executed");
     }
@@ -940,11 +1020,20 @@ void NinjamBridge::MainThreadTick() {
       std::min(kMaxSupportedAudioChannels,
                active_daw_input_channel_count_.load(std::memory_order_acquire)));
   const int available_input_pair_count = ClampAvailableInputPairCount(observed_input_channel_count);
-  if (!local_channel_config_initialized_ ||
+  std::array<LocalInputRouteConfig, kMaxSupportedLocalInputPairs> local_input_routes;
+  std::uint64_t local_channel_topology_revision = 0;
+  {
+    std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
+    local_input_routes = local_input_routes_;
+    local_channel_topology_revision =
+        local_channel_topology_revision_.load(std::memory_order_acquire);
+  }
+  if (applied_local_channel_topology_revision_.load(std::memory_order_acquire) !=
+          local_channel_topology_revision ||
       local_channel_broadcast_ != transmit_broadcast ||
       local_channel_input_channel_count_ != observed_input_channel_count ||
       local_channel_server_limit_ != negotiated_local_channel_limit ||
-      !HasSameLocalChannelTopology(applied_local_input_routes_, local_input_routes_)) {
+      !HasSameLocalChannelTopology(applied_local_input_routes_, local_input_routes)) {
     std::lock_guard<std::mutex> lock(client_mutex_);
     if (client_ != nullptr) {
       for (int local_channel_index = 0; local_channel_index < kMaxSupportedLocalInputPairs;
@@ -953,7 +1042,7 @@ void NinjamBridge::MainThreadTick() {
       }
 
       int transmit_channel_index = 0;
-      for (const auto& route : local_input_routes_) {
+      for (const auto& route : local_input_routes) {
         const int source_start = RouteSourceStart(route);
         const int source_count = RouteSourceCount(route);
         if (!route.configured || !route.enabled || source_start < 0 ||
@@ -995,11 +1084,12 @@ void NinjamBridge::MainThreadTick() {
       if (connect_requested && status == NJClient::NJC_STATUS_OK) {
         client_->NotifyServerOfChannelChange();
       }
-      local_channel_config_initialized_ = true;
       local_channel_broadcast_ = transmit_broadcast;
       local_channel_input_channel_count_ = observed_input_channel_count;
       local_channel_server_limit_ = negotiated_local_channel_limit;
-      applied_local_input_routes_ = local_input_routes_;
+      applied_local_input_routes_ = local_input_routes;
+      applied_local_channel_topology_revision_.store(
+          local_channel_topology_revision, std::memory_order_release);
       DebugLogf("bridge",
                 "Local channels configured mode=%s bitrate=%d broadcast=%d inputs=%d pairs=%d server_limit=%d enabled={%d,%d} active_transmit=%d notify_sent=%d",
                 TransmitModeName(transmit_mode),
@@ -1040,7 +1130,7 @@ void NinjamBridge::MainThreadTick() {
                                  : kMaxSupportedLocalInputPairs;
       server_max_local_channels_.store(next_limit, std::memory_order_release);
       if (next_limit != local_channel_server_limit_)
-        local_channel_config_initialized_ = false;
+        applied_local_channel_topology_revision_.store(0, std::memory_order_release);
     }
   }
   if (status != last_nj_status_) {
@@ -1272,7 +1362,7 @@ void NinjamBridge::SetConnectRequested(const bool value) {
       if (client_ != nullptr) {
         client_->Disconnect();
       }
-      local_channel_config_initialized_ = false;
+      applied_local_channel_topology_revision_.store(0, std::memory_order_release);
       disconnect_pending_ = false;
       disconnect_pending_since_ms_ = 0;
       disconnect_completed_ms_ = MonotonicNowMs();
@@ -1350,7 +1440,7 @@ void NinjamBridge::ApplyConnectionSettings(const ConnectionSettings& settings) {
   connection_pass_ = settings.pass;
   session_capture_directory_ = settings.recordings_path;
   connection_config_loaded_ = true;
-  local_channel_config_initialized_ = false;
+  applied_local_channel_topology_revision_.store(0, std::memory_order_release);
 
   if (!connected_ && !connect_requested_.load(std::memory_order_acquire)) {
     connection_state_ = connection_host_.empty() ? kConnectionStateUnavailable
@@ -2330,7 +2420,6 @@ void NinjamBridge::SetObservedInputChannelCount(const int value) {
 void NinjamBridge::SetActiveDawInputChannelCount(const int value) {
   const int clamped = std::clamp(value, 2, kMaxSupportedAudioChannels);
   active_daw_input_channel_count_.store(clamped, std::memory_order_release);
-  local_channel_config_initialized_ = false;
   DebugLogf("bridge", "Active DAW input layout set to %d channels", clamped);
 }
 
@@ -2342,15 +2431,23 @@ int NinjamBridge::GetActiveDawInputChannelCount() const {
 void NinjamBridge::SetActiveDawOutputChannelCount(const int value) {
   const int clamped = std::clamp(value, 2, kMaxSupportedAudioChannels);
   active_daw_output_channel_count_.store(clamped, std::memory_order_release);
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
+  bool changed = false;
   for (auto& route : local_input_routes_) {
     const bool stereo_valid = route.output_pair_index >= 0 &&
                               route.output_pair_index < kStereoOutputRouteCount &&
                               route.output_pair_index * 2 + 1 < clamped;
     const bool mono_valid = route.output_pair_index >= kMonoOutputRouteBase &&
                             route.output_pair_index - kMonoOutputRouteBase < clamped;
-    if (!stereo_valid && !mono_valid) route.output_pair_index = 0;
+    if (!stereo_valid && !mono_valid) {
+      route.output_pair_index = 0;
+      changed = true;
+    }
   }
-  local_channel_config_initialized_ = false;
+  if (changed) {
+    local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+    PublishLocalInputRoutingSnapshotLocked();
+  }
   DebugLogf("bridge", "Active DAW output layout set to %d channels", clamped);
 }
 
@@ -2416,6 +2513,7 @@ LocalInputChannelConfig NinjamBridge::GetLocalInputChannelConfig(const int index
   if (index < 0 || index >= kMaxSupportedLocalInputPairs) {
     return LocalInputChannelConfig{false, index < 0 ? 0 : index};
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   for (const auto& route : local_input_routes_) {
     if (route.configured && route.source_pair_index == index) {
       return LocalInputChannelConfig{route.enabled, route.source_pair_index};
@@ -2425,6 +2523,7 @@ LocalInputChannelConfig NinjamBridge::GetLocalInputChannelConfig(const int index
 }
 
 int NinjamBridge::GetLocalInputRouteCount() const {
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   int count = 0;
   for (const auto& route : local_input_routes_) {
     if (route.configured) {
@@ -2438,6 +2537,7 @@ LocalInputRouteConfig NinjamBridge::GetLocalInputRouteConfig(const int index) co
   if (index < 0 || index >= kMaxSupportedLocalInputPairs) {
     return {};
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   return local_input_routes_[static_cast<std::size_t>(index)];
 }
 
@@ -2464,8 +2564,12 @@ void NinjamBridge::ReplaceLocalInputRoutes(
     destination.channel_mode = ClampChannelMode(source.channel_mode);
     destination.bitrate = ClampTransmitBitrate(source.bitrate);
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
+  if (!HasSameLocalChannelTopology(local_input_routes_, normalized)) {
+    local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+  }
   local_input_routes_ = normalized;
-  local_channel_config_initialized_ = false;
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalMonitorMaster(const double value) {
@@ -2491,8 +2595,18 @@ int NinjamBridge::AddLocalInputRoute() {
 int NinjamBridge::AddLocalInputRoute(const int source_channel_index,
                                      const int source_channel_count) {
   const int available = GetAvailableInputPairCount();
-  if (!IsLocalInputSourceAvailable(-1, source_channel_index, source_channel_count))
+  const int count = std::clamp(source_channel_count, 1, 2);
+  if (source_channel_index < 0 ||
+      source_channel_index + count > GetActiveDawInputChannelCount())
     return -1;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
+  for (const auto& other : local_input_routes_) {
+    if (other.configured &&
+        SourceRangesOverlap(source_channel_index, count,
+                            RouteSourceStart(other), RouteSourceCount(other))) {
+      return -1;
+    }
+  }
   for (int slot = 0; slot < kMaxSupportedLocalInputPairs; ++slot) {
     auto& route = local_input_routes_[static_cast<std::size_t>(slot)];
     if (route.configured)
@@ -2506,12 +2620,13 @@ int NinjamBridge::AddLocalInputRoute(const int source_channel_index,
         .monitor_level = kLocalInputMonitorLevelDefault,
         .output_pair_index = 0,
         .source_channel_index = source_channel_index,
-        .source_channel_count = std::clamp(source_channel_count, 1, 2),
+        .source_channel_count = count,
         .name = {},
         .channel_mode = kChannelModeNormal,
         .bitrate = GetTransmitBitrate(),
     };
-    local_channel_config_initialized_ = false;
+    local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+    PublishLocalInputRoutingSnapshotLocked();
     DebugLogf("bridge",
               "AddLocalInputRoute slot=%d source_pair=%d available_pairs=%d",
               slot,
@@ -2532,6 +2647,7 @@ bool NinjamBridge::IsLocalInputSourceAvailable(const int route_index,
   const int count = std::clamp(source_channel_count, 1, 2);
   if (source_channel_index < 0 || source_channel_index + count > GetActiveDawInputChannelCount())
     return false;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   for (int slot = 0; slot < kMaxSupportedLocalInputPairs; ++slot) {
     if (slot == route_index)
       continue;
@@ -2547,37 +2663,59 @@ bool NinjamBridge::IsLocalInputSourceAvailable(const int route_index,
 bool NinjamBridge::SetLocalInputRouteSource(const int route_index,
                                             const int source_channel_index,
                                             const int source_channel_count) {
+  const int count = std::clamp(source_channel_count, 1, 2);
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs ||
-      !IsLocalInputSourceAvailable(route_index, source_channel_index, source_channel_count))
+      source_channel_index < 0 ||
+      source_channel_index + count > GetActiveDawInputChannelCount())
     return false;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
+  for (int slot = 0; slot < kMaxSupportedLocalInputPairs; ++slot) {
+    if (slot == route_index) continue;
+    const auto& other = local_input_routes_[static_cast<std::size_t>(slot)];
+    if (other.configured &&
+        SourceRangesOverlap(source_channel_index, count,
+                            RouteSourceStart(other), RouteSourceCount(other))) {
+      return false;
+    }
+  }
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured)
     return false;
+  if (route.source_channel_index == source_channel_index &&
+      route.source_channel_count == count) {
+    return true;
+  }
   route.source_channel_index = source_channel_index;
-  route.source_channel_count = std::clamp(source_channel_count, 1, 2);
+  route.source_channel_count = count;
   route.source_pair_index = source_channel_index / 2;
-  local_channel_config_initialized_ = false;
+  local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+  PublishLocalInputRoutingSnapshotLocked();
   return true;
 }
 
 void NinjamBridge::SetLocalInputRouteName(const int route_index, const std::string& name) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs)
     return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured)
     return;
-  route.name = name.substr(0, 64);
-  local_channel_config_initialized_ = false;
+  const std::string next = name.substr(0, 64);
+  if (route.name == next) return;
+  route.name = next;
+  local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
 }
 
 bool NinjamBridge::RemoveLocalInputRoute(const int index) {
   if (index < 0 || index >= kMaxSupportedLocalInputPairs)
     return false;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(index)];
   if (!route.configured)
     return false;
   route = {};
-  local_channel_config_initialized_ = false;
+  local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+  PublishLocalInputRoutingSnapshotLocked();
   DebugLogf("bridge", "RemoveLocalInputRoute slot=%d", index);
   return true;
 }
@@ -2586,6 +2724,7 @@ void NinjamBridge::SetLocalInputRouteEnabled(const int route_index, const bool v
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) {
     return;
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured || route.source_pair_index < 0) {
     return;
@@ -2594,7 +2733,8 @@ void NinjamBridge::SetLocalInputRouteEnabled(const int route_index, const bool v
     return;
   }
   route.enabled = value;
-  local_channel_config_initialized_ = false;
+  local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+  PublishLocalInputRoutingSnapshotLocked();
   DebugLogf("bridge",
             "SetLocalInputRouteEnabled route=%d source_pair=%d enabled=%d",
             route_index,
@@ -2615,6 +2755,7 @@ double NinjamBridge::GetLocalInputRouteMonitorLevel(const int route_index) const
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) {
     return kLocalInputMonitorLevelDefault;
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   const auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   return route.configured ? route.monitor_level : kLocalInputMonitorLevelDefault;
 }
@@ -2623,6 +2764,7 @@ double NinjamBridge::GetLocalInputRouteSendLevel(const int route_index) const {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) {
     return kLocalInputSendLevelDefault;
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   const auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   return route.configured ? route.send_level : kLocalInputSendLevelDefault;
 }
@@ -2631,6 +2773,7 @@ void NinjamBridge::SetLocalInputRouteSendLevel(const int route_index, const doub
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) {
     return;
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) {
     return;
@@ -2640,6 +2783,7 @@ void NinjamBridge::SetLocalInputRouteSendLevel(const int route_index, const doub
     return;
   }
   route.send_level = next;
+  PublishLocalInputRoutingSnapshotLocked();
   DebugLogf("bridge",
             "SetLocalInputRouteSendLevel route=%d source_pair=%d level=%.3f",
             route_index,
@@ -2649,29 +2793,40 @@ void NinjamBridge::SetLocalInputRouteSendLevel(const int route_index, const doub
 
 void NinjamBridge::SetLocalInputRouteSendPan(const int route_index, const double value) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
-  route.send_pan = std::clamp(value, -1.0, 1.0);
+  const double next = std::clamp(value, -1.0, 1.0);
+  if (route.send_pan == next) return;
+  route.send_pan = next;
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalInputRouteSendMuted(const int route_index, const bool value) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
+  if (route.send_muted == value) return;
   route.send_muted = value;
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalInputRouteSendSolo(const int route_index, const bool value) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
+  if (route.send_solo == value) return;
   route.send_solo = value;
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalInputRouteMonitorLevel(const int route_index, const double value) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) {
     return;
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) {
     return;
@@ -2681,6 +2836,7 @@ void NinjamBridge::SetLocalInputRouteMonitorLevel(const int route_index, const d
     return;
   }
   route.monitor_level = next;
+  PublishLocalInputRoutingSnapshotLocked();
   DebugLogf("bridge",
             "SetLocalInputRouteMonitorLevel route=%d source_pair=%d level=%.3f",
             route_index,
@@ -2690,62 +2846,86 @@ void NinjamBridge::SetLocalInputRouteMonitorLevel(const int route_index, const d
 
 void NinjamBridge::SetLocalInputRouteMonitorPan(const int route_index, const double value) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
-  route.monitor_pan = std::clamp(value, -1.0, 1.0);
+  const double next = std::clamp(value, -1.0, 1.0);
+  if (route.monitor_pan == next) return;
+  route.monitor_pan = next;
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalInputRouteMonitorMuted(const int route_index, const bool value) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
+  if (route.monitor_muted == value) return;
   route.monitor_muted = value;
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalInputRouteMonitorSolo(const int route_index, const bool value) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
+  if (route.monitor_solo == value) return;
   route.monitor_solo = value;
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalInputRouteAuditionSend(const int route_index, const bool value) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
+  if (route.audition_send == value) return;
   route.audition_send = value;
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalInputRouteOutputPair(const int route_index,
                                                 const int output_pair_index) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
-  route.output_pair_index = std::clamp(output_pair_index, 0, kMaximumOutputRoute);
-  local_channel_config_initialized_ = false;
+  const int next = std::clamp(output_pair_index, 0, kMaximumOutputRoute);
+  if (route.output_pair_index == next) return;
+  route.output_pair_index = next;
+  local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+  PublishLocalInputRoutingSnapshotLocked();
 }
 
 void NinjamBridge::SetLocalInputRouteChannelMode(const int route_index,
                                                  const int channel_mode) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
-  route.channel_mode = ClampChannelMode(channel_mode);
-  local_channel_config_initialized_ = false;
+  const int next = ClampChannelMode(channel_mode);
+  if (route.channel_mode == next) return;
+  route.channel_mode = next;
+  local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
 }
 
 void NinjamBridge::SetLocalInputRouteBitrate(const int route_index, const int bitrate) {
   if (route_index < 0 || route_index >= kMaxSupportedLocalInputPairs) return;
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   auto& route = local_input_routes_[static_cast<std::size_t>(route_index)];
   if (!route.configured) return;
-  route.bitrate = ClampTransmitBitrate(bitrate);
-  local_channel_config_initialized_ = false;
+  const int next = ClampTransmitBitrate(bitrate);
+  if (route.bitrate == next) return;
+  route.bitrate = next;
+  local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
 }
 
 void NinjamBridge::SetLocalInputChannelEnabled(const int index, const bool value) {
   if (index < 0 || index >= kMaxSupportedLocalInputPairs) {
     return;
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   for (auto& route : local_input_routes_) {
     if (route.configured && route.source_pair_index == index) {
       if (route.enabled == value) {
@@ -2755,7 +2935,8 @@ void NinjamBridge::SetLocalInputChannelEnabled(const int index, const bool value
       if (value) {
         route.monitor_enabled = true;
       }
-      local_channel_config_initialized_ = false;
+      local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+      PublishLocalInputRoutingSnapshotLocked();
       DebugLogf("bridge",
                 "SetLocalInputChannelEnabled source_pair=%d enabled=%d",
                 index,
@@ -2775,7 +2956,8 @@ void NinjamBridge::SetLocalInputChannelEnabled(const int index, const bool value
                                     kLocalInputSendLevelDefault,
                                     kLocalInputMonitorLevelDefault,
                                     0};
-      local_channel_config_initialized_ = false;
+      local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
+      PublishLocalInputRoutingSnapshotLocked();
       DebugLogf("bridge",
                 "SetLocalInputChannelEnabled source_pair=%d enabled=%d",
                 index,
@@ -2783,13 +2965,13 @@ void NinjamBridge::SetLocalInputChannelEnabled(const int index, const bool value
       return;
     }
   }
-  local_channel_config_initialized_ = false;
 }
 
 double NinjamBridge::GetLocalInputChannelMonitorLevel(const int index) const {
   if (index < 0 || index >= kMaxSupportedLocalInputPairs) {
     return kLocalInputMonitorLevelDefault;
   }
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   for (const auto& route : local_input_routes_) {
     if (route.configured && route.source_pair_index == index) {
       return route.monitor_level;
@@ -2803,6 +2985,7 @@ void NinjamBridge::SetLocalInputChannelMonitorLevel(const int index, const doubl
     return;
   }
   const double next = ClampLocalInputMonitorLevel(value);
+  std::lock_guard<std::mutex> lock(local_input_routes_mutex_);
   for (auto& route : local_input_routes_) {
     if (!route.configured || route.source_pair_index != index) {
       continue;
@@ -2811,6 +2994,7 @@ void NinjamBridge::SetLocalInputChannelMonitorLevel(const int index, const doubl
       return;
     }
     route.monitor_level = next;
+    PublishLocalInputRoutingSnapshotLocked();
     DebugLogf("bridge",
               "SetLocalInputChannelMonitorLevel source_pair=%d level=%.3f",
               index,
@@ -2868,24 +3052,22 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
     return false;
   }
 
+  const LocalInputRoutingSnapshotRead routing_snapshot_read =
+      AcquireLocalInputRoutingSnapshot();
+  const LocalInputRoutingSnapshot& routing_snapshot =
+      *routing_snapshot_read.snapshot;
+  const auto& local_input_routes = routing_snapshot.routes;
+
   if (!apply_gain) {
     last_runtime_monitor_valid_.store(false, std::memory_order_release);
     last_runtime_monitor_frame_count_.store(0U, std::memory_order_release);
-    const bool send_solo_active = std::any_of(
-        local_input_routes_.begin(), local_input_routes_.end(),
-        [](const LocalInputRouteConfig& route) {
-          return route.configured && route.enabled && route.send_solo;
-        });
-    const bool monitor_solo_active = std::any_of(
-        local_input_routes_.begin(), local_input_routes_.end(),
-        [](const LocalInputRouteConfig& route) {
-          return route.configured && route.enabled && route.monitor_solo;
-        });
+    const bool send_solo_active = routing_snapshot.send_solo_active;
+    const bool monitor_solo_active = routing_snapshot.monitor_solo_active;
     for (int route_index = 0; route_index < kMaxSupportedLocalInputPairs; ++route_index) {
       const std::size_t slot = static_cast<std::size_t>(route_index);
-      const auto& route = local_input_routes_[slot];
-      const int source_start = RouteSourceStart(route);
-      const int source_count = RouteSourceCount(route);
+      const auto& route = local_input_routes[slot];
+      const int source_start = route.source_channel_index;
+      const int source_count = route.source_channel_count;
       if (!route.configured || source_start < 0 ||
           source_start + source_count > active_input_channel_count) {
         local_input_peak_left_bits_[slot].store(0U, std::memory_order_relaxed);
@@ -2997,16 +3179,12 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
       runtime_out[static_cast<std::size_t>(channel)] = buffer.data();
     }
     std::array<float*, kMaxSupportedAudioChannels> runtime_in{};
-    const bool send_solo_active = std::any_of(
-        local_input_routes_.begin(), local_input_routes_.end(),
-        [](const LocalInputRouteConfig& route) {
-          return route.configured && route.enabled && route.send_solo;
-        });
+    const bool send_solo_active = routing_snapshot.send_solo_active;
     bool needs_send_scaling = send_solo_active;
-    for (const auto& route : local_input_routes_) {
-      const int source_start = RouteSourceStart(route);
+    for (const auto& route : local_input_routes) {
+      const int source_start = route.source_channel_index;
       if (!route.configured || source_start < 0 ||
-          source_start + RouteSourceCount(route) > active_input_channel_count) {
+          source_start + route.source_channel_count > active_input_channel_count) {
         continue;
       }
       if (std::fabs(route.send_level - kLocalInputSendLevelDefault) > 1.0e-6 ||
@@ -3025,9 +3203,9 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
            ++channel_index) {
         runtime_send_input_ptrs_[channel_index] = input_channels[channel_index];
       }
-      for (const auto& route : local_input_routes_) {
-        const int source_start = RouteSourceStart(route);
-        const int source_count = RouteSourceCount(route);
+      for (const auto& route : local_input_routes) {
+        const int source_start = route.source_channel_index;
+        const int source_count = route.source_channel_count;
         if (!route.configured || source_start < 0 ||
             source_start + source_count > active_input_channel_count) {
           continue;
@@ -3088,9 +3266,9 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
     // The session-mix recording follows the amber SEND/RECORD lanes, never
     // the selected DAW monitor outputs. This keeps audition and monitor-only
     // adjustments out of the captured mix.
-    for (const auto& route : local_input_routes_) {
-      const int source_start = RouteSourceStart(route);
-      const int source_count = RouteSourceCount(route);
+    for (const auto& route : local_input_routes) {
+      const int source_start = route.source_channel_index;
+      const int source_count = route.source_channel_count;
       if (!route.configured || source_start < 0 ||
           source_start + source_count > active_input_channel_count)
         continue;
@@ -3140,20 +3318,12 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
       if (!runtime_monitor_ready) std::fill_n(buffer.data(), frame_count, 0.0f);
     }
     const float monitor_master = static_cast<float>(GetLocalMonitorMaster());
-    const bool local_solo_active = std::any_of(
-        local_input_routes_.begin(), local_input_routes_.end(),
-        [](const LocalInputRouteConfig& route) {
-          return route.configured && route.monitor_enabled && route.monitor_solo;
-        });
-    const bool local_send_solo_active = std::any_of(
-        local_input_routes_.begin(), local_input_routes_.end(),
-        [](const LocalInputRouteConfig& route) {
-          return route.configured && route.enabled && route.send_solo;
-        });
+    const bool local_solo_active = routing_snapshot.monitor_solo_active;
+    const bool local_send_solo_active = routing_snapshot.send_solo_active;
     for (std::size_t frame = 0; frame < frame_count; ++frame) {
-      for (const auto& route : local_input_routes_) {
-        const int source_start = RouteSourceStart(route);
-        const int source_count = RouteSourceCount(route);
+      for (const auto& route : local_input_routes) {
+        const int source_start = route.source_channel_index;
+        const int source_count = route.source_channel_count;
         const bool audition_send = route.audition_send;
         const bool route_audible =
             audition_send
@@ -3251,6 +3421,7 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
         &diagnostics_output_peak_bits_,
         ComputePeakStereo(output_left, output_right, frame_count));
   }
+  ReleaseLocalInputRoutingSnapshot(routing_snapshot_read.slot);
   return true;
 }
 

@@ -98,12 +98,14 @@ permanent identity tests passed, both bundles remained at `0.2.1`, and `otool`
 reported system frameworks/libraries only. Existing Homebrew libogg/libvorbis
 deployment-target linker warnings remain unchanged.
 
-This validation establishes preparation and bounded use of bridge-owned and
-explicit NINJAM scratch storage. It does not establish complete connected-audio
-real-time safety: the test does not exercise genuine server stream transitions
-or detect direct C allocation, upstream blocking mutexes, codec continuation,
-decoder lifetime work, or Session mode filesystem operations reached from the
-audio callback. Those remain Issue #5 Phase 2 validation requirements.
+This completes the Issue #5 Phase 2 validation scope for the deterministic
+connected fixture: codec continuation, decoder replacement and lifetime,
+Session file/seek work, upstream callback locks, direct C allocation on macOS,
+overload recovery, and two-instance concurrency are all exercised or guarded
+by source checks. It does not claim representative DAW performance or genuine
+public-server transition coverage. Direct C allocation interposition also
+remains macOS-specific; Windows and Linux retain the connected behavioral and
+source regressions.
 
 The migration completion review also confirmed:
 

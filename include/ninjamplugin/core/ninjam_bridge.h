@@ -131,7 +131,7 @@ struct RealtimePipelineDiagnostics {
 // Thin bridge point for integrating upstream NINJAM protocol/runtime modules.
 class NinjamBridge {
  public:
-  NinjamBridge() = default;
+  NinjamBridge();
   ~NinjamBridge();
 
   NinjamBridge(const NinjamBridge&) = delete;
@@ -358,6 +358,48 @@ class NinjamBridge {
   void SetRealtimeWorkerPausedForTesting(bool paused);
 
  private:
+  struct RealtimeLocalInputRoute {
+    bool configured = false;
+    bool enabled = false;
+    bool monitor_enabled = false;
+    int source_channel_index = -1;
+    int source_channel_count = 2;
+    double send_level = kLocalInputSendLevelDefault;
+    double monitor_level = kLocalInputMonitorLevelDefault;
+    int output_pair_index = 0;
+    double monitor_pan = 0.0;
+    bool monitor_muted = false;
+    bool monitor_solo = false;
+    double send_pan = 0.0;
+    bool send_muted = false;
+    bool send_solo = false;
+    bool audition_send = false;
+  };
+
+  struct LocalInputRoutingSnapshot {
+    std::array<RealtimeLocalInputRoute, kMaxSupportedLocalInputPairs> routes{};
+    bool send_solo_active = false;
+    bool monitor_solo_active = false;
+  };
+
+  struct LocalInputRoutingSnapshotSlot {
+    LocalInputRoutingSnapshot snapshot{};
+    mutable std::atomic<std::uint32_t> readers{0};
+  };
+
+  struct LocalInputRoutingSnapshotRead {
+    const LocalInputRoutingSnapshot* snapshot = nullptr;
+    std::uint32_t slot = 0;
+  };
+
+  static constexpr std::size_t kLocalInputRoutingSnapshotSlotCount = 3;
+  static_assert(std::atomic<std::uint32_t>::is_always_lock_free,
+                "Routing snapshot reader pins must remain lock-free");
+
+  void PublishLocalInputRoutingSnapshotLocked();
+  LocalInputRoutingSnapshotRead AcquireLocalInputRoutingSnapshot() const;
+  void ReleaseLocalInputRoutingSnapshot(std::uint32_t slot) const;
+
   static constexpr int kMaxRemoteUsers = 32;
   static constexpr int kMaxRemoteChannelsPerUser = 32;
   static constexpr int kMaxRemoteRouteSlots =
@@ -453,7 +495,8 @@ class NinjamBridge {
   std::thread keepalive_thread_;
   std::atomic_bool keepalive_thread_stop_{false};
   std::atomic<std::uint32_t> pending_realtime_lifecycle_events_{0};
-  bool local_channel_config_initialized_ = false;
+  std::atomic<std::uint64_t> applied_local_channel_topology_revision_{0};
+  std::atomic<std::uint64_t> local_channel_topology_revision_{1};
   int local_channel_bitrate_ = kTransmitBitrateDefault;
   bool local_channel_broadcast_ = false;
   int local_channel_input_channel_count_ = 2;
@@ -495,6 +538,11 @@ class NinjamBridge {
                                       0, 2, 2, {}};
     return routes;
   }();
+  mutable std::mutex local_input_routes_mutex_;
+  std::array<LocalInputRoutingSnapshotSlot, kLocalInputRoutingSnapshotSlotCount>
+      local_input_routing_snapshots_{};
+  mutable std::atomic<std::uint32_t> local_input_routing_readers_acquiring_{0};
+  std::atomic<std::uint32_t> published_local_input_routing_snapshot_{0};
   std::atomic<double> local_monitor_master_{1.0};
   mutable std::array<std::vector<float>, kMaxSupportedAudioChannels> routed_output_buffers_{};
   mutable std::vector<float> session_capture_left_buffer_;
