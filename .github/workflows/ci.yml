@@ -89,7 +89,7 @@ jobs:
       - name: Verify packaged formats
         shell: bash
         run: |
-          STEM='NinjamPlugin'
+          STEM='MrNinjam'
           find build/plugin -name "$STEM.clap" -print -quit | grep .
           find build/plugin -name "$STEM.vst3" -print -quit | grep .
 
@@ -111,7 +111,7 @@ jobs:
         if: matrix.os != 'ubuntu-latest'
         shell: bash
         run: |
-          VST3_PATH="$(find build/plugin -name 'NinjamPlugin.vst3' | head -n 1)"
+          VST3_PATH="$(find build/plugin -name 'MrNinjam.vst3' | head -n 1)"
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             VALIDATOR="$(find build/validator-build -type f -iname 'validator.exe' | head -n 1)"
           else

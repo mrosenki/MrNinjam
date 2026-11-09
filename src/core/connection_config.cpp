@@ -11,7 +11,8 @@
 namespace ninjamplugin::core {
 namespace {
 
-constexpr std::string_view kSettingsFileName = "ninjamplugin_settings.cfg";
+constexpr std::string_view kSettingsFileName = "mrninjam_settings.cfg";
+constexpr std::string_view kFormerSettingsFileName = "ninjamplugin_settings.cfg";
 constexpr std::string_view kLegacySettingsFileName = "connection.conf";
 constexpr std::string_view kLegacyPreferencesFileName = "preferences.conf";
 
@@ -47,6 +48,27 @@ bool ContainsWhitespace(const std::string_view text) {
 std::string ResolvePlatformConfigDirectory() {
 #if defined(_WIN32)
   if (const char* appdata = ReadEnvNonEmpty("APPDATA")) {
+    return (std::filesystem::path(appdata) / "MrNinjam").string();
+  }
+#elif defined(__APPLE__)
+  if (const char* home = ReadEnvNonEmpty("HOME")) {
+    return (std::filesystem::path(home) / "Library" / "Application Support" / "MrNinjam")
+        .string();
+  }
+#else
+  if (const char* xdg = ReadEnvNonEmpty("XDG_CONFIG_HOME")) {
+    return (std::filesystem::path(xdg) / "MrNinjam").string();
+  }
+  if (const char* home = ReadEnvNonEmpty("HOME")) {
+    return (std::filesystem::path(home) / ".config" / "MrNinjam").string();
+  }
+#endif
+  return {};
+}
+
+std::string ResolveFormerPlatformConfigDirectory() {
+#if defined(_WIN32)
+  if (const char* appdata = ReadEnvNonEmpty("APPDATA")) {
     return (std::filesystem::path(appdata) / "NinjamPlugin").string();
   }
 #elif defined(__APPLE__)
@@ -74,15 +96,23 @@ std::string ResolvePlatformConfigPath() {
 }
 
 std::string ResolvePlatformLegacyConfigPath() {
-  const std::string config_directory = ResolvePlatformConfigDirectory();
+  const std::string config_directory = ResolveFormerPlatformConfigDirectory();
   if (config_directory.empty()) {
     return {};
   }
   return (std::filesystem::path(config_directory) / kLegacySettingsFileName).string();
 }
 
+std::string ResolveFormerPlatformConfigPath() {
+  const std::string config_directory = ResolveFormerPlatformConfigDirectory();
+  if (config_directory.empty()) {
+    return {};
+  }
+  return (std::filesystem::path(config_directory) / kFormerSettingsFileName).string();
+}
+
 std::string ResolvePlatformPreferencesPath() {
-  const std::string config_directory = ResolvePlatformConfigDirectory();
+  const std::string config_directory = ResolveFormerPlatformConfigDirectory();
   if (config_directory.empty()) {
     return {};
   }
@@ -140,6 +170,8 @@ void AppendCandidateIfPresent(std::vector<std::filesystem::path>* candidates,
 
 std::vector<std::filesystem::path> BuildLegacyConfigCandidates() {
   std::vector<std::filesystem::path> candidates;
+
+  AppendCandidateIfPresent(&candidates, ResolveFormerPlatformConfigPath());
 
   std::string preferred_directory;
   if (LoadLegacyConfigDirectoryPreference(&preferred_directory) && !preferred_directory.empty()) {
@@ -363,7 +395,7 @@ bool SaveConnectionSettings(const ConnectionSettings& settings, const std::strin
     return false;
   }
 
-  output << "# NinjamPlugin settings\n";
+  output << "# MrNinjam settings\n";
   output << "# Environment variables still override these values when set.\n";
   output << "host=" << Trim(settings.host) << '\n';
   output << "user=" << (Trim(settings.user).empty() ? "anonymous" : Trim(settings.user)) << '\n';

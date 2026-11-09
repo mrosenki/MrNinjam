@@ -5,17 +5,17 @@ param(
 $ErrorActionPreference = "Stop"
 $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $BuildDir = Join-Path $RootDir ("build/{0}" -f $BuildType)
-$ClapArtifact = Join-Path $BuildDir "plugin/NinjamPlugin.clap"
-$Vst3Artifact = Join-Path $BuildDir "plugin/NinjamPlugin.vst3"
+$ClapArtifact = Join-Path $BuildDir "plugin/MrNinjam.clap"
+$Vst3Artifact = Join-Path $BuildDir "plugin/MrNinjam.vst3"
 
 & (Join-Path $RootDir "scripts/check_submodule_clean.ps1")
 
-Write-Host ("Configuring NinjamPlugin ({0})..." -f $BuildType)
+Write-Host ("Configuring MrNinjam ({0})..." -f $BuildType)
 cmake -S $RootDir -B $BuildDir -DCMAKE_BUILD_TYPE=$BuildType `
   -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON `
   -DNINJAMPLUGIN_ENABLE_VST3=ON
 
-Write-Host "Building NinjamPlugin targets..."
+Write-Host "Building MrNinjam targets..."
 cmake --build $BuildDir -j 8
 
 ctest --test-dir $BuildDir -C $BuildType --output-on-failure

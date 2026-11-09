@@ -318,7 +318,7 @@ std::string GetDefaultSessionCaptureDirectory() {
       return (parent / "recordings").string();
     }
   }
-  return (fs::temp_directory_path() / "NinjamPlugin" / "recordings").string();
+  return (fs::temp_directory_path() / "MrNinjam" / "recordings").string();
 }
 
 SessionCaptureRecorder::SessionCaptureRecorder()

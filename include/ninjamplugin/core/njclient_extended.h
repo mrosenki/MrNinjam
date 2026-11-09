@@ -8,7 +8,7 @@
 #include <ninjam/njclient.h>
 
 #if !defined(NINJAMPLUGIN_NJCLIENT_REMOTE_CHANNEL_AUDIO_PATCH)
-#error "NinjamPlugin requires its patched, build-owned NJClient headers"
+#error "MrNinjam requires its patched, build-owned NJClient headers"
 #endif
 
 // Small project-owned extension of the pinned upstream client.  NINJAM's

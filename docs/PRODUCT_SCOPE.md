@@ -2,7 +2,7 @@
 
 ## Purpose
 
-NinjamPlugin is a NINJAM client designed to run inside a DAW. It combines
+MrNinjam is a NINJAM client designed to run inside a DAW. It combines
 interval-based online collaboration with the routing, monitoring, recording,
 automation, and project-recall facilities already provided by the host.
 
@@ -45,7 +45,7 @@ on macOS, Windows, and Linux.
 - A standalone NINJAM application.
 - Video capture, conferencing, or synchronized video transport.
 - Automatic LUFS leveling, mastering, compression, limiting, or normalization.
-  DAWs and dedicated plugins already provide these functions; NinjamPlugin only
+  DAWs and dedicated plugins already provide these functions; MrNinjam only
   needs signal-presence, gain, pan, and clip feedback for its routing duties.
 - AU, LV2, AAX, or other formats added solely for parity with another project.
 - A JUCE migration or a monolithic processor/editor architecture.

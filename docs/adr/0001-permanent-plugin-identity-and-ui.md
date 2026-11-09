@@ -20,7 +20,8 @@ editor implementations.
 
 Beginning with version 0.2.1:
 
-- the product and package name is `NinjamPlugin`;
+- the visible product and package name is `MrNinjam`;
+- the bundle filenames are `MrNinjam.clap` and `MrNinjam.vst3`;
 - the CLAP ID is `io.github.mrosenki.ninjamplugin`;
 - the VST3 CID is `CF3108E94031432BAEC75E1A03E0978F`;
 - the vendor is `Micah Rosenkind`;
@@ -42,6 +43,13 @@ new plug-in automatically and may require manual replacement. This one-time
 break is accepted before public release so future releases can keep a stable
 identity. The repository retains the prior development commits under the
 approved Option A history strategy.
+
+The visible name was amended from the historical `NinjamPlugin` name to
+`MrNinjam` before source publication. This amendment does not change the CLAP
+ID, VST3 CID, parameter IDs, or saved-state schema. Hosts that cache a bundle
+filename or absolute path may still need a rescan or manual substitution after
+the bundle filename changes, even though identity-aware hosts can match the
+renamed plug-in by its retained ID.
 
 Classic platform-shell code, editor-selection build flags, temporary
 Visage-spike branding, and duplicate CI jobs are removed. Visage remains an

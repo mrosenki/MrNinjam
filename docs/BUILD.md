@@ -2,7 +2,7 @@
 
 ## Products
 
-NinjamPlugin has one CLAP-native implementation and two packaged formats:
+MrNinjam has one CLAP-native implementation and two packaged formats:
 
 - CLAP
 - VST3 through clap-wrapper
@@ -69,11 +69,19 @@ CTest run, artifact existence checks, and packaged-file path scan.
 
 Expected products are under `build/Release/plugin`:
 
-- `NinjamPlugin.clap`
-- `NinjamPlugin.vst3`
+- `MrNinjam.clap`
+- `MrNinjam.vst3`
 
 The permanent CLAP ID is `io.github.mrosenki.ninjamplugin`; the explicit VST3
 CID is `CF3108E94031432BAEC75E1A03E0978F`.
+
+Future official binary releases should use these platform archive names:
+
+- `MrNinjam-macos.zip`
+- `MrNinjam-windows.zip`
+- `MrNinjam-linux.zip`
+
+No release workflow or official binary package is currently provided.
 
 ## Dependency patching
 

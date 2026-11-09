@@ -36,14 +36,12 @@ int ParseChatFontSize(const std::string& value, int fallback) {
   }
 }
 
-}  // namespace
+const char* LayoutPreferencesOverridePath() {
+  const char* path = std::getenv("NINJAMPLUGIN_VISAGE_LAYOUT_PREFERENCES");
+  return path != nullptr && path[0] != '\0' ? path : nullptr;
+}
 
-std::filesystem::path DefaultLayoutPreferencesPath() {
-  if (const char* override_path = std::getenv("NINJAMPLUGIN_VISAGE_LAYOUT_PREFERENCES");
-      override_path != nullptr && override_path[0] != '\0') {
-    return override_path;
-  }
-
+std::filesystem::path FormerLayoutPreferencesPath() {
 #if defined(_WIN32)
   const char* base = std::getenv("APPDATA");
   return base == nullptr ? std::filesystem::path{}
@@ -58,12 +56,47 @@ std::filesystem::path DefaultLayoutPreferencesPath() {
 #else
   const char* xdg_config = std::getenv("XDG_CONFIG_HOME");
   if (xdg_config != nullptr && xdg_config[0] != '\0')
-    return std::filesystem::path(xdg_config) / "NinjamPlugin" / "visage-layout.conf";
+    return std::filesystem::path(xdg_config) / "NinjamPlugin" /
+           "visage-layout.conf";
   const char* home = std::getenv("HOME");
   return home == nullptr ? std::filesystem::path{}
-                         : std::filesystem::path(home) / ".config" / "NinjamPlugin" /
+                         : std::filesystem::path(home) / ".config" /
+                               "NinjamPlugin" / "visage-layout.conf";
+#endif
+}
+
+std::filesystem::path StandardLayoutPreferencesPath() {
+#if defined(_WIN32)
+  const char* base = std::getenv("APPDATA");
+  return base == nullptr ? std::filesystem::path{}
+                         : std::filesystem::path(base) / "MrNinjam" /
+                               "visage-layout.conf";
+#elif defined(__APPLE__)
+  const char* base = std::getenv("HOME");
+  return base == nullptr ? std::filesystem::path{}
+                         : std::filesystem::path(base) / "Library" /
+                               "Application Support" / "MrNinjam" /
+                               "visage-layout.conf";
+#else
+  const char* xdg_config = std::getenv("XDG_CONFIG_HOME");
+  if (xdg_config != nullptr && xdg_config[0] != '\0')
+    return std::filesystem::path(xdg_config) / "MrNinjam" /
+           "visage-layout.conf";
+  const char* home = std::getenv("HOME");
+  return home == nullptr ? std::filesystem::path{}
+                         : std::filesystem::path(home) / ".config" / "MrNinjam" /
                                "visage-layout.conf";
 #endif
+}
+
+}  // namespace
+
+std::filesystem::path DefaultLayoutPreferencesPath() {
+  if (const char* override_path = LayoutPreferencesOverridePath()) {
+    return override_path;
+  }
+
+  return StandardLayoutPreferencesPath();
 }
 
 LayoutPreferences LoadLayoutPreferences(const std::filesystem::path& path) {
@@ -72,6 +105,11 @@ LayoutPreferences LoadLayoutPreferences(const std::filesystem::path& path) {
     return preferences;
 
   std::ifstream input(path);
+  if (!input.is_open() && LayoutPreferencesOverridePath() == nullptr &&
+      path == StandardLayoutPreferencesPath()) {
+    input.clear();
+    input.open(FormerLayoutPreferencesPath());
+  }
   std::string line;
   while (std::getline(input, line)) {
     const auto separator = line.find('=');

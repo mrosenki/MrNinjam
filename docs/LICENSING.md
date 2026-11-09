@@ -4,7 +4,7 @@
 
 Copyright © 2026 Micah Rosenkind.
 
-Except where a file or directory states otherwise, the original NinjamPlugin
+Except where a file or directory states otherwise, the original MrNinjam
 source code, tests, build files, scripts, patches, and documentation are
 licensed under the GNU General Public License, either version 3 of the License,
 or (at your option) any later version (GPL-3.0-or-later). The official GPL
@@ -49,7 +49,7 @@ required by the GPL. WDL/JNetLib files retain their own permissive notices.
 
 ## FreeType choice
 
-NinjamPlugin uses the FreeType Licence route for the pinned FreeType dependency,
+MrNinjam uses the FreeType Licence route for the pinned FreeType dependency,
 not FreeType's alternative GPL route. Source distributions must retain
 `FreeType-FTL.txt` unaltered and identify modifications if any. Binary
 documentation must include this acknowledgement and the required disclaimer:

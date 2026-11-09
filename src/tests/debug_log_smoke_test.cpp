@@ -73,6 +73,9 @@ int main() {
                 "diagnostic logging must default to disabled");
   const std::filesystem::path initially_planned_log_directory(
       ninjamplugin::core::GetDebugLogDirectory());
+  ok &= Require(initially_planned_log_directory.string().find("MrNinjam") !=
+                    std::string::npos,
+                "default log directory does not use the MrNinjam brand");
   ok &= Require(!std::filesystem::exists(initially_planned_log_directory),
                 "disabled diagnostics created a log directory");
   ok &= Require(ninjamplugin::core::SetDebugLogEnabled(true),
@@ -91,6 +94,8 @@ int main() {
   ok &= Require(log_path.filename().string().find("pid" +
                     std::to_string(ProcessId())) != std::string::npos,
                 "session filename does not identify the host process");
+  ok &= Require(log_path.filename().string().rfind("mrninjam-", 0) == 0,
+                "session filename does not use the MrNinjam brand");
   ok &= Require(log_path.filename().string().find("-session") != std::string::npos,
                 "session filename does not distinguish loaded plugin modules");
 

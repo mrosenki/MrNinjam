@@ -20,9 +20,13 @@ static_assert(std::string_view(ninjamplugin::format::clap::kPluginId) ==
 static_assert(std::string_view(ninjamplugin::format::clap::kVst3ClassId) ==
               "CF3108E94031432BAEC75E1A03E0978F");
 static_assert(std::string_view(ninjamplugin::format::clap::kPluginName) ==
-              "NinjamPlugin");
+              "MrNinjam");
+static_assert(std::string_view(ninjamplugin::format::clap::kPluginDescription) ==
+              "MrNinjam independent NINJAM client and multitrack recording effect");
 static_assert(std::string_view(ninjamplugin::format::clap::kPluginVendor) ==
               "Micah Rosenkind");
+static_assert(std::string_view(ninjamplugin::format::clap::kPluginUrl) ==
+              "https://github.com/mrosenki/MrNinjam");
 static_assert(std::string_view(ninjamplugin::format::clap::kPluginVersion) ==
               "0.2.1");
 
@@ -48,14 +52,20 @@ int main() {
       std::strcmp(descriptor->id, ninjamplugin::format::clap::kPluginId) != 0 ||
       std::strcmp(descriptor->name, ninjamplugin::format::clap::kPluginName) != 0 ||
       std::strcmp(descriptor->vendor, ninjamplugin::format::clap::kPluginVendor) != 0 ||
-      std::strcmp(descriptor->version, ninjamplugin::format::clap::kPluginVersion) != 0) {
+      std::strcmp(descriptor->url, ninjamplugin::format::clap::kPluginUrl) != 0 ||
+      std::strcmp(descriptor->version, ninjamplugin::format::clap::kPluginVersion) != 0 ||
+      std::strcmp(descriptor->description,
+                  ninjamplugin::format::clap::kPluginDescription) != 0) {
     std::cerr << "CLAP descriptor identity did not match the permanent metadata\n";
     return 1;
   }
 
   const auto* vst3_factory = static_cast<const clap_plugin_factory_as_vst3_t*>(
       NinjamPluginEntryGetFactory(CLAP_PLUGIN_FACTORY_INFO_VST3_V1));
-  if (vst3_factory == nullptr || vst3_factory->get_vst3_info == nullptr) {
+  if (vst3_factory == nullptr || vst3_factory->vendor_url == nullptr ||
+      vst3_factory->get_vst3_info == nullptr ||
+      std::strcmp(vst3_factory->vendor_url,
+                  ninjamplugin::format::clap::kPluginUrl) != 0) {
     std::cerr << "clap-wrapper VST3 identity factory was not exposed\n";
     return 1;
   }
@@ -75,9 +85,9 @@ int main() {
   // next larger block is an explicit host-contract error.
   clap_host_t host{};
   host.clap_version = CLAP_VERSION;
-  host.name = "NinjamPlugin identity test";
-  host.vendor = "NinjamPlugin";
-  host.url = "https://github.com/mrosenki/NinjamPlugin-Public";
+  host.name = "MrNinjam identity test";
+  host.vendor = "MrNinjam";
+  host.url = "https://github.com/mrosenki/MrNinjam";
   host.version = "1";
   host.get_extension = HostGetExtension;
   host.request_restart = HostRequest;

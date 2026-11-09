@@ -2,7 +2,7 @@
 
 ## Product formats
 
-NinjamPlugin has one CLAP-native implementation. The `ninjamplugin_clap_impl`
+MrNinjam has one CLAP-native implementation. The `ninjamplugin_clap_impl`
 target contains the shared plugin entry implementation and links the common
 core, NINJAM bridge, and editor shell. The CLAP product exposes that
 implementation directly; clap-wrapper adapts the same implementation into the
@@ -15,14 +15,24 @@ The permanent host identity established in `0.2.1` is:
 
 | Surface | Value |
 | --- | --- |
-| Product and package name | `NinjamPlugin` |
+| Product and package name | `MrNinjam` |
+| Bundle filenames | `MrNinjam.clap`, `MrNinjam.vst3` |
 | CLAP ID | `io.github.mrosenki.ninjamplugin` |
 | VST3 CID | `CF3108E94031432BAEC75E1A03E0978F` |
 | Vendor | `Micah Rosenkind` |
 
 Identity is centralized in `plugin_config.h` and locked by a descriptor-level
-test. The transition from the private Classic and Visage-spike identities is a
-deliberate pre-release break; parameter IDs and V1--V20 decoding are retained.
+test. The visible `MrNinjam` name and bundle filenames are separate from the
+permanent CLAP ID and VST3 CID. The historical `ninjamplugin` source namespace,
+CMake targets, entry symbols, environment variables, and serialized state
+headers remain unchanged. Parameter IDs and V1--V20 decoding are retained.
+
+Changing bundle filenames can expose host-specific recall limitations even
+when the format identity is unchanged. Hosts that resolve by CLAP ID or VST3
+CID can match the renamed bundle after a scan; a host that caches the former
+filename or absolute installation path may require a rescan or manual plug-in
+substitution. Keeping the permanent IDs avoids a second identity break, but it
+cannot force path-based hosts to discover a renamed file.
 
 ## Major components
 
@@ -153,6 +163,15 @@ must not unnecessarily delete and recreate NINJAM channels.
   development or diagnostics.
 - Recordings and exports go to a user-selected location or a platform-owned
   default, never a repository checkout.
+
+New settings, UI preferences, diagnostics, logs, and fallback recording paths
+use `MrNinjam` in their platform-owned directory or filename. On first access,
+connection settings are copied from the former
+`NinjamPlugin/ninjamplugin_settings.cfg` path when the new settings file does
+not exist. Existing diagnostic and layout preferences are read from their
+former branded paths when no new file is present. The established
+`NINJAMPLUGIN_*` environment-variable interface is retained for development
+and compatibility.
 
 ## Runtime-path invariant
 

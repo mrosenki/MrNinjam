@@ -1,5 +1,31 @@
 # Validation record
 
+## MrNinjam branding validation
+
+The 2026-11-09 macOS Release validation for the pre-publication rebrand used
+the existing locked dependencies and production build configuration. The
+dependency check passed, `MrNinjam.clap` and `MrNinjam.vst3` built, all 21
+CTest cases passed, and every packaged file passed the source-path scan. The
+identity regression verified the visible `MrNinjam` name and description,
+canonical repository URL, version `0.2.1`, CLAP ID
+`io.github.mrosenki.ninjamplugin`, and VST3 CID
+`CF3108E94031432BAEC75E1A03E0978F`. It also covered migration of an existing
+`NinjamPlugin/ninjamplugin_settings.cfg` file to the branded settings path.
+
+The final CLAP validator run covered 21 tests: 16 passed, none failed, and five
+inapplicable tests were skipped. A cold first scan warned at 246 ms; the final
+scan completed in 91 ms without a warning. The Steinberg VST3 validator passed
+all 47 tests and reported the `MrNinjam` class name, version `0.2.1`, retained
+CID, vendor, and `https://github.com/mrosenki/MrNinjam` URL.
+Both macOS `Info.plist` files reported `MrNinjam` for the bundle and executable
+names while retaining `io.github.mrosenki.ninjamplugin.clap` and
+`io.github.mrosenki.ninjamplugin.vst3` as bundle identifiers.
+
+The build retained the existing project compiler warnings and the documented
+Homebrew libogg/libvorbis macOS 14-to-11 deployment-target linker warnings.
+Windows and Linux were not built locally in this macOS workspace. GitHub
+Actions was intentionally not enabled or triggered for this change.
+
 ## Verified historical baseline
 
 The final private `0.1.132` validation established that:
@@ -38,10 +64,11 @@ private GitHub Actions jobs: macOS Visage, Windows Classic and Visage, and
 Linux Classic and Visage. This established a healthy cross-platform baseline
 before the `0.2.1` single-editor consolidation.
 
-The initial `0.2.1` consolidation local validation covered the single
-production configuration, 14 CTest cases (including UI layout, editor-shell,
-identity, audio-heartbeat, state-codec, bridge, and artifact-path checks), and
-both CLAP and VST3 products named `NinjamPlugin`. The CLAP validator completed
+The historical, pre-rebrand `0.2.1` consolidation local validation covered the
+single production configuration, 14 CTest cases (including UI layout,
+editor-shell, identity, audio-heartbeat, state-codec, bridge, and artifact-path
+checks), and both CLAP and VST3 products named `NinjamPlugin`. The CLAP
+validator completed
 with 15 passes, no failures, five inapplicable skips, and one scan-time warning;
 the Steinberg VST3 validator passed all 47 tests and reported the permanent CID.
 Bundle metadata reported version `0.2.1` and the `.clap`/`.vst3` bundle IDs.
