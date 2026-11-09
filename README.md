@@ -70,21 +70,21 @@ commands. Exact source pins and provenance are in
 
 ## Status and compatibility
 
-Version `0.2.1` retains the permanent CLAP ID
-`io.github.mrosenki.ninjamplugin` and VST3 CID
-`CF3108E94031432BAEC75E1A03E0978F` while changing the visible product and
-bundle name from the historical `NinjamPlugin` identity to `MrNinjam` before
-public release. Parameter IDs and V1--V20 saved-state decoding remain
-unchanged. Internal `ninjamplugin` namespaces, targets, environment variables,
-and state headers are deliberately retained for source and state compatibility.
+Version `0.2.1` establishes the permanent CLAP ID
+`io.github.mrosenki.mrninjam` and retains the VST3 CID
+`CF3108E94031432BAEC75E1A03E0978F`. The CLAP ID replaces the development-only
+`io.github.mrosenki.ninjamplugin` identity in an approved one-time break before
+the first public release. Projects using that former CLAP identity may require
+manual plug-in replacement. Parameter IDs and V1--V20 saved-state decoding
+remain unchanged. Internal `ninjamplugin` namespaces, targets, environment
+variables, and state headers are deliberately retained for source and state
+compatibility.
 
 The generated bundles are `MrNinjam.clap` and `MrNinjam.vst3`. Hosts that
-resolve plug-ins by CLAP ID or VST3 CID should retain project recall after a
-rescan. Hosts that first resolve a plug-in by its bundle filename or cached
-installation path may require the renamed bundle to be rescanned, installed
-alongside the old development bundle temporarily, or manually substituted in
-an affected project. This path-based limitation is host-specific and cannot be
-eliminated without keeping the old bundle filename.
+resolve the VST3 by CID should retain project recall after a rescan. CLAP
+projects using the former ID require host-specific migration or manual
+replacement. Hosts that first resolve either format by its bundle filename or
+cached installation path may also require a rescan or manual substitution.
 
 The old development history and private test artifacts are deliberately not
 part of this tree. Verified historical conclusions and the limitations of the
