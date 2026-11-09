@@ -8,11 +8,13 @@ independently of the package version.
 
 ## 0.2.1 - In development
 
-- Establish the permanent CLAP ID `io.github.mrosenki.ninjamplugin` and VST3
+- Establish the permanent CLAP ID `io.github.mrosenki.mrninjam` and VST3
   CID `CF3108E94031432BAEC75E1A03E0978F` before public release.
+- Replace the development-only CLAP ID `io.github.mrosenki.ninjamplugin` in an
+  approved one-time pre-publication compatibility break.
 - Rename the visible product, bundles, and artifacts from the historical
-  `NinjamPlugin` name to `MrNinjam` before public release, while retaining the
-  permanent CLAP ID and VST3 CID.
+  `NinjamPlugin` name to `MrNinjam` before public release. The deliberate CLAP
+  ID replacement is recorded separately above; the VST3 CID remains unchanged.
 - Make the Visage-backed editor the only production editor on macOS, Windows,
   and Linux; remove the deprecated Classic platform shells.
 - Move production UI sources out of the prototype tree while retaining an

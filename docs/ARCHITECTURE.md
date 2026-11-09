@@ -17,22 +17,24 @@ The permanent host identity established in `0.2.1` is:
 | --- | --- |
 | Product and package name | `MrNinjam` |
 | Bundle filenames | `MrNinjam.clap`, `MrNinjam.vst3` |
-| CLAP ID | `io.github.mrosenki.ninjamplugin` |
+| CLAP ID | `io.github.mrosenki.mrninjam` |
 | VST3 CID | `CF3108E94031432BAEC75E1A03E0978F` |
 | Vendor | `Micah Rosenkind` |
 
 Identity is centralized in `plugin_config.h` and locked by a descriptor-level
 test. The visible `MrNinjam` name and bundle filenames are separate from the
-permanent CLAP ID and VST3 CID. The historical `ninjamplugin` source namespace,
-CMake targets, entry symbols, environment variables, and serialized state
-headers remain unchanged. Parameter IDs and V1--V20 decoding are retained.
+permanent CLAP ID and VST3 CID. The permanent CLAP ID replaces the former
+development ID `io.github.mrosenki.ninjamplugin` before public release. The
+historical `ninjamplugin` source namespace, CMake targets, entry symbols,
+environment variables, and serialized state headers remain unchanged.
+Parameter IDs and V1--V20 decoding are retained.
 
 Changing bundle filenames can expose host-specific recall limitations even
-when the format identity is unchanged. Hosts that resolve by CLAP ID or VST3
-CID can match the renamed bundle after a scan; a host that caches the former
-filename or absolute installation path may require a rescan or manual plug-in
-substitution. Keeping the permanent IDs avoids a second identity break, but it
-cannot force path-based hosts to discover a renamed file.
+when a format identity is otherwise unchanged. The VST3 CID remains stable, so
+CID-aware hosts can match that format after a scan. The approved CLAP ID change
+is a one-time compatibility break: projects using the former development ID
+may require manual replacement. A host that caches a former filename or
+absolute installation path may also require a rescan or manual substitution.
 
 ## Major components
 

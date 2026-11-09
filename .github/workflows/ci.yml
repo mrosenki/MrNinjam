@@ -11,12 +11,18 @@ permissions:
 
 jobs:
   build:
-    name: build (${{ matrix.os }})
+    name: build (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-15]
+        include:
+          - platform: Linux
+            os: ubuntu-latest
+          - platform: Windows
+            os: windows-latest
+          - platform: macOS
+            os: macos-15
 
     steps:
       - name: Checkout repository

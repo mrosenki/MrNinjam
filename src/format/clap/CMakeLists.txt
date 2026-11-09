@@ -33,7 +33,7 @@ target_include_directories(ninjamplugin_clap_impl PRIVATE
 target_compile_features(ninjamplugin_clap_impl PRIVATE cxx_std_20)
 
 set(NINJAMPLUGIN_PLUGIN_OUTPUT_NAME "MrNinjam")
-set(NINJAMPLUGIN_PLUGIN_BUNDLE_IDENTIFIER "io.github.mrosenki.ninjamplugin")
+set(NINJAMPLUGIN_PLUGIN_BUNDLE_IDENTIFIER "io.github.mrosenki.mrninjam")
 set(NINJAMPLUGIN_PLUGIN_BUNDLE_NAME "MrNinjam")
 
 ninjamplugin_apply_warnings(ninjamplugin_clap_impl)

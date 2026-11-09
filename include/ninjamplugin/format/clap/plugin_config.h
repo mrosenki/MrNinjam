@@ -4,7 +4,7 @@
 
 namespace ninjamplugin::format::clap {
 
-inline constexpr char kPluginId[] = "io.github.mrosenki.ninjamplugin";
+inline constexpr char kPluginId[] = "io.github.mrosenki.mrninjam";
 inline constexpr char kPluginVersion[] = "0.2.1";
 inline constexpr char kPluginName[] = "MrNinjam";
 inline constexpr char kPluginVendor[] = "Micah Rosenkind";

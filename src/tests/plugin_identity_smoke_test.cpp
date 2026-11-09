@@ -16,7 +16,7 @@ constexpr std::array<std::uint8_t, 16> kExpectedVst3ComponentId = COMPONENT_ID(
     0xCF3108E9U, 0x4031432BU, 0xAEC75E1AU, 0x03E0978FU);
 
 static_assert(std::string_view(ninjamplugin::format::clap::kPluginId) ==
-              "io.github.mrosenki.ninjamplugin");
+              "io.github.mrosenki.mrninjam");
 static_assert(std::string_view(ninjamplugin::format::clap::kVst3ClassId) ==
               "CF3108E94031432BAEC75E1A03E0978F");
 static_assert(std::string_view(ninjamplugin::format::clap::kPluginName) ==

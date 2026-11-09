@@ -22,7 +22,7 @@ Beginning with version 0.2.1:
 
 - the visible product and package name is `MrNinjam`;
 - the bundle filenames are `MrNinjam.clap` and `MrNinjam.vst3`;
-- the CLAP ID is `io.github.mrosenki.ninjamplugin`;
+- the CLAP ID is `io.github.mrosenki.mrninjam`;
 - the VST3 CID is `CF3108E94031432BAEC75E1A03E0978F`;
 - the vendor is `Micah Rosenkind`;
 - the Visage-backed editor is the sole production editor on macOS, Windows,
@@ -45,11 +45,14 @@ identity. The repository retains the prior development commits under the
 approved Option A history strategy.
 
 The visible name was amended from the historical `NinjamPlugin` name to
-`MrNinjam` before source publication. This amendment does not change the CLAP
-ID, VST3 CID, parameter IDs, or saved-state schema. Hosts that cache a bundle
-filename or absolute path may still need a rescan or manual substitution after
-the bundle filename changes, even though identity-aware hosts can match the
-renamed plug-in by its retained ID.
+`MrNinjam` before source publication. The final pre-publication identity review
+also replaces the development-only CLAP ID
+`io.github.mrosenki.ninjamplugin` with `io.github.mrosenki.mrninjam` and uses
+that new base for the `.clap` and `.vst3` macOS bundle identifiers. This is an
+explicitly approved one-time CLAP compatibility break: development projects
+using the former ID may require manual replacement. The VST3 CID, parameter
+IDs, and saved-state schema remain unchanged. Hosts that cache a bundle
+filename or absolute path may still need a rescan or manual substitution.
 
 Classic platform-shell code, editor-selection build flags, temporary
 Visage-spike branding, and duplicate CI jobs are removed. Visage remains an

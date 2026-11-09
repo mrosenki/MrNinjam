@@ -1,5 +1,40 @@
 # Validation record
 
+## Permanent CLAP identity and CI platform naming
+
+The 2026-11-09 macOS Release validation established the final pre-publication
+CLAP identity `io.github.mrosenki.mrninjam`. The approved replacement of the
+development identity `io.github.mrosenki.ninjamplugin` is a one-time CLAP host
+compatibility break; projects saved against the old ID may require manual
+plug-in replacement. The VST3 CID remains
+`CF3108E94031432BAEC75E1A03E0978F`, and the version remains `0.2.1`.
+
+`./scripts/verify.sh Release` rebuilt `MrNinjam.clap` and `MrNinjam.vst3`,
+passed the dependency and packaged-path checks, and passed all 22 CTest cases.
+This included the identity regression, V1-V20 saved-state codec coverage,
+parameter and processing regressions, and both bundle path scans. No production
+audio implementation or dependency pin changed in this update.
+
+The CLAP validator identified `io.github.mrosenki.mrninjam` and completed 21
+tests with 16 passes, no failures, and five inapplicable skips. The Steinberg
+VST3 validator passed all 47 tests against the rebuilt bundle and reported the
+`MrNinjam` class, version `0.2.1`, and unchanged CID. The generated macOS
+metadata reported `MrNinjam` as the bundle and executable name and the bundle
+identifiers `io.github.mrosenki.mrninjam.clap` and
+`io.github.mrosenki.mrninjam.vst3`.
+
+The workflow YAML parsed successfully. Its displayed matrix names are Linux,
+Windows, and macOS; the corresponding runner labels remain `ubuntu-latest`,
+`windows-latest`, and `macos-15`, and existing conditions still select by
+runner label. No artifact-upload action is present. The macOS 15 runner is a
+build environment and does not establish the plug-in's minimum supported macOS
+version, which remains subject to final compatibility validation.
+
+The build retained the existing project compiler warnings and the documented
+Homebrew libogg/libvorbis macOS 14-to-11 deployment-target linker warnings.
+Windows and Linux were not built locally in this macOS workspace. GitHub
+Actions remained manually disabled and was not enabled or triggered.
+
 ## MrNinjam branding validation
 
 The 2026-11-09 macOS Release validation for the pre-publication rebrand used
