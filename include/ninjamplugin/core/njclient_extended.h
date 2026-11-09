@@ -49,17 +49,22 @@ class NinjamPluginNJClient final : public NJClient {
   bool PrepareAudio(std::size_t maximum_frame_count);
 
   struct RealtimeStatistics {
+    std::uint64_t local_submitted_frames = 0;
+    std::uint64_t local_processed_frames = 0;
     std::uint64_t local_overflow_frames = 0;
+    std::uint64_t local_marker_overflows = 0;
     std::uint64_t normal_underflow_frames = 0;
     std::uint64_t normal_overflow_packets = 0;
     std::uint64_t voice_overflow_packets = 0;
     std::uint64_t voice_backlog_drops = 0;
+    std::uint64_t voice_first_schedule_callbacks = 0;
     std::uint64_t session_underflow_frames = 0;
     std::uint64_t session_overflow_packets = 0;
     std::uint64_t stale_session_packets = 0;
   };
   RealtimeStatistics GetRealtimeStatistics() const;
   std::size_t GetPreparedRealtimeMemoryBytes() const;
+  void SetRealtimeWorkerPausedForTesting(bool paused);
 
  private:
   struct RealtimeState;

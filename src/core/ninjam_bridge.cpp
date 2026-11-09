@@ -3347,4 +3347,35 @@ bool NinjamBridge::ProtocolSelfTest() const {
          close(probe.routed_output_buffers_[1][0], 0.125f);
 }
 
+RealtimePipelineDiagnostics NinjamBridge::GetRealtimePipelineDiagnostics() const {
+  RealtimePipelineDiagnostics result;
+#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+  if (client_ != nullptr) {
+    const auto stats = client_->GetRealtimeStatistics();
+    result.local_submitted_frames = stats.local_submitted_frames;
+    result.local_processed_frames = stats.local_processed_frames;
+    result.local_overflow_frames = stats.local_overflow_frames;
+    result.local_marker_overflows = stats.local_marker_overflows;
+    result.normal_underflow_frames = stats.normal_underflow_frames;
+    result.normal_overflow_packets = stats.normal_overflow_packets;
+    result.voice_overflow_packets = stats.voice_overflow_packets;
+    result.voice_backlog_drops = stats.voice_backlog_drops;
+    result.voice_first_schedule_callbacks = stats.voice_first_schedule_callbacks;
+    result.session_underflow_frames = stats.session_underflow_frames;
+    result.session_overflow_packets = stats.session_overflow_packets;
+    result.stale_session_packets = stats.stale_session_packets;
+    result.prepared_memory_bytes = client_->GetPreparedRealtimeMemoryBytes();
+  }
+#endif
+  return result;
+}
+
+void NinjamBridge::SetRealtimeWorkerPausedForTesting(bool paused) {
+#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+  if (client_ != nullptr) client_->SetRealtimeWorkerPausedForTesting(paused);
+#else
+  static_cast<void>(paused);
+#endif
+}
+
 }  // namespace ninjamplugin::core
