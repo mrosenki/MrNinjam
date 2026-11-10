@@ -1,5 +1,12 @@
 # Validation record
 
+## Current CI runner environment
+
+On 2026-11-10, the workflow runner label changed from `macos-15` to
+`macos-latest`. The resulting macOS 26 environment has not yet been validated
+by CI. The successful 2026-11-09 validation below remains specific to the
+`macos-15` environment.
+
 ## Permanent CLAP identity and CI platform naming
 
 The 2026-11-09 macOS Release validation established the final pre-publication
