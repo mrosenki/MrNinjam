@@ -25,8 +25,8 @@ identifiers `io.github.mrosenki.mrninjam.clap` and
 
 The workflow YAML parsed successfully. Its displayed matrix names are Linux,
 Windows, and macOS; the corresponding runner labels remain `ubuntu-latest`,
-`windows-latest`, and `macos-15`, and existing conditions still select by
-runner label. No artifact-upload action is present. The macOS 15 runner is a
+`windows-latest`, and `macos-latest`, and existing conditions still select by
+runner label. No artifact-upload action is present. The macOS runner image is a
 build environment and does not establish the plug-in's minimum supported macOS
 version, which remains subject to final compatibility validation.
 

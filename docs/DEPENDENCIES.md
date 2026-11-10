@@ -136,6 +136,6 @@ CLAP validator. CI builds and validates the plug-ins in runner-local storage
 but does not upload or retain the compiled packages. A future official binary
 release requires a separate, explicitly approved distribution mechanism.
 
-The Apple Silicon CI job uses the explicit `macos-15` GitHub-hosted runner.
-That build environment is independent of the plug-in deployment target, which
-remains `CMAKE_OSX_DEPLOYMENT_TARGET=11.0`.
+The macOS CI job uses the `macos-latest` GitHub-hosted runner. That build
+environment is independent of the plug-in deployment target, which remains
+`CMAKE_OSX_DEPLOYMENT_TARGET=11.0`.

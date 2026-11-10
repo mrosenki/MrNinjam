@@ -121,10 +121,10 @@ matrix jobs, and the consolidated `0.2.1` source passed its macOS, Windows, and
 Linux CI jobs through baseline `f351f1261819ecb9715862eed906f851c9dce60e`.
 CI build products remain runner-local and are not uploaded for download.
 CI displays platform-neutral Linux, Windows, and macOS job names while using
-`ubuntu-latest`, `windows-latest`, and the intentionally pinned `macos-15`
-runner labels. The macOS runner version selects the build environment; it does
-not establish the plug-in's minimum supported macOS version, which remains
-subject to final compatibility validation.
+`ubuntu-latest`, `windows-latest`, and `macos-latest` runner labels. The macOS
+runner image selects the build environment; it does not establish the plug-in's
+minimum supported macOS version, which remains subject to final compatibility
+validation.
 
 ## Live connection probes
 
