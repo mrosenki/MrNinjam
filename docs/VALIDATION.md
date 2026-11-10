@@ -1,5 +1,12 @@
 # Validation record
 
+## Current CI runner environment
+
+On 2026-11-10, the workflow runner label changed from `macos-15` to
+`macos-latest`. The resulting macOS 26 environment has not yet been validated
+by CI. The successful 2026-11-09 validation below remains specific to the
+`macos-15` environment.
+
 ## Permanent CLAP identity and CI platform naming
 
 The 2026-11-09 macOS Release validation established the final pre-publication
@@ -25,8 +32,8 @@ identifiers `io.github.mrosenki.mrninjam.clap` and
 
 The workflow YAML parsed successfully. Its displayed matrix names are Linux,
 Windows, and macOS; the corresponding runner labels remain `ubuntu-latest`,
-`windows-latest`, and `macos-latest`, and existing conditions still select by
-runner label. No artifact-upload action is present. The macOS runner image is a
+`windows-latest`, and `macos-15`, and existing conditions still select by
+runner label. No artifact-upload action is present. The macOS 15 runner is a
 build environment and does not establish the plug-in's minimum supported macOS
 version, which remains subject to final compatibility validation.
 
