@@ -45,6 +45,22 @@ function Assert-SafeInstallDirectory {
       $FullPath.StartsWith($RootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw "Refusing to install into the source checkout: $FullPath"
   }
+
+  $ExistingAncestor = $FullPath
+  while (-not (Test-Path -LiteralPath $ExistingAncestor)) {
+    $Parent = [System.IO.Path]::GetDirectoryName($ExistingAncestor)
+    if (-not $Parent -or $Parent -eq $ExistingAncestor) {
+      throw "Could not resolve install destination: $FullPath"
+    }
+    $ExistingAncestor = $Parent
+  }
+  $Cursor = Get-Item -LiteralPath $ExistingAncestor -Force
+  while ($null -ne $Cursor) {
+    if (($Cursor.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "Refusing install destination with symbolic-link or junction ancestor: $FullPath"
+    }
+    $Cursor = $Cursor.Parent
+  }
   return $FullPath
 }
 
@@ -56,11 +72,23 @@ $Vst3Artifact = Join-Path $BuildDir "plugin/MrNinjam.vst3"
 
 if (-not $SkipVerify) {
   & (Join-Path $RootDir "scripts/verify.ps1") -BuildType $BuildType
+  if (-not $?) {
+    throw "Development build verification failed; installed plug-ins were not changed."
+  }
 }
 
 foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
   if (-not (Test-Path -LiteralPath $ArtifactPath)) {
     throw "Expected development artifact not found: $ArtifactPath"
+  }
+  $ArtifactEntries = @(
+    Get-Item -LiteralPath $ArtifactPath -Force
+    Get-ChildItem -LiteralPath $ArtifactPath -Recurse -Force
+  )
+  if ($ArtifactEntries | Where-Object {
+      ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    }) {
+    throw "Refusing symbolic links or junctions in development artifact: $ArtifactPath"
   }
   Get-ChildItem -LiteralPath $ArtifactPath -Recurse -File | ForEach-Object {
     cmake "-DARTIFACT=$($_.FullName)" "-DFORBIDDEN_PATHS=$RootDir" `
@@ -83,60 +111,100 @@ function Write-LegacyWarning {
 Write-LegacyWarning (Join-Path $ClapInstallDir "NinjamPlugin.clap")
 Write-LegacyWarning (Join-Path $Vst3InstallDir "NinjamPlugin.vst3")
 
-function Install-DevelopmentArtifact {
-  param(
-    [string]$SourcePath,
-    [string]$InstallDir,
-    [string]$ArtifactName
-  )
-
-  $TargetPath = Join-Path $InstallDir $ArtifactName
-  if ($DryRun) {
-    Write-Host ("Would install: {0} -> {1}" -f $SourcePath, $TargetPath)
-    return
-  }
-
-  New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-  $ResolvedInstallDir = (Resolve-Path -LiteralPath $InstallDir).Path
-  $ResolvedInstallDir = Assert-SafeInstallDirectory $ResolvedInstallDir
-  $TargetPath = Join-Path $ResolvedInstallDir $ArtifactName
-  $TemporaryPath = Join-Path $ResolvedInstallDir (".{0}.install.{1}" -f $ArtifactName, $PID)
-  $BackupPath = Join-Path $ResolvedInstallDir (".{0}.backup.{1}" -f $ArtifactName, $PID)
-
-  if ((Test-Path -LiteralPath $TemporaryPath) -or (Test-Path -LiteralPath $BackupPath)) {
-    throw "Temporary install path already exists for $ArtifactName"
-  }
-
-  try {
-    Copy-Item -LiteralPath $SourcePath -Destination $TemporaryPath -Recurse
-    if (Test-Path -LiteralPath $TargetPath) {
-      Move-Item -LiteralPath $TargetPath -Destination $BackupPath
-    }
-    try {
-      Move-Item -LiteralPath $TemporaryPath -Destination $TargetPath
-    } catch {
-      if (Test-Path -LiteralPath $BackupPath) {
-        Move-Item -LiteralPath $BackupPath -Destination $TargetPath
-      }
-      throw
-    }
-    if (Test-Path -LiteralPath $BackupPath) {
-      Remove-Item -LiteralPath $BackupPath -Recurse -Force
-    }
-  } finally {
-    if (Test-Path -LiteralPath $TemporaryPath) {
-      Remove-Item -LiteralPath $TemporaryPath -Recurse -Force
-    }
-  }
-
-  Write-Host ("Installed: {0}" -f $TargetPath)
-}
-
-Install-DevelopmentArtifact $ClapArtifact $ClapInstallDir "MrNinjam.clap"
-Install-DevelopmentArtifact $Vst3Artifact $Vst3InstallDir "MrNinjam.vst3"
-
 if ($DryRun) {
+  Write-Host ("Would install: {0} -> {1}" -f $ClapArtifact,
+    (Join-Path $ClapInstallDir "MrNinjam.clap"))
+  Write-Host ("Would install: {0} -> {1}" -f $Vst3Artifact,
+    (Join-Path $Vst3InstallDir "MrNinjam.vst3"))
   Write-Host "Dry run complete; no files were changed."
-} else {
-  Write-Host "Development install complete. Close and rescan the plug-ins in the DAW before testing."
+  return
 }
+
+New-Item -ItemType Directory -Force -Path $ClapInstallDir | Out-Null
+New-Item -ItemType Directory -Force -Path $Vst3InstallDir | Out-Null
+$ResolvedClapInstallDir = (Resolve-Path -LiteralPath $ClapInstallDir).Path
+$ResolvedVst3InstallDir = (Resolve-Path -LiteralPath $Vst3InstallDir).Path
+$ClapInstallDir = Assert-SafeInstallDirectory $ResolvedClapInstallDir
+$Vst3InstallDir = Assert-SafeInstallDirectory $ResolvedVst3InstallDir
+
+$InstallItems = @(
+  [PSCustomObject]@{
+    Source = $ClapArtifact
+    Directory = $ClapInstallDir
+    Name = "MrNinjam.clap"
+    Target = Join-Path $ClapInstallDir "MrNinjam.clap"
+    Temporary = Join-Path $ClapInstallDir (".MrNinjam.clap.install.{0}" -f $PID)
+    Backup = Join-Path $ClapInstallDir (".MrNinjam.clap.backup.{0}" -f $PID)
+    HadTarget = $false
+    Installed = $false
+  },
+  [PSCustomObject]@{
+    Source = $Vst3Artifact
+    Directory = $Vst3InstallDir
+    Name = "MrNinjam.vst3"
+    Target = Join-Path $Vst3InstallDir "MrNinjam.vst3"
+    Temporary = Join-Path $Vst3InstallDir (".MrNinjam.vst3.install.{0}" -f $PID)
+    Backup = Join-Path $Vst3InstallDir (".MrNinjam.vst3.backup.{0}" -f $PID)
+    HadTarget = $false
+    Installed = $false
+  }
+)
+
+try {
+  foreach ($Item in $InstallItems) {
+    $ExistingTarget = Get-Item -LiteralPath $Item.Target -Force -ErrorAction SilentlyContinue
+    if ($ExistingTarget -and
+        (($ExistingTarget.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+      throw "Refusing to replace symbolic-link or junction install target: $($Item.Target)"
+    }
+    if ((Test-Path -LiteralPath $Item.Temporary) -or
+        (Test-Path -LiteralPath $Item.Backup)) {
+      throw "Temporary install path already exists for $($Item.Name)"
+    }
+    Copy-Item -LiteralPath $Item.Source -Destination $Item.Temporary -Recurse
+  }
+
+  foreach ($Item in $InstallItems) {
+    if (Test-Path -LiteralPath $Item.Target) {
+      Move-Item -LiteralPath $Item.Target -Destination $Item.Backup
+      $Item.HadTarget = $true
+    }
+  }
+
+  foreach ($Item in $InstallItems) {
+    Move-Item -LiteralPath $Item.Temporary -Destination $Item.Target
+    $Item.Installed = $true
+  }
+} catch {
+  $InstallError = $_
+  foreach ($Item in $InstallItems) {
+    if ($Item.Installed -and (Test-Path -LiteralPath $Item.Target)) {
+      Remove-Item -LiteralPath $Item.Target -Recurse -Force -ErrorAction Continue
+    }
+  }
+  foreach ($Item in $InstallItems) {
+    if ($Item.HadTarget -and (Test-Path -LiteralPath $Item.Backup)) {
+      Move-Item -LiteralPath $Item.Backup -Destination $Item.Target -ErrorAction Continue
+    }
+  }
+  throw $InstallError
+} finally {
+  foreach ($Item in $InstallItems) {
+    if (Test-Path -LiteralPath $Item.Temporary) {
+      Remove-Item -LiteralPath $Item.Temporary -Recurse -Force -ErrorAction Continue
+    }
+  }
+}
+
+foreach ($Item in $InstallItems) {
+  if (Test-Path -LiteralPath $Item.Backup) {
+    try {
+      Remove-Item -LiteralPath $Item.Backup -Recurse -Force
+    } catch {
+      Write-Warning "Installed successfully but could not remove backup: $($Item.Backup)"
+    }
+  }
+  Write-Host ("Installed: {0}" -f $Item.Target)
+}
+
+Write-Host "Development install complete. Close and rescan the plug-ins in the DAW before testing."

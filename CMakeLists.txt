@@ -319,3 +319,18 @@ if(NINJAMPLUGIN_ENABLE_TESTS AND TARGET ninjamplugin_vst3)
       -P "${CMAKE_SOURCE_DIR}/scripts/check_artifact_paths.cmake"
   )
 endif()
+
+if(NINJAMPLUGIN_ENABLE_TESTS AND TARGET ninjamplugin_clap AND TARGET ninjamplugin_vst3)
+  if(WIN32)
+    add_test(NAME ninjamplugin_development_installer
+      COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+        -File "${CMAKE_SOURCE_DIR}/scripts/test_install_development.ps1"
+        -BuildType "$<CONFIG>"
+    )
+  else()
+    add_test(NAME ninjamplugin_development_installer
+      COMMAND "${CMAKE_SOURCE_DIR}/scripts/test_install_development.sh" "$<CONFIG>"
+    )
+  endif()
+  set_tests_properties(ninjamplugin_development_installer PROPERTIES TIMEOUT 120)
+endif()

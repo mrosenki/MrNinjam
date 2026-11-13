@@ -77,6 +77,13 @@ require_absolute_destination() {
       exit 1
       ;;
   esac
+  case "/${destination#/}/" in
+    */../*|*/./*)
+      printf 'ERROR: install destination may not contain dot path components: %s\n' \
+        "$destination" >&2
+      exit 1
+      ;;
+  esac
   case "${destination}/" in
     "${ROOT_DIR}/"*)
       printf 'ERROR: refusing to install into the source checkout: %s\n' "$destination" >&2
@@ -85,8 +92,40 @@ require_absolute_destination() {
   esac
 }
 
+require_resolved_destination_outside_source() {
+  local destination="$1"
+  local existing_ancestor="$destination"
+  local unresolved_suffix=""
+
+  while [[ ! -d "$existing_ancestor" ]]; do
+    local component
+    component="$(basename "$existing_ancestor")"
+    unresolved_suffix="${component}${unresolved_suffix:+/${unresolved_suffix}}"
+    local parent
+    parent="$(dirname "$existing_ancestor")"
+    if [[ "$parent" == "$existing_ancestor" ]]; then
+      printf 'ERROR: could not resolve install destination: %s\n' "$destination" >&2
+      exit 1
+    fi
+    existing_ancestor="$parent"
+  done
+
+  local resolved_ancestor
+  resolved_ancestor="$(cd "$existing_ancestor" && pwd -P)"
+  local resolved_candidate="${resolved_ancestor}${unresolved_suffix:+/${unresolved_suffix}}"
+  case "${resolved_candidate}/" in
+    "${ROOT_DIR}/"*)
+      printf 'ERROR: refusing an install path that resolves into the source checkout: %s\n' \
+        "$destination" >&2
+      exit 1
+      ;;
+  esac
+}
+
 require_absolute_destination "$CLAP_INSTALL_DIR"
 require_absolute_destination "$VST3_INSTALL_DIR"
+require_resolved_destination_outside_source "$CLAP_INSTALL_DIR"
+require_resolved_destination_outside_source "$VST3_INSTALL_DIR"
 
 BUILD_DIR="${ROOT_DIR}/build/${BUILD_TYPE}"
 CLAP_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.clap"
@@ -97,8 +136,12 @@ if [[ "$SKIP_VERIFY" -eq 0 ]]; then
 fi
 
 for artifact in "$CLAP_ARTIFACT" "$VST3_ARTIFACT"; do
-  if [[ ! -e "$artifact" && ! -L "$artifact" ]]; then
+  if [[ ! -e "$artifact" ]]; then
     printf 'ERROR: expected development artifact not found: %s\n' "$artifact" >&2
+    exit 1
+  fi
+  if [[ -L "$artifact" ]] || find "$artifact" -type l -print -quit | grep -q .; then
+    printf 'ERROR: refusing symbolic links in development artifact: %s\n' "$artifact" >&2
     exit 1
   fi
   while IFS= read -r -d '' packaged_file; do
@@ -119,73 +162,109 @@ warn_legacy_install() {
 warn_legacy_install "${CLAP_INSTALL_DIR}/NinjamPlugin.clap"
 warn_legacy_install "${VST3_INSTALL_DIR}/NinjamPlugin.vst3"
 
-install_artifact() {
-  local source_path="$1"
-  local install_dir="$2"
-  local artifact_name="$3"
-  local target_path="${install_dir}/${artifact_name}"
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  printf 'Would install: %s -> %s\n' \
+    "$CLAP_ARTIFACT" "${CLAP_INSTALL_DIR}/MrNinjam.clap"
+  printf 'Would install: %s -> %s\n' \
+    "$VST3_ARTIFACT" "${VST3_INSTALL_DIR}/MrNinjam.vst3"
+  printf 'Dry run complete; no files were changed.\n'
+  exit 0
+fi
 
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'Would install: %s -> %s\n' "$source_path" "$target_path"
-    return
-  fi
+mkdir -p "$CLAP_INSTALL_DIR" "$VST3_INSTALL_DIR"
+require_resolved_destination_outside_source "$CLAP_INSTALL_DIR"
+require_resolved_destination_outside_source "$VST3_INSTALL_DIR"
 
-  mkdir -p "$install_dir"
-  local resolved_install_dir
-  resolved_install_dir="$(cd "$install_dir" && pwd -P)"
-  case "${resolved_install_dir}/" in
-    "${ROOT_DIR}/"*)
-      printf 'ERROR: refusing to install through a path that resolves into the source checkout: %s\n' \
-        "$resolved_install_dir" >&2
-      exit 1
-      ;;
-  esac
+CLAP_INSTALL_DIR="$(cd "$CLAP_INSTALL_DIR" && pwd -P)"
+VST3_INSTALL_DIR="$(cd "$VST3_INSTALL_DIR" && pwd -P)"
 
-  target_path="${resolved_install_dir}/${artifact_name}"
-  local temporary_path="${resolved_install_dir}/.${artifact_name}.install.$$"
-  local backup_path="${resolved_install_dir}/.${artifact_name}.backup.$$"
+INSTALL_SOURCES=("$CLAP_ARTIFACT" "$VST3_ARTIFACT")
+INSTALL_DIRS=("$CLAP_INSTALL_DIR" "$VST3_INSTALL_DIR")
+INSTALL_NAMES=("MrNinjam.clap" "MrNinjam.vst3")
+INSTALL_TARGETS=("" "")
+INSTALL_TEMPS=("" "")
+INSTALL_BACKUPS=("" "")
+INSTALL_HAD_TARGET=(0 0)
+INSTALL_COMMITTED=(0 0)
+INSTALL_TRANSACTION_ACTIVE=1
 
-  if [[ -e "$temporary_path" || -L "$temporary_path" ||
-        -e "$backup_path" || -L "$backup_path" ]]; then
-    printf 'ERROR: temporary install path already exists for %s\n' "$artifact_name" >&2
-    exit 1
-  fi
-
-  if [[ -d "$source_path" ]]; then
-    if ! cp -R "$source_path" "$temporary_path"; then
-      rm -rf "$temporary_path"
-      exit 1
+rollback_install_transaction() {
+  local index
+  set +e
+  for index in 0 1; do
+    if [[ "${INSTALL_COMMITTED[$index]}" -eq 1 &&
+          ( -e "${INSTALL_TARGETS[$index]}" || -L "${INSTALL_TARGETS[$index]}" ) ]]; then
+      rm -rf "${INSTALL_TARGETS[$index]}"
     fi
-  else
-    if ! cp "$source_path" "$temporary_path"; then
-      rm -f "$temporary_path"
-      exit 1
+  done
+  for index in 0 1; do
+    if [[ "${INSTALL_HAD_TARGET[$index]}" -eq 1 &&
+          ( -e "${INSTALL_BACKUPS[$index]}" || -L "${INSTALL_BACKUPS[$index]}" ) ]]; then
+      mv "${INSTALL_BACKUPS[$index]}" "${INSTALL_TARGETS[$index]}"
     fi
-  fi
-
-  if [[ -e "$target_path" || -L "$target_path" ]]; then
-    mv "$target_path" "$backup_path"
-  fi
-
-  if ! mv "$temporary_path" "$target_path"; then
-    if [[ -e "$backup_path" || -L "$backup_path" ]]; then
-      mv "$backup_path" "$target_path"
+    if [[ -e "${INSTALL_TEMPS[$index]}" || -L "${INSTALL_TEMPS[$index]}" ]]; then
+      rm -rf "${INSTALL_TEMPS[$index]}"
     fi
-    exit 1
-  fi
-
-  if [[ -e "$backup_path" || -L "$backup_path" ]]; then
-    rm -rf "$backup_path"
-  fi
-
-  printf 'Installed: %s\n' "$target_path"
+  done
+  set -e
 }
 
-install_artifact "$CLAP_ARTIFACT" "$CLAP_INSTALL_DIR" "MrNinjam.clap"
-install_artifact "$VST3_ARTIFACT" "$VST3_INSTALL_DIR" "MrNinjam.vst3"
+finish_install_transaction() {
+  if [[ "$INSTALL_TRANSACTION_ACTIVE" -eq 1 ]]; then
+    rollback_install_transaction
+  fi
+}
+trap finish_install_transaction EXIT
 
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  printf 'Dry run complete; no files were changed.\n'
-else
-  printf 'Development install complete. Close and rescan the plug-ins in the DAW before testing.\n'
-fi
+for index in 0 1; do
+  target_path="${INSTALL_DIRS[$index]}/${INSTALL_NAMES[$index]}"
+  temporary_path="${INSTALL_DIRS[$index]}/.${INSTALL_NAMES[$index]}.install.$$"
+  backup_path="${INSTALL_DIRS[$index]}/.${INSTALL_NAMES[$index]}.backup.$$"
+  INSTALL_TARGETS[$index]="$target_path"
+  INSTALL_TEMPS[$index]="$temporary_path"
+  INSTALL_BACKUPS[$index]="$backup_path"
+
+  if [[ -L "$target_path" ]]; then
+    printf 'ERROR: refusing to replace symbolic-link install target: %s\n' "$target_path" >&2
+    exit 1
+  fi
+  if [[ -e "$temporary_path" || -L "$temporary_path" ||
+        -e "$backup_path" || -L "$backup_path" ]]; then
+    printf 'ERROR: temporary install path already exists for %s\n' \
+      "${INSTALL_NAMES[$index]}" >&2
+    exit 1
+  fi
+
+  if [[ -d "${INSTALL_SOURCES[$index]}" ]]; then
+    cp -R "${INSTALL_SOURCES[$index]}" "$temporary_path"
+  else
+    cp "${INSTALL_SOURCES[$index]}" "$temporary_path"
+  fi
+done
+
+for index in 0 1; do
+  if [[ -e "${INSTALL_TARGETS[$index]}" ]]; then
+    mv "${INSTALL_TARGETS[$index]}" "${INSTALL_BACKUPS[$index]}"
+    INSTALL_HAD_TARGET[$index]=1
+  fi
+done
+
+for index in 0 1; do
+  mv "${INSTALL_TEMPS[$index]}" "${INSTALL_TARGETS[$index]}"
+  INSTALL_COMMITTED[$index]=1
+done
+
+INSTALL_TRANSACTION_ACTIVE=0
+trap - EXIT
+
+for index in 0 1; do
+  if [[ -e "${INSTALL_BACKUPS[$index]}" ]]; then
+    if ! rm -rf "${INSTALL_BACKUPS[$index]}"; then
+      printf 'WARNING: installed successfully but could not remove backup: %s\n' \
+        "${INSTALL_BACKUPS[$index]}" >&2
+    fi
+  fi
+  printf 'Installed: %s\n' "${INSTALL_TARGETS[$index]}"
+done
+
+printf 'Development install complete. Close and rescan the plug-ins in the DAW before testing.\n'

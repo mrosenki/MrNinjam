@@ -36,7 +36,11 @@ For isolated installer tests, set `NINJAMPLUGIN_CLAP_INSTALL_DIR` and
 `NINJAMPLUGIN_VST3_INSTALL_DIR` to absolute temporary directories. The
 installer rejects destinations inside the source checkout.
 
-Only `MrNinjam.clap` and `MrNinjam.vst3` are replaced. A detected
+Only `MrNinjam.clap` and `MrNinjam.vst3` are replaced. Both verified artifacts
+are prepared before either installed bundle is changed; a failure while
+committing either format restores the preceding CLAP and VST3 installations.
+Symbolic-link artifacts, install targets, and destinations that resolve through
+links or junctions are rejected. A detected
 `NinjamPlugin` development bundle produces a warning and is never removed
 automatically because projects using the retired CLAP identity may still need
 it. To roll back, check out and verify the required compatible revision and run
