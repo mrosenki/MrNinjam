@@ -56,22 +56,26 @@ starting point for practical host testing.
 
 Work, in order:
 
-1. [#22](https://github.com/mrosenki/MrNinjam/issues/22) adds a safe per-user
+1. [#28](https://github.com/mrosenki/MrNinjam/issues/28) investigates the
+   reported REAPER shutdown abort, adds focused lifecycle coverage, and records
+   controlled host evidence before assigning causality or declaring a fix.
+2. [#22](https://github.com/mrosenki/MrNinjam/issues/22) adds a safe per-user
    development installer and REAPER/Bitwig smoke checklist.
-2. [#21](https://github.com/mrosenki/MrNinjam/issues/21) characterises and fixes
+3. [#21](https://github.com/mrosenki/MrNinjam/issues/21) characterises and fixes
    the intermittent Windows worker-drain failure without weakening the test or
    merely increasing its timeout.
-3. Close [#7](https://github.com/mrosenki/MrNinjam/issues/7) after review confirms
+4. Close [#7](https://github.com/mrosenki/MrNinjam/issues/7) after review confirms
    that its merged implementation and recorded validation satisfy the issue.
-4. Run the basic scan/load/editor/audio/state smoke matrix in REAPER and Bitwig
-   for CLAP and VST3.
+5. Run the basic scan/load/editor/audio/state/shutdown smoke matrix in REAPER
+   and Bitwig for CLAP and VST3.
 
 Acceptance criteria:
 
 - one documented verify/install/rescan loop works without administrator access;
 - exact install targets, legacy-bundle coexistence, and rollback are explicit;
 - both hosts load both formats and report version `0.2.2` with unchanged IDs;
-- basic editor, audio I/O, and saved-state recall results are recorded; and
+- basic editor, audio I/O, saved-state recall, and repeated clean shutdown
+  results are recorded; and
 - CI remains required and stable enough that intermittent failures are not
   dismissed by reruns.
 
@@ -83,7 +87,9 @@ server terms.
 Work, in order:
 
 1. [#9](https://github.com/mrosenki/MrNinjam/issues/9) fixes initial BPM/BPI
-   proposal submission and distinguishes transmission from server/UI response.
+   proposal submission and distinguishes transmission from server/UI response;
+   [#27](https://github.com/mrosenki/MrNinjam/issues/27) is handled alongside
+   it so accepted server timing changes update BPM, BPI, and interval progress.
 2. [#23](https://github.com/mrosenki/MrNinjam/issues/23) replaces automatic
    server-licence acceptance with an explicit, bounded, non-real-time consent
    flow.

@@ -1380,6 +1380,9 @@ void CLAP_ABI PluginDestroy(const clap_plugin_t* plugin) {
       instance->debug_log_instance_id);
   ninjamplugin::core::DebugLog("clap", "PluginDestroy");
   UnregisterHostMainThreadTimer(instance);
+  if (instance->editor_shell != nullptr) {
+    instance->editor_shell->SetDelegate(nullptr);
+  }
   instance->editor_shell.reset();
   delete instance;
 }
@@ -2450,6 +2453,9 @@ void CLAP_ABI GuiDestroy(const clap_plugin_t* plugin) {
   if (instance->editor_shell != nullptr && instance->editor_controller != nullptr) {
     instance->editor_controller->CaptureDraftSettings(
         instance->editor_shell->CollectConnectionSettingsDraft());
+  }
+  if (instance->editor_shell != nullptr) {
+    instance->editor_shell->SetDelegate(nullptr);
   }
   instance->editor_shell.reset();
   instance->editor_created = false;
