@@ -283,6 +283,8 @@ struct NinjamPluginNJClient::RealtimeState {
   std::vector<SessionDecoder> session_decoders;
 
   std::atomic<std::uint64_t> local_overflow{0U};
+  std::atomic<std::uint64_t> published_local_timeline_end{0U};
+  std::atomic<std::uint64_t> published_local_connection_generation{0U};
   std::atomic<std::uint64_t> local_marker_overflow{0U};
   std::atomic<std::uint64_t> local_submitted{0U};
   std::atomic<std::uint64_t> local_processed{0U};
@@ -896,6 +898,12 @@ void NinjamPluginNJClient::AudioProc(
       if (metro_right) metro_right[frame] += static_cast<float>(value * metro_right_gain);
     }
   state.audio_timeline += static_cast<std::uint64_t>(frames);
+  if (input != nullptr) {
+    state.published_local_connection_generation.store(
+        connection_generation, std::memory_order_relaxed);
+    state.published_local_timeline_end.store(
+        state.audio_timeline, std::memory_order_release);
+  }
 }
 
 void NinjamPluginNJClient::BeginWorkerInterval(std::uint64_t generation) {
@@ -929,10 +937,33 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
   auto& state = *realtime_;
   for (int packet_index = 0; packet_index < 32; ++packet_index) {
     const LocalPacket* queued = state.local.Front();
-    if (queued == nullptr) break;
+    bool trailing_gap = false;
+    std::uint64_t trailing_timeline_end = 0U;
+    std::uint64_t queued_connection_generation = 0U;
+    if (queued == nullptr) {
+      trailing_timeline_end =
+          state.published_local_timeline_end.load(std::memory_order_acquire);
+      queued_connection_generation =
+          state.published_local_connection_generation.load(std::memory_order_relaxed);
+      // The producer publishes the timeline only after pushing any real
+      // packet. Recheck the ring after the acquire so a concurrent success is
+      // never replaced by synthesized silence.
+      queued = state.local.Front();
+      if (queued == nullptr) {
+        if (!state.have_local_timeline ||
+            trailing_timeline_end <= state.expected_local_timeline) {
+          break;
+        }
+        trailing_gap = true;
+      }
+    }
+    if (!trailing_gap) {
+      queued_connection_generation = queued->connection_generation;
+    }
     const auto connection_generation =
         state.connection_generation.load(std::memory_order_acquire);
-    if (queued->connection_generation != connection_generation) {
+    if (queued_connection_generation != connection_generation) {
+      if (trailing_gap) break;
       state.stale_local_frames.fetch_add(
           static_cast<std::uint64_t>(queued->frames), std::memory_order_relaxed);
       state.local.Pop();
@@ -941,7 +972,8 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
     std::unique_lock<std::mutex> pipeline(state.pipeline_mutex);
     const auto locked_connection_generation =
         state.connection_generation.load(std::memory_order_acquire);
-    if (queued->connection_generation != locked_connection_generation) {
+    if (queued_connection_generation != locked_connection_generation) {
+      if (trailing_gap) break;
       state.stale_local_frames.fetch_add(
           static_cast<std::uint64_t>(queued->frames), std::memory_order_relaxed);
       state.local.Pop();
@@ -954,6 +986,7 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
       state.local_interval_generation = 0U;
       state.have_local_control = false;
     }
+    if (trailing_gap && !state.have_local_timeline) break;
     // Never feed the legacy encoder queue up to its hard drop threshold. When
     // it is congested, leave this packet in the prepared SPSC ring. If that
     // ring later overflows, the packet timeline makes the worker encode an
@@ -974,8 +1007,11 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
     }
     m_locchan_cs.Leave();
     if (encoder_congested) return;
-    const LocalPacket packet = *queued;
-    state.local.Pop();
+    LocalPacket packet;
+    if (!trailing_gap) {
+      packet = *queued;
+      state.local.Pop();
+    }
     m_locchan_cs.Enter();
     auto apply_boundary = [&](std::uint64_t generation) {
       if (generation == state.local_interval_generation) return;
@@ -1064,7 +1100,9 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
         state.stale_local_markers.fetch_add(1U, std::memory_order_relaxed);
         continue;
       }
-      if (queued_marker->timeline > packet.timeline) break;
+      const std::uint64_t marker_limit =
+          trailing_gap ? trailing_timeline_end : packet.timeline;
+      if (queued_marker->timeline > marker_limit) break;
       const LocalMarker marker = *queued_marker;
       state.local_markers.Pop();
       if (!state.have_local_control) {
@@ -1075,6 +1113,12 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
       m_srate = std::max(1, marker.sample_rate);
       apply_boundary(marker.interval_generation);
       state.local_control = marker;
+    }
+
+    if (trailing_gap) {
+      add_silence_until(trailing_timeline_end);
+      m_locchan_cs.Leave();
+      break;
     }
 
     LocalMarker packet_control;

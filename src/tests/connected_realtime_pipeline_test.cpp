@@ -595,6 +595,50 @@ int main() {
   }
   report_phase("worker-drained");
 
+  // Make a trailing overflow deterministic: fill the prepared packet ring,
+  // drop a short final tail, then stop producing before the worker resumes.
+  // The worker must account for that tail without relying on a later real
+  // packet to reveal the timeline gap.
+  const auto before_trailing_overflow = bridge.GetRealtimePipelineDiagnostics();
+  bridge.SetRealtimeWorkerPausedForTesting(true);
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  report_phase("trailing-overflow-start");
+  for (int block = 0; block < 520; ++block) {
+    if (!bridge.ProcessAudio(input_ptrs.data(), input_ptrs.size(),
+            output_left.data(), output_right.data(), 1U, 1.0F, false,
+            {true, false, position})) {
+      std::cerr << "trailing overflow setup block failed\n";
+      return 5;
+    }
+    position += 1.0 / 48000.0;
+  }
+  const auto trailing_target_diagnostics = bridge.GetRealtimePipelineDiagnostics();
+  const auto trailing_drain_target =
+      trailing_target_diagnostics.local_submitted_frames +
+      trailing_target_diagnostics.local_overflow_frames;
+  if (trailing_target_diagnostics.local_overflow_frames <=
+          before_trailing_overflow.local_overflow_frames ||
+      trailing_target_diagnostics.local_processed_frames >= trailing_drain_target) {
+    std::cerr << "trailing overflow setup did not leave an unprocessed tail\n";
+    return 5;
+  }
+  bridge.SetRealtimeWorkerPausedForTesting(false);
+  const bool trailing_overflow_drained = WaitFor(std::chrono::seconds(5), [&] {
+    return bridge.GetRealtimePipelineDiagnostics().local_processed_frames >=
+        trailing_drain_target;
+  }, [&] {
+    bridge.MainThreadTick();
+    secondary_bridge.MainThreadTick();
+  });
+  if (!trailing_overflow_drained) {
+    const auto diagnostics = bridge.GetRealtimePipelineDiagnostics();
+    std::cerr << "trailing overflow drain timeout target="
+              << trailing_drain_target
+              << " processed=" << diagnostics.local_processed_frames << '\n';
+    return 5;
+  }
+  report_phase("trailing-overflow-drained");
+
   // Leave current-generation PCM and control markers queued while the codec
   // worker is stopped. Reconnect must discard them rather than feed them to
   // the new connection's encoders.
