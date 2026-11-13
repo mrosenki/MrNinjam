@@ -1,4 +1,10 @@
-# Source publication and binary release roadmap
+# Historical source-publication and binary-release roadmap
+
+Source publication is complete. This document records the historical
+publication plan and the still-deferred official-binary gates; it is not the
+active product-development sequence. See
+[`DEVELOPMENT_ROADMAP.md`](DEVELOPMENT_ROADMAP.md) for current milestones and
+issue order.
 
 ## Publication rule
 

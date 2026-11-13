@@ -15,6 +15,11 @@ contribution, but the project does not provide official CLAP or VST3 binaries.
 Binary packaging, representative host testing, release notices, reproducible
 codec resolution, signing, and final release certification remain open.
 
+Current product milestones and issue order are maintained in the
+[active development roadmap](docs/DEVELOPMENT_ROADMAP.md). The older
+[publication roadmap](docs/public_release_roadmap.md) is retained for source
+publication history and the separate official-binary gates.
+
 ## Implemented product
 
 - NINJAM connection, authentication, timing, reconnect, chat, and session
