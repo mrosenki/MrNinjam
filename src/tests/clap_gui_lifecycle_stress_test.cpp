@@ -2,11 +2,12 @@
 #include "ninjamplugin/format/clap/plugin_entry.h"
 
 #include <clap/ext/gui.h>
+#include <clap/ext/timer-support.h>
 #include <clap/factory/plugin-factory.h>
 
 #include <cstddef>
-#include <cstring>
 #include <iostream>
+#include <string_view>
 
 namespace {
 
@@ -24,12 +25,58 @@ const char* PlatformApi() {
 #endif
 }
 
-const void* CLAP_ABI HostGetExtension(const clap_host_t* /*host*/,
-                                      const char* /*extension_id*/) {
+struct HostContext {
+  std::size_t timer_extension_queries = 0U;
+  std::size_t timer_registrations = 0U;
+  std::size_t timer_unregistrations = 0U;
+  std::size_t callback_requests = 0U;
+  clap_id next_timer_id = 1U;
+};
+
+bool CLAP_ABI HostRegisterTimer(const clap_host_t* host,
+                                const uint32_t /*period_ms*/,
+                                clap_id* timer_id) {
+  if (host == nullptr || host->host_data == nullptr || timer_id == nullptr) {
+    return false;
+  }
+  auto* context = static_cast<HostContext*>(host->host_data);
+  *timer_id = context->next_timer_id++;
+  ++context->timer_registrations;
+  return true;
+}
+
+bool CLAP_ABI HostUnregisterTimer(const clap_host_t* host,
+                                  const clap_id /*timer_id*/) {
+  if (host == nullptr || host->host_data == nullptr) {
+    return false;
+  }
+  auto* context = static_cast<HostContext*>(host->host_data);
+  ++context->timer_unregistrations;
+  return true;
+}
+
+const clap_host_timer_support_t kHostTimerSupport = {
+    HostRegisterTimer,
+    HostUnregisterTimer,
+};
+
+const void* CLAP_ABI HostGetExtension(const clap_host_t* host,
+                                      const char* extension_id) {
+  if (host != nullptr && host->host_data != nullptr && extension_id != nullptr &&
+      std::string_view(extension_id) == CLAP_EXT_TIMER_SUPPORT) {
+    auto* context = static_cast<HostContext*>(host->host_data);
+    ++context->timer_extension_queries;
+    return &kHostTimerSupport;
+  }
   return nullptr;
 }
 
-void CLAP_ABI HostRequest(const clap_host_t* /*host*/) {}
+void CLAP_ABI HostRequest(const clap_host_t* host) {
+  if (host != nullptr && host->host_data != nullptr) {
+    auto* context = static_cast<HostContext*>(host->host_data);
+    ++context->callback_requests;
+  }
+}
 
 bool RunLifecycle(const clap_plugin_factory_t* factory, const clap_host_t* host) {
   const clap_plugin_t* plugin = factory->create_plugin(
@@ -74,6 +121,42 @@ bool RunLifecycle(const clap_plugin_factory_t* factory, const clap_host_t* host)
   return true;
 }
 
+bool RunHostLifecycles(const clap_plugin_factory_t* factory,
+                       const char* host_name,
+                       const bool expect_timer_extension_query) {
+  HostContext context;
+  clap_host_t host{};
+  host.clap_version = CLAP_VERSION;
+  host.host_data = &context;
+  host.name = host_name;
+  host.vendor = "MrNinjam";
+  host.url = "https://github.com/mrosenki/MrNinjam";
+  host.version = "1";
+  host.get_extension = HostGetExtension;
+  host.request_restart = HostRequest;
+  host.request_process = HostRequest;
+  host.request_callback = HostRequest;
+
+  for (std::size_t iteration = 0; iteration < kLifecycleIterations; ++iteration) {
+    if (!RunLifecycle(factory, &host)) {
+      std::cerr << host_name << " lifecycle failed at iteration " << iteration << '\n';
+      return false;
+    }
+  }
+
+  if ((context.timer_extension_queries > 0U) != expect_timer_extension_query ||
+      context.timer_registrations != context.timer_unregistrations ||
+      context.callback_requests == 0U) {
+    std::cerr << host_name << " timer lifecycle mismatch: queries="
+              << context.timer_extension_queries
+              << " registrations=" << context.timer_registrations
+              << " unregistrations=" << context.timer_unregistrations
+              << " callbacks=" << context.callback_requests << '\n';
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main() {
@@ -89,23 +172,10 @@ int main() {
     return 1;
   }
 
-  clap_host_t host{};
-  host.clap_version = CLAP_VERSION;
-  host.name = "MrNinjam lifecycle stress test";
-  host.vendor = "MrNinjam";
-  host.url = "https://github.com/mrosenki/MrNinjam";
-  host.version = "1";
-  host.get_extension = HostGetExtension;
-  host.request_restart = HostRequest;
-  host.request_process = HostRequest;
-  host.request_callback = HostRequest;
-
-  for (std::size_t iteration = 0; iteration < kLifecycleIterations; ++iteration) {
-    if (!RunLifecycle(factory, &host)) {
-      std::cerr << "CLAP GUI lifecycle failed at iteration " << iteration << '\n';
-      NinjamPluginEntryDeinit();
-      return 1;
-    }
+  if (!RunHostLifecycles(factory, "Generic CLAP lifecycle host", true) ||
+      !RunHostLifecycles(factory, "REAPER", false)) {
+    NinjamPluginEntryDeinit();
+    return 1;
   }
 
   NinjamPluginEntryDeinit();

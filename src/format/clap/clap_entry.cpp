@@ -114,7 +114,7 @@ struct NinjamPluginInstance {
   std::unique_ptr<ninjamplugin::ui::ConnectionEditorController> editor_controller;
   bool editor_created = false;
   bool editor_visible = false;
-  bool plugin_active = false;
+  std::atomic_bool plugin_active{false};
   bool main_thread_timer_registered = false;
   clap_id main_thread_timer_id = CLAP_INVALID_ID;
   ninjamplugin::format::clap::AudioProcessingHeartbeat audio_processing_heartbeat;
@@ -415,7 +415,8 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
 }
 
 bool ShouldKeepMainThreadPumping(const NinjamPluginInstance* instance) {
-  if (instance == nullptr) {
+  if (instance == nullptr ||
+      !instance->plugin_active.load(std::memory_order_acquire)) {
     return false;
   }
   return (instance->runtime.IsConnectRequested() &&
@@ -1348,8 +1349,13 @@ bool CLAP_ABI PluginInit(const clap_plugin_t* plugin) {
         instance->host->get_extension(instance->host, CLAP_EXT_GUI));
     instance->host_audio_ports = static_cast<const clap_host_audio_ports_t*>(
         instance->host->get_extension(instance->host, CLAP_EXT_AUDIO_PORTS));
-    instance->host_timer_support = static_cast<const clap_host_timer_support_t*>(
-        instance->host->get_extension(instance->host, CLAP_EXT_TIMER_SUPPORT));
+    // REAPER 7.85 has been observed faulting in Clap_RunTimers immediately
+    // after removing this plug-in. Use the existing request_callback pump in
+    // REAPER so no MrNinjam timer record can outlive the CLAP instance.
+    if (!instance->is_reaper_host) {
+      instance->host_timer_support = static_cast<const clap_host_timer_support_t*>(
+          instance->host->get_extension(instance->host, CLAP_EXT_TIMER_SUPPORT));
+    }
   }
   const bool ok = instance->runtime.Initialize(48000.0);
   SyncEditorDraftSettingsFromRuntime(instance);
@@ -1379,6 +1385,9 @@ void CLAP_ABI PluginDestroy(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   ninjamplugin::core::DebugLog("clap", "PluginDestroy");
+  instance->plugin_active.store(false, std::memory_order_release);
+  instance->keep_main_thread_pumping.store(false, std::memory_order_release);
+  instance->main_thread_callback_pending.store(false, std::memory_order_release);
   UnregisterHostMainThreadTimer(instance);
   if (instance->editor_shell != nullptr) {
     instance->editor_shell->SetDelegate(nullptr);
@@ -1407,7 +1416,7 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
     ninjamplugin::core::DebugLog("clap", "PluginActivate failed: Activate");
     return false;
   }
-  instance->plugin_active = true;
+  instance->plugin_active.store(true, std::memory_order_release);
   instance->runtime.MainThreadTick();
   const bool keep_main_thread_pumping = ShouldKeepMainThreadPumping(instance);
   instance->keep_main_thread_pumping.store(keep_main_thread_pumping);
@@ -1457,12 +1466,12 @@ void CLAP_ABI PluginDeactivate(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
+  instance->plugin_active.store(false, std::memory_order_release);
+  instance->keep_main_thread_pumping.store(false, std::memory_order_release);
+  instance->main_thread_callback_pending.store(false, std::memory_order_release);
   UnregisterHostMainThreadTimer(instance);
-  instance->plugin_active = false;
   instance->audio_processing_heartbeat.Update(false, false, MonotonicNowNs());
   instance->runtime.Deactivate();
-  instance->keep_main_thread_pumping.store(false);
-  instance->main_thread_callback_pending.store(false);
   UpdateEditorShellView(instance, false);
   ninjamplugin::core::DebugLog("clap", "PluginDeactivate");
 }
@@ -2659,7 +2668,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
   instance->audio_processing_heartbeat.Update(
       current_state ==
           ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
-      instance->plugin_active, MonotonicNowNs());
+      instance->plugin_active.load(std::memory_order_acquire), MonotonicNowNs());
   if (current_state != instance->last_logged_connection_state) {
     instance->last_logged_connection_state = current_state;
     instance->pending_connection_state.store(current_state, std::memory_order_relaxed);

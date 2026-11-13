@@ -123,7 +123,9 @@ While connection work needs regular main-thread service, the plug-in registers
 the CLAP timer-support extension at 33 ms. The pinned clap-wrapper forwards the
 same extension to VST3, so both formats use one heartbeat and UI path. Native
 hosts that do not implement CLAP timer support fall back to the existing host
-callback pump. If a host suspends audio processing and all plug-in main-thread
+callback pump. REAPER also uses the callback pump deliberately: removing a CLAP
+instance must not leave a MrNinjam timer record in REAPER's host timer list.
+If a host suspends audio processing and all plug-in main-thread
 or UI timers together, the warning cannot become visible until the host resumes
 one of those callbacks; the plug-in does not create a private polling thread.
 
