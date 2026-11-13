@@ -127,12 +127,13 @@ require_absolute_destination "$VST3_INSTALL_DIR"
 require_resolved_destination_outside_source "$CLAP_INSTALL_DIR"
 require_resolved_destination_outside_source "$VST3_INSTALL_DIR"
 
-BUILD_DIR="${ROOT_DIR}/build/${BUILD_TYPE}"
+BUILD_DIR="${NINJAMPLUGIN_BUILD_DIR:-${ROOT_DIR}/build/${BUILD_TYPE}}"
 CLAP_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.clap"
 VST3_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.vst3"
 
 if [[ "$SKIP_VERIFY" -eq 0 ]]; then
-  "${ROOT_DIR}/scripts/verify.sh" "$BUILD_TYPE"
+  NINJAMPLUGIN_BUILD_DIR="$BUILD_DIR" \
+    "${ROOT_DIR}/scripts/verify.sh" "$BUILD_TYPE"
 fi
 
 for artifact in "$CLAP_ARTIFACT" "$VST3_ARTIFACT"; do

@@ -66,6 +66,10 @@ ctest --test-dir build/Release -C Release --output-on-failure
 
 Or run `./scripts/verify.sh Release` to perform the dependency check, build,
 CTest run, artifact existence checks, and packaged-file path scan.
+Set `NINJAMPLUGIN_BUILD_DIR` to an absolute configured build directory when a
+generator or CI job uses a layout such as `build/plugin` instead of
+`build/Release/plugin`; verification and development installation then use the
+same explicit artifact root.
 
 Expected products are under `build/Release/plugin`:
 

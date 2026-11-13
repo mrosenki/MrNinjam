@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_TYPE="${1:-Release}"
-BUILD_DIR="${ROOT_DIR}/build/${BUILD_TYPE}"
+BUILD_DIR="${NINJAMPLUGIN_BUILD_DIR:-${ROOT_DIR}/build/${BUILD_TYPE}}"
 CLAP_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.clap"
 VST3_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.vst3"
 

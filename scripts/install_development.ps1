@@ -66,12 +66,16 @@ function Assert-SafeInstallDirectory {
 
 $ClapInstallDir = Assert-SafeInstallDirectory $ClapInstallDir
 $Vst3InstallDir = Assert-SafeInstallDirectory $Vst3InstallDir
-$BuildDir = Join-Path $RootDir ("build/{0}" -f $BuildType)
+$BuildDir = if ($env:NINJAMPLUGIN_BUILD_DIR) {
+  [System.IO.Path]::GetFullPath($env:NINJAMPLUGIN_BUILD_DIR)
+} else {
+  Join-Path $RootDir ("build/{0}" -f $BuildType)
+}
 $ClapArtifact = Join-Path $BuildDir "plugin/MrNinjam.clap"
 $Vst3Artifact = Join-Path $BuildDir "plugin/MrNinjam.vst3"
 
 if (-not $SkipVerify) {
-  & (Join-Path $RootDir "scripts/verify.ps1") -BuildType $BuildType
+  & (Join-Path $RootDir "scripts/verify.ps1") -BuildType $BuildType -BuildDir $BuildDir
   if (-not $?) {
     throw "Development build verification failed; installed plug-ins were not changed."
   }

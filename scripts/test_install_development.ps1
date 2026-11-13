@@ -1,5 +1,6 @@
 param(
-  [string]$BuildType = "Release"
+  [string]$BuildType = "Release",
+  [string]$BuildDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,6 +18,7 @@ $OriginalPath = $env:PATH
 $OriginalLocalAppData = $env:LOCALAPPDATA
 $OriginalClapDir = $env:NINJAMPLUGIN_CLAP_INSTALL_DIR
 $OriginalVst3Dir = $env:NINJAMPLUGIN_VST3_INSTALL_DIR
+$OriginalBuildDir = $env:NINJAMPLUGIN_BUILD_DIR
 
 function Invoke-ExpectedFailure {
   param(
@@ -44,6 +46,9 @@ try {
   $env:LOCALAPPDATA = Join-Path $TestRoot "localappdata"
   $env:NINJAMPLUGIN_CLAP_INSTALL_DIR = $ClapDir
   $env:NINJAMPLUGIN_VST3_INSTALL_DIR = $Vst3Dir
+  if ($BuildDir) {
+    $env:NINJAMPLUGIN_BUILD_DIR = [System.IO.Path]::GetFullPath($BuildDir)
+  }
 
   & $Installer -BuildType $BuildType -DryRun -SkipVerify
   if (Test-Path -LiteralPath (Join-Path $ClapDir "MrNinjam.clap")) {
@@ -135,6 +140,7 @@ try {
   $env:LOCALAPPDATA = $OriginalLocalAppData
   $env:NINJAMPLUGIN_CLAP_INSTALL_DIR = $OriginalClapDir
   $env:NINJAMPLUGIN_VST3_INSTALL_DIR = $OriginalVst3Dir
+  $env:NINJAMPLUGIN_BUILD_DIR = $OriginalBuildDir
   if (Test-Path Function:\Move-Item) {
     Remove-Item Function:\Move-Item
   }

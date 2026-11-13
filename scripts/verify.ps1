@@ -1,10 +1,17 @@
 param(
-  [string]$BuildType = "Release"
+  [string]$BuildType = "Release",
+  [string]$BuildDir = ""
 )
 
 $ErrorActionPreference = "Stop"
 $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$BuildDir = Join-Path $RootDir ("build/{0}" -f $BuildType)
+$BuildDir = if ($BuildDir) {
+  [System.IO.Path]::GetFullPath($BuildDir)
+} elseif ($env:NINJAMPLUGIN_BUILD_DIR) {
+  [System.IO.Path]::GetFullPath($env:NINJAMPLUGIN_BUILD_DIR)
+} else {
+  Join-Path $RootDir ("build/{0}" -f $BuildType)
+}
 $ClapArtifact = Join-Path $BuildDir "plugin/MrNinjam.clap"
 $Vst3Artifact = Join-Path $BuildDir "plugin/MrNinjam.vst3"
 

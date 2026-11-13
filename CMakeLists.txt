@@ -326,10 +326,12 @@ if(NINJAMPLUGIN_ENABLE_TESTS AND TARGET ninjamplugin_clap AND TARGET ninjamplugi
       COMMAND powershell -NoProfile -ExecutionPolicy Bypass
         -File "${CMAKE_SOURCE_DIR}/scripts/test_install_development.ps1"
         -BuildType "$<CONFIG>"
+        -BuildDir "${CMAKE_BINARY_DIR}"
     )
   else()
     add_test(NAME ninjamplugin_development_installer
-      COMMAND "${CMAKE_SOURCE_DIR}/scripts/test_install_development.sh" "$<CONFIG>"
+      COMMAND "${CMAKE_SOURCE_DIR}/scripts/test_install_development.sh"
+        "$<CONFIG>" "${CMAKE_BINARY_DIR}"
     )
   endif()
   set_tests_properties(ninjamplugin_development_installer PROPERTIES TIMEOUT 120)
