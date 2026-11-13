@@ -1,17 +1,86 @@
+#include "ninjamplugin/core/connection_config.h"
 #include "ninjamplugin/format/clap/plugin_config.h"
 #include "ninjamplugin/format/clap/plugin_entry.h"
 
+#include <clap/events.h>
 #include <clap/ext/gui.h>
+#include <clap/ext/params.h>
 #include <clap/ext/timer-support.h>
 #include <clap/factory/plugin-factory.h>
 
+#include <chrono>
 #include <cstddef>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
+#include <string>
 #include <string_view>
+#include <system_error>
 
 namespace {
 
 constexpr std::size_t kLifecycleIterations = 64U;
+constexpr clap_id kConnectParamId = 1002U;
+
+struct SavedEnvironment {
+  bool present = false;
+  std::string value;
+};
+
+SavedEnvironment ReadEnvironment(const char* name) {
+  const char* value = std::getenv(name);
+  return {value != nullptr, value == nullptr ? std::string() : std::string(value)};
+}
+
+bool SetEnvironment(const char* name, const char* value) {
+#if defined(_WIN32)
+  return _putenv_s(name, value == nullptr ? "" : value) == 0;
+#else
+  return value == nullptr ? unsetenv(name) == 0 : setenv(name, value, 1) == 0;
+#endif
+}
+
+class ScopedConnectionSettings final {
+ public:
+  ScopedConnectionSettings() {
+#if defined(_WIN32)
+    environment_name_ = "APPDATA";
+#elif defined(__APPLE__)
+    environment_name_ = "HOME";
+#else
+    environment_name_ = "XDG_CONFIG_HOME";
+#endif
+    previous_ = ReadEnvironment(environment_name_);
+    const auto unique = std::chrono::steady_clock::now().time_since_epoch().count();
+    root_ = std::filesystem::temp_directory_path() /
+        ("mrninjam-clap-lifecycle-" + std::to_string(unique));
+    std::error_code error;
+    std::filesystem::create_directories(root_, error);
+    if (error || !SetEnvironment(environment_name_, root_.string().c_str())) {
+      return;
+    }
+
+    ninjamplugin::core::ConnectionSettings settings;
+    settings.host = "127.0.0.1:1";
+    settings.user = "lifecycle-test";
+    settings.persist_password = false;
+    ready_ = ninjamplugin::core::SaveConnectionSettings(settings);
+  }
+
+  ~ScopedConnectionSettings() {
+    SetEnvironment(environment_name_, previous_.present ? previous_.value.c_str() : nullptr);
+    std::error_code error;
+    std::filesystem::remove_all(root_, error);
+  }
+
+  bool ready() const { return ready_; }
+
+ private:
+  const char* environment_name_ = nullptr;
+  SavedEnvironment previous_;
+  std::filesystem::path root_;
+  bool ready_ = false;
+};
 
 const char* PlatformApi() {
 #if defined(__APPLE__)
@@ -78,7 +147,23 @@ void CLAP_ABI HostRequest(const clap_host_t* host) {
   }
 }
 
+uint32_t CLAP_ABI InputEventCount(const clap_input_events_t* /*events*/) {
+  return 1U;
+}
+
+const clap_event_header_t* CLAP_ABI InputEventGet(
+    const clap_input_events_t* events, const uint32_t index) {
+  if (events == nullptr || events->ctx == nullptr || index != 0U) {
+    return nullptr;
+  }
+  const auto* event = static_cast<const clap_event_param_value_t*>(events->ctx);
+  return &event->header;
+}
+
 bool RunLifecycle(const clap_plugin_factory_t* factory, const clap_host_t* host) {
+  auto* context = static_cast<HostContext*>(host->host_data);
+  const std::size_t registrations_before = context->timer_registrations;
+  const std::size_t unregistrations_before = context->timer_unregistrations;
   const clap_plugin_t* plugin = factory->create_plugin(
       factory, host, ninjamplugin::format::clap::kPluginId);
   if (plugin == nullptr || !plugin->init(plugin)) {
@@ -108,8 +193,51 @@ bool RunLifecycle(const clap_plugin_factory_t* factory, const clap_host_t* host)
     plugin->destroy(plugin);
     return false;
   }
+
+  const auto* params = static_cast<const clap_plugin_params_t*>(
+      plugin->get_extension(plugin, CLAP_EXT_PARAMS));
+  clap_event_param_value_t connect_event{};
+  connect_event.header.size = sizeof(connect_event);
+  connect_event.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+  connect_event.header.type = CLAP_EVENT_PARAM_VALUE;
+  connect_event.param_id = kConnectParamId;
+  connect_event.note_id = -1;
+  connect_event.port_index = -1;
+  connect_event.channel = -1;
+  connect_event.key = -1;
+  connect_event.value = 1.0;
+  clap_input_events_t input_events{};
+  input_events.ctx = &connect_event;
+  input_events.size = InputEventCount;
+  input_events.get = InputEventGet;
+  if (params == nullptr) {
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+    plugin->destroy(plugin);
+    return false;
+  }
+  params->flush(plugin, &input_events, nullptr);
+  plugin->on_main_thread(plugin);
+  if (context->timer_registrations != registrations_before + 1U) {
+    plugin->stop_processing(plugin);
+    plugin->deactivate(plugin);
+    plugin->destroy(plugin);
+    return false;
+  }
+
   plugin->stop_processing(plugin);
   plugin->deactivate(plugin);
+  if (context->timer_unregistrations != unregistrations_before + 1U) {
+    plugin->destroy(plugin);
+    return false;
+  }
+  // A host may still deliver a callback requested immediately before
+  // deactivation. It must not restart timer service for an inactive instance.
+  plugin->on_main_thread(plugin);
+  if (context->timer_registrations != registrations_before + 1U) {
+    plugin->destroy(plugin);
+    return false;
+  }
 
   // Exercise plug-in destruction while an unshown editor still exists. Hosts
   // may tear down the instance directly during application shutdown.
@@ -122,8 +250,7 @@ bool RunLifecycle(const clap_plugin_factory_t* factory, const clap_host_t* host)
 }
 
 bool RunHostLifecycles(const clap_plugin_factory_t* factory,
-                       const char* host_name,
-                       const bool expect_timer_extension_query) {
+                       const char* host_name) {
   HostContext context;
   clap_host_t host{};
   host.clap_version = CLAP_VERSION;
@@ -144,7 +271,7 @@ bool RunHostLifecycles(const clap_plugin_factory_t* factory,
     }
   }
 
-  if ((context.timer_extension_queries > 0U) != expect_timer_extension_query ||
+  if (context.timer_extension_queries != kLifecycleIterations ||
       context.timer_registrations != context.timer_unregistrations ||
       context.callback_requests == 0U) {
     std::cerr << host_name << " timer lifecycle mismatch: queries="
@@ -160,7 +287,9 @@ bool RunHostLifecycles(const clap_plugin_factory_t* factory,
 }  // namespace
 
 int main() {
-  if (PlatformApi() == nullptr || !NinjamPluginEntryInit("lifecycle-test")) {
+  ScopedConnectionSettings settings;
+  if (!settings.ready() || PlatformApi() == nullptr ||
+      !NinjamPluginEntryInit("lifecycle-test")) {
     std::cerr << "CLAP lifecycle test could not initialise the platform API\n";
     return 1;
   }
@@ -172,8 +301,8 @@ int main() {
     return 1;
   }
 
-  if (!RunHostLifecycles(factory, "Generic CLAP lifecycle host", true) ||
-      !RunHostLifecycles(factory, "REAPER", false)) {
+  if (!RunHostLifecycles(factory, "Generic CLAP lifecycle host") ||
+      !RunHostLifecycles(factory, "REAPER")) {
     NinjamPluginEntryDeinit();
     return 1;
   }

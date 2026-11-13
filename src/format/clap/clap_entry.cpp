@@ -1349,13 +1349,8 @@ bool CLAP_ABI PluginInit(const clap_plugin_t* plugin) {
         instance->host->get_extension(instance->host, CLAP_EXT_GUI));
     instance->host_audio_ports = static_cast<const clap_host_audio_ports_t*>(
         instance->host->get_extension(instance->host, CLAP_EXT_AUDIO_PORTS));
-    // REAPER 7.85 has been observed faulting in Clap_RunTimers immediately
-    // after removing this plug-in. Use the existing request_callback pump in
-    // REAPER so no MrNinjam timer record can outlive the CLAP instance.
-    if (!instance->is_reaper_host) {
-      instance->host_timer_support = static_cast<const clap_host_timer_support_t*>(
-          instance->host->get_extension(instance->host, CLAP_EXT_TIMER_SUPPORT));
-    }
+    instance->host_timer_support = static_cast<const clap_host_timer_support_t*>(
+        instance->host->get_extension(instance->host, CLAP_EXT_TIMER_SUPPORT));
   }
   const bool ok = instance->runtime.Initialize(48000.0);
   SyncEditorDraftSettingsFromRuntime(instance);
