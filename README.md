@@ -6,9 +6,9 @@ VST3 through clap-wrapper.
 
 The canonical repository is <https://github.com/mrosenki/MrNinjam>.
 
-The current development baseline is version `0.2.1`. The independent Git
+The current development baseline is version `0.2.2`. The independent Git
 history began with the reviewed `0.1.132` migration snapshot; that historical
-baseline remains preserved in the initial commit. Version `0.2.1` is a
+baseline remains preserved in the initial commit. Version `0.2.2` is a
 development-stage source-code preview, not a production-ready release. The
 GPL-licensed source is available for inspection, building, testing, and
 contribution, but the project does not provide official CLAP or VST3 binaries.
@@ -67,6 +67,10 @@ See [Build and validation](docs/BUILD.md) for platform requirements and manual
 commands. Exact source pins and provenance are in
 [Dependencies and provenance](docs/DEPENDENCIES.md) and the
 [Source provenance inventory](docs/SOURCE_PROVENANCE.md).
+
+After verification, use the
+[development installation and DAW smoke workflow](docs/DAW_TESTING.md) to
+install local builds in per-user CLAP/VST3 locations for REAPER and Bitwig.
 
 ## Status and compatibility
 

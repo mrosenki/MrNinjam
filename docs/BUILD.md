@@ -72,6 +72,13 @@ Expected products are under `build/Release/plugin`:
 - `MrNinjam.clap`
 - `MrNinjam.vst3`
 
+For a verified per-user development installation, run
+`./scripts/install_development.sh Release` on macOS/Linux or
+`./scripts/install_development.ps1 -BuildType Release` on Windows. These
+commands run verification before replacing only the exact MrNinjam bundles;
+they do not create or publish an official package. See
+[Development installation and DAW smoke testing](DAW_TESTING.md).
+
 The permanent CLAP ID is `io.github.mrosenki.mrninjam`; the explicit VST3
 CID is `CF3108E94031432BAEC75E1A03E0978F`.
 

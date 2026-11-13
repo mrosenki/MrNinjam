@@ -6,7 +6,16 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
-## 0.2.1 - In development
+## 0.2.2 - In development
+
+- Add a verified per-user development installer for CLAP and VST3 on macOS,
+  Windows, and Linux.
+- Add a privacy-safe REAPER and Bitwig smoke-test baseline for locally built
+  development versions.
+- Preserve the permanent plug-in identifiers, parameter IDs, and V1--V20
+  saved-state decoding established in `0.2.1`.
+
+## 0.2.1 - Development baseline
 
 - Establish the permanent CLAP ID `io.github.mrosenki.mrninjam` and VST3
   CID `CF3108E94031432BAEC75E1A03E0978F` before public release.
