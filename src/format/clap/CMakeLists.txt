@@ -74,6 +74,20 @@ if(NINJAMPLUGIN_ENABLE_TESTS)
     COMMAND ninjamplugin_clap_gui_lifecycle_stress_test
   )
 
+  add_executable(ninjamplugin_main_thread_pump_policy_test
+    ../../tests/main_thread_pump_policy_test.cpp
+  )
+  target_include_directories(ninjamplugin_main_thread_pump_policy_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+  )
+  target_compile_features(
+    ninjamplugin_main_thread_pump_policy_test PRIVATE cxx_std_20
+  )
+  ninjamplugin_apply_warnings(ninjamplugin_main_thread_pump_policy_test)
+  add_test(NAME ninjamplugin_main_thread_pump_policy_test
+    COMMAND ninjamplugin_main_thread_pump_policy_test
+  )
+
   add_executable(ninjamplugin_realtime_diagnostic_safety_test
     ../../tests/realtime_diagnostic_safety_test.cpp
   )
