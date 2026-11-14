@@ -254,6 +254,7 @@ struct NinjamPluginNJClient::RealtimeState {
   std::atomic<int> published_active_bpm{120};
   std::atomic<int> published_active_bpi{32};
   std::atomic<std::uint64_t> published_interval_generation{0U};
+  std::atomic<std::uint64_t> server_timing_generation{0U};
 
   bool previous_playing = false;
   bool have_position = false;
@@ -378,6 +379,8 @@ int NinjamPluginNJClient::Run() {
   m_srate = realtime_->sample_rate.load(std::memory_order_acquire);
   const int result = NJClient::Run();
   PublishControlSnapshot();
+  if (GetStatus() == NJC_STATUS_OK)
+    realtime_->server_timing_generation.fetch_add(1U, std::memory_order_release);
   return result;
 }
 
@@ -512,6 +515,10 @@ int NinjamPluginNJClient::GetPendingBPM() const {
 
 int NinjamPluginNJClient::GetPendingBPI() const {
   return realtime_->pending_bpi.load(std::memory_order_acquire);
+}
+
+std::uint64_t NinjamPluginNJClient::GetServerTimingGeneration() const {
+  return realtime_->server_timing_generation.load(std::memory_order_acquire);
 }
 
 void NinjamPluginNJClient::AudioProc(

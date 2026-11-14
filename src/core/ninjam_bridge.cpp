@@ -1228,6 +1228,7 @@ void NinjamBridge::MainThreadTick() {
   }
 
   bool active_timing_matches_server = false;
+  bool server_timing_published_for_connection = false;
   if (connected_) {
     double observed_bpm = 0.0;
     int pending_bpm = 0;
@@ -1239,6 +1240,9 @@ void NinjamBridge::MainThreadTick() {
         actual_session_bpi_ = client_->GetBPI();
         pending_bpm = client_->GetPendingBPM();
         pending_bpi = client_->GetPendingBPI();
+        server_timing_published_for_connection =
+            client_->GetServerTimingGeneration() >
+            server_timing_generation_at_connect_;
       }
     }
     actual_session_bpm_ =
@@ -1255,6 +1259,7 @@ void NinjamBridge::MainThreadTick() {
     DebugLog("bridge", "Connected transition observed");
   }
   if (connected_ && interval_position_valid_.load(std::memory_order_acquire) &&
+      server_timing_published_for_connection &&
       active_timing_matches_server &&
       !session_proposal_synced_for_connection_) {
     // NJClient reports OK and the replacement audio path starts an initial
@@ -1518,6 +1523,11 @@ void NinjamBridge::SetConnectRequested(const bool value) {
   if (value && !was_requested) {
     interval_position_valid_.store(false, std::memory_order_release);
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+    {
+      std::lock_guard<std::mutex> lock(client_mutex_);
+      server_timing_generation_at_connect_ =
+          client_ != nullptr ? client_->GetServerTimingGeneration() : 0U;
+    }
     if (disconnect_pending_) {
       std::lock_guard<std::mutex> lock(client_mutex_);
       if (client_ != nullptr) {

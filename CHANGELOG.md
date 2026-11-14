@@ -6,6 +6,14 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.9 - DAW test build
+
+- Require a server-control publication from the current connection before
+  treating matching active/pending timing values as authoritative proposal
+  initialization.
+- Cover the exact first-connection case where both the server and engine use
+  120 BPM but the server uses 8 BPI and the engine placeholder uses 32 BPI.
+
 ## 0.2.8 - DAW test build
 
 - Wait for the first active interval that matches the server control timing
@@ -16,6 +24,9 @@ independently of the package version.
   user edits.
 - Submit only BPM or BPI values that differ from the connected-session proposal
   baseline while capturing both editor values in one main-thread command.
+- Known DAW-test defect: the first connection could still accept matching
+  placeholder stores as authoritative before server timing was published.
+  Superseded by `0.2.9`.
 
 ## 0.2.7 - DAW test build
 

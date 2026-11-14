@@ -158,8 +158,8 @@ class FixtureServer {
     Send(connection, auth.build());
 
     mpb_server_config_change_notify config;
-    config.beats_minute = 120;
-    config.beats_interval = 1;
+    config.beats_minute = requested_bpm_.load(std::memory_order_relaxed);
+    config.beats_interval = requested_bpi_.load(std::memory_order_relaxed);
     Send(connection, config.build());
 
     mpb_server_userinfo_change_notify users;
@@ -443,6 +443,7 @@ int main() {
   };
   FixtureServer server;
   FixtureServer secondary_server;
+  secondary_server.SetTiming(120, 8);
   if (!server.Start() || !secondary_server.Start()) {
     std::cerr << "failed to start in-process NINJAM fixture\n";
     return 1;
@@ -614,6 +615,14 @@ int main() {
       bridge.GetSessionBpi() != 1) {
     std::cerr << "proposal did not initialise from the joined session bpm="
               << bridge.GetSessionBpm() << " bpi=" << bridge.GetSessionBpi() << '\n';
+    return 5;
+  }
+  if (!secondary_bridge.HasSessionProposalSyncedForConnection() ||
+      std::fabs(secondary_bridge.GetSessionBpm() - 120.0) > 0.1 ||
+      secondary_bridge.GetSessionBpi() != 8) {
+    std::cerr << "first connection retained the 120/32 placeholder bpm="
+              << secondary_bridge.GetSessionBpm()
+              << " bpi=" << secondary_bridge.GetSessionBpi() << '\n';
     return 5;
   }
   bridge.SubmitTimingVote(updated_actual_bpm, updated_actual_bpi);

@@ -36,6 +36,7 @@ class NinjamPluginNJClient final : public NJClient {
   int GetBPI() const;
   int GetPendingBPM() const;
   int GetPendingBPI() const;
+  std::uint64_t GetServerTimingGeneration() const;
 
   void DeleteLocalChannel(int channel);
   void SetLocalChannelInfo(int channel, const char* name, bool set_source,

@@ -472,6 +472,7 @@ class NinjamBridge {
   bool session_bpm_sync_pending_ = false;
   bool session_bpi_sync_pending_ = false;
   bool session_proposal_synced_for_connection_ = false;
+  std::uint64_t server_timing_generation_at_connect_ = 0U;
   bool connection_config_loaded_ = false;
   bool socket_library_open_ = false;
   std::string connection_host_;
