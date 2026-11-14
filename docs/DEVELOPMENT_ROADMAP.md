@@ -51,13 +51,16 @@ Immediate integration gate:
 1. **Completed:** `0.2.10` passed Linux, Windows, and macOS CI and the focused
    first-connection REAPER VST3 test. Server proposal initialization plus
    BPM-only, BPI-only, and combined voting passed; #9 is closed.
-2. Reconcile the remaining breadth claimed by #27 with the accumulated REAPER,
-   Bitwig, CLAP, and VST3 evidence, closing it only if every material criterion
-   is demonstrated or explicitly moved to #24.
-3. Review one consolidated integration diff against `main`, including saved
-   state/identity invariants, version metadata, public-repository cleanliness,
-   and the accumulated DAW evidence.
-4. Merge the consolidated integration PR only after explicit approval and
+2. **Completed:** #27 is closed after reconciling its focused defect evidence;
+   broader cross-host/format interoperability remains tracked by #24.
+3. **Reviewed locally:** the consolidated diff preserves permanent identities,
+   parameter/state compatibility, and host-independent lifecycle behavior. The
+   review removed a public endpoint literal, added a repository privacy scan,
+   corrected V21 documentation, and recorded non-blocking decomposition work
+   under #31.
+4. Retarget the consolidated integration PR to `main`, run its final
+   cross-platform CI, and merge only after explicit approval. Then close the
+   superseded stacked PRs with links to the merge.
    successful CI, then close superseded stacked PRs with links to the merge.
 
 Still requiring product work or broader hands-on evidence:

@@ -133,8 +133,8 @@ struct SessionUiState {
   bool uses_live_backend = false;
   std::string version_text = "prototype";
   std::string connection_state_text = "Connected";
-  std::string session_identity_text = "82.17.147.6:2049 / anonymous";
-  std::string host = "82.17.147.6:2049";
+  std::string session_identity_text = "session.example.test:2049 / anonymous";
+  std::string host = "session.example.test:2049";
   std::string user = "anonymous";
   std::string password;
   std::string notice_text;

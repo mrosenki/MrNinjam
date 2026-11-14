@@ -303,6 +303,12 @@ add_subdirectory(src/ui/visage)
 add_subdirectory(src)
 
 if(NINJAMPLUGIN_ENABLE_TESTS AND TARGET ninjamplugin_clap)
+  add_test(NAME ninjamplugin_repository_privacy_scan
+    COMMAND "${CMAKE_COMMAND}"
+      "-DROOT=${PROJECT_SOURCE_DIR}"
+      -P "${PROJECT_SOURCE_DIR}/scripts/check_repository_privacy.cmake"
+  )
+
   add_test(NAME ninjamplugin_clap_artifact_path_scan
     COMMAND "${CMAKE_COMMAND}"
       "-DARTIFACT=$<TARGET_FILE:ninjamplugin_clap>"

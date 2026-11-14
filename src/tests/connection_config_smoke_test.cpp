@@ -70,7 +70,7 @@ int main() {
     return 2;
   }
 
-  SetEnvVar("NINJAM_SERVER_HOST", "82.17.147.6:2049");
+  SetEnvVar("NINJAM_SERVER_HOST", "session.example.test:2049");
   SetEnvVar("NINJAM_SERVER_USER", "anonymous");
   SetEnvVar("NINJAM_SERVER_PASS", "env-override-pass");
   SetEnvVar("NINJAMPLUGIN_RECORDINGS_PATH", "/tmp/env-captures");
@@ -79,7 +79,7 @@ int main() {
     return 3;
   }
   if (!CheckLoaded(settings,
-                   "82.17.147.6:2049",
+                   "session.example.test:2049",
                    "anonymous",
                    "env-override-pass",
                    "/tmp/env-captures")) {

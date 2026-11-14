@@ -84,7 +84,7 @@ Version `0.2.1` established the permanent CLAP ID
 `CF3108E94031432BAEC75E1A03E0978F`. The CLAP ID replaces the development-only
 `io.github.mrosenki.ninjamplugin` identity in an approved one-time break before
 the first public release. Projects using that former CLAP identity may require
-manual plug-in replacement. Parameter IDs and V1--V20 saved-state decoding
+manual plug-in replacement. Parameter IDs and V1--V21 saved-state decoding
 remain unchanged. Internal `ninjamplugin` namespaces, targets, environment
 variables, and state headers are deliberately retained for source and state
 compatibility.

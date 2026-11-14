@@ -27,7 +27,7 @@ permanent CLAP ID and VST3 CID. The permanent CLAP ID replaces the former
 development ID `io.github.mrosenki.ninjamplugin` before public release. The
 historical `ninjamplugin` source namespace, CMake targets, entry symbols,
 environment variables, and serialized state headers remain unchanged.
-Parameter IDs and V1--V20 decoding are retained.
+Parameter IDs and V1--V21 decoding are retained.
 
 Changing bundle filenames can expose host-specific recall limitations even
 when a format identity is otherwise unchanged. The VST3 CID remains stable, so

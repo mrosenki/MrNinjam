@@ -239,7 +239,8 @@ const char* TransmitModeName(const int mode) {
 std::string SanitizeCaptureToken(const std::string& value, const char* fallback) {
   std::string sanitized;
   sanitized.reserve(value.size());
-  for (const unsigned char ch : value) {
+  for (const char raw_character : value) {
+    const auto ch = static_cast<unsigned char>(raw_character);
     if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) {
       sanitized.push_back(static_cast<char>(ch));
     } else if (ch == '-' || ch == '_' || ch == '.') {
@@ -1990,9 +1991,10 @@ double NinjamBridge::GetSessionReturnPeakLevel() const {
   // Remote audio is routed by the bridge callback rather than NJClient's
   // legacy master-output mixer. Report the cyan RECEIVE monitor path here so
   // the header meter follows the same signal as its monitor-only fader.
-  const double left = ExchangePeakAtomic(&remote_monitor_master_peak_left_bits_);
-  const double right =
-      ExchangePeakAtomic(&remote_monitor_master_peak_right_bits_);
+  const double left = static_cast<double>(
+      ExchangePeakAtomic(&remote_monitor_master_peak_left_bits_));
+  const double right = static_cast<double>(
+      ExchangePeakAtomic(&remote_monitor_master_peak_right_bits_));
   return std::clamp(std::max(left, right), 0.0, 1.0);
 #else
   return 0.0;
@@ -2159,12 +2161,14 @@ double NinjamBridge::GetRemoteUserChannelPeakLevel(const int user_index,
   if (slot_index < 0) return 0.0;
   const auto index = static_cast<std::size_t>(slot_index);
   if (channel == 0)
-    return ExchangePeakAtomic(&remote_record_peak_left_bits_[index]);
+    return static_cast<double>(
+        ExchangePeakAtomic(&remote_record_peak_left_bits_[index]));
   if (channel == 1)
-    return ExchangePeakAtomic(&remote_record_peak_right_bits_[index]);
+    return static_cast<double>(
+        ExchangePeakAtomic(&remote_record_peak_right_bits_[index]));
   const auto left = ExchangePeakAtomic(&remote_record_peak_left_bits_[index]);
   const auto right = ExchangePeakAtomic(&remote_record_peak_right_bits_[index]);
-  return std::max(left, right);
+  return static_cast<double>(std::max(left, right));
 }
 
 double NinjamBridge::GetRemoteUserChannelMonitorPeakLevel(
@@ -2173,12 +2177,14 @@ double NinjamBridge::GetRemoteUserChannelMonitorPeakLevel(
   if (slot_index < 0) return 0.0;
   const auto index = static_cast<std::size_t>(slot_index);
   if (channel == 0)
-    return ExchangePeakAtomic(&remote_monitor_peak_left_bits_[index]);
+    return static_cast<double>(
+        ExchangePeakAtomic(&remote_monitor_peak_left_bits_[index]));
   if (channel == 1)
-    return ExchangePeakAtomic(&remote_monitor_peak_right_bits_[index]);
+    return static_cast<double>(
+        ExchangePeakAtomic(&remote_monitor_peak_right_bits_[index]));
   const auto left = ExchangePeakAtomic(&remote_monitor_peak_left_bits_[index]);
   const auto right = ExchangePeakAtomic(&remote_monitor_peak_right_bits_[index]);
-  return std::max(left, right);
+  return static_cast<double>(std::max(left, right));
 }
 
 void NinjamBridge::SetSessionCaptureEnabled(const bool value) {
@@ -3154,13 +3160,15 @@ void NinjamBridge::SetLocalInputChannelEnabled(const int index, const bool value
   }
   for (auto& route : local_input_routes_) {
     if (!route.configured) {
-      route = LocalInputRouteConfig{true,
-                                    true,
-                                    true,
-                                    index,
-                                    kLocalInputSendLevelDefault,
-                                    kLocalInputMonitorLevelDefault,
-                                    0};
+      route = LocalInputRouteConfig{
+          .configured = true,
+          .enabled = true,
+          .monitor_enabled = true,
+          .source_pair_index = index,
+          .send_level = kLocalInputSendLevelDefault,
+          .monitor_level = kLocalInputMonitorLevelDefault,
+          .output_pair_index = 0,
+      };
       local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
       PublishLocalInputRoutingSnapshotLocked();
       DebugLogf("bridge",
