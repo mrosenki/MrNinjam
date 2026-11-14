@@ -74,6 +74,11 @@ ninjamplugin::ui::mixer::SessionUiState BuildSessionUiState(
   session.recording_status_text = state.recording_status_text;
   session.session_feed_text = state.session_feed_text;
   session.chat_send_enabled = state.chat_send_enabled;
+  session.timing_vote_enabled = state.capabilities.timing_vote.available;
+  session.timing_vote_unavailable_text =
+      state.capabilities.timing_vote.unavailable_reason;
+  session.raw_session_capture_available =
+      state.capabilities.raw_session_capture.available;
   session.audio_processing_paused = state.audio_processing_paused;
   session.remote_return_level = state.remote_return_value;
   session.remote_return_activity = state.remote_return_bar.normalized_value;
@@ -277,13 +282,8 @@ public:
           if (ninjamplugin::core::EnsureDebugLogDirectoryExists())
             RevealInFileBrowser(ninjamplugin::core::GetDebugLogDirectory());
         },
-        .on_target_bpm_changed = [this](double value) {
-          if (delegate_ != nullptr)
-            delegate_->TargetSessionBpmChanged(value);
-        },
-        .on_target_bpi_changed = [this](int value) {
-          if (delegate_ != nullptr)
-            delegate_->TargetSessionBpiChanged(value);
+        .on_timing_vote_requested = [this](double bpm, int bpi) {
+          return delegate_ != nullptr && delegate_->TimingVoteRequested(bpm, bpi);
         },
         .on_metronome_level_changed = [this](double value) {
           if (delegate_ != nullptr)

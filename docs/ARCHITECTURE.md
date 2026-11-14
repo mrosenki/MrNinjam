@@ -50,6 +50,21 @@ absolute installation path may also require a rescan or manual substitution.
 | Production editor | `src/ui/editor_shell_visage.cpp`, `src/ui/visage/` | Visage-backed rendering, layout, input, and UI preferences |
 | UI test harness | `tools/ui_harness/` | Optional standalone layout and interaction validation |
 
+The editor follows an MVC-style boundary rather than treating widgets as the
+application model:
+
+- the runtime bridge owns NINJAM, routing, recording, and connection state;
+- the editor controller derives immutable view state, action capabilities, and
+  command outcomes from that runtime state; and
+- Visage renders the supplied state and forwards user intent without inferring
+  action capability from labels, host names, or optimistic local click state.
+
+This boundary is intentionally pragmatic rather than framework-driven. UI-only
+layout and appearance preferences may remain in the view, but session and audio
+behavior must remain testable without constructing Visage widgets. Dead
+alternate views and duplicate command paths should be removed rather than kept
+in parallel.
+
 ## Threading boundaries
 
 - CLAP `init`, `activate`, `deactivate`, `destroy`, and `on_main_thread` run on

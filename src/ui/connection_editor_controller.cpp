@@ -334,6 +334,45 @@ const ninjamplugin::core::RemoteUserInfo* FindRemoteUserByRuntimeId(
 
 }  // namespace
 
+EditorActionCapabilities BuildEditorActionCapabilities(
+    const int connection_state, const bool connect_requested) {
+  EditorActionCapabilities capabilities;
+  const bool connected =
+      connection_state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected &&
+      connect_requested;
+
+  std::string reason;
+  if (connection_state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected &&
+      !connect_requested) {
+    reason = "Disconnecting from the NINJAM server.";
+  } else {
+    switch (connection_state) {
+      case ninjamplugin::core::NinjamBridge::kConnectionStateConnecting:
+        reason = "Wait for the NINJAM connection to finish.";
+        break;
+      case ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth:
+        reason = "Reconnect with valid NINJAM credentials.";
+        break;
+      case ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect:
+        reason = "Reconnect to a reachable NINJAM server.";
+        break;
+      case ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable:
+        reason = "NINJAM session support is unavailable.";
+        break;
+      default:
+        reason = "Connect to a NINJAM server to use this action.";
+        break;
+    }
+  }
+
+  const ActionAvailability session_action{connected, connected ? std::string{} : reason};
+  capabilities.timing_vote = session_action;
+  capabilities.chat = session_action;
+  capabilities.remote_session_controls = session_action;
+  capabilities.raw_session_capture = session_action;
+  return capabilities;
+}
+
 ConnectionEditorController::ConnectionEditorController(ConnectionEditorControllerHost* host)
     : host_(host) {
   raw_session_exporter_.SetProgressNotification([this](const bool force) {
@@ -377,6 +416,8 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   }
 
   ConnectionEditorViewState state;
+  state.capabilities = BuildEditorActionCapabilities(snapshot.connection_state,
+                                                     snapshot.connect_requested);
   state.settings = draft_settings_;
   state.config_path = snapshot.config_path;
   state.connection_state_text = snapshot.connection_state_text;
@@ -507,14 +548,18 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
     }
   }
 
+  const int remote_connection_state =
+      state.capabilities.remote_session_controls.available
+          ? ninjamplugin::core::NinjamBridge::kConnectionStateConnected
+          : ninjamplugin::core::NinjamBridge::kConnectionStateDisconnected;
   const SelectedRemoteChannelState selected_remote_channel =
-      PrepareSelectedRemoteChannelState(snapshot.overview, snapshot.connection_state);
+      PrepareSelectedRemoteChannelState(snapshot.overview, remote_connection_state);
   state.remote_participants_text = BuildRemoteParticipantsText(snapshot.overview,
-                                                               snapshot.connection_state,
+                                                               remote_connection_state,
                                                                selected_remote_user_index_,
                                                                selected_remote_channel_index_);
   state.remote_mixer_rows = BuildRemoteMixerRows(snapshot.overview,
-                                                 snapshot.connection_state,
+                                                 remote_connection_state,
                                                  host_,
                                                  remote_channel_runtime_ids_,
                                                  collapsed_remote_user_keys_,
@@ -529,25 +574,32 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   state.session_capture_enabled = snapshot.session_capture_enabled;
   state.session_capture_bits_per_sample = snapshot.session_capture_bits_per_sample;
   state.session_capture_active = snapshot.session_capture_active;
-  state.recording_requested = snapshot.recording_requested;
+  const bool has_eligible_recording_output =
+      snapshot.session_capture_enabled || snapshot.wav_stem_export_enabled ||
+      (snapshot.multitrack_capture_enabled &&
+       state.capabilities.raw_session_capture.available);
+  state.recording_requested =
+      snapshot.recording_requested && has_eligible_recording_output;
   state.recording_active = snapshot.session_capture_active || snapshot.multitrack_capture_active;
   state.record_button_enabled =
-      (snapshot.session_capture_enabled || snapshot.wav_stem_export_enabled ||
-       snapshot.multitrack_capture_enabled) &&
+      has_eligible_recording_output &&
       !snapshot.wav_stem_export_active;
   state.wav_stem_export_enabled = snapshot.wav_stem_export_enabled;
   state.wav_stem_export_active = snapshot.wav_stem_export_active;
   state.multitrack_capture_enabled = snapshot.multitrack_capture_enabled;
   state.multitrack_capture_active = snapshot.multitrack_capture_active;
   state.multitrack_wav_clips_enabled = false;
-  state.chat_send_enabled =
-      snapshot.connection_state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected;
+  state.chat_send_enabled = state.capabilities.chat.available;
+  if (snapshot.multitrack_capture_enabled && !has_eligible_recording_output) {
+    state.recording_status_text =
+        state.capabilities.raw_session_capture.unavailable_reason;
+  }
   state.selected_remote_channel_level_value =
       ninjamplugin::core::NinjamBridge::ClampRemoteChannelLevel(selected_remote_channel.level);
   state.remote_return_bar.normalized_value =
       ClampAudioLevelBarValue(snapshot.session_return_peak_value);
   state.remote_return_bar.enabled =
-      snapshot.connection_state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected;
+      state.capabilities.remote_session_controls.available;
   state.remote_return_bar.accessibility_text = "Live session return activity";
   state.metronome_level_bar.normalized_value =
       ClampAudioLevelBarValue(state.metronome_level_value /
@@ -676,22 +728,22 @@ void ConnectionEditorController::DisconnectRequested() {
   host_->RequestViewRefresh(true);
 }
 
-void ConnectionEditorController::TargetSessionBpmChanged(const double value) {
+bool ConnectionEditorController::TimingVoteRequested(const double bpm, const int bpi) {
   if (host_ == nullptr) {
-    return;
+    return false;
   }
-  host_->QueueTargetSessionBpm(value);
+  const auto capabilities = CurrentActionCapabilities();
+  if (!capabilities.timing_vote.available) {
+    notice_text_ = capabilities.timing_vote.unavailable_reason;
+    host_->RequestViewRefresh(false);
+    return false;
+  }
+  host_->QueueTargetSessionBpm(bpm);
+  host_->QueueTargetSessionBpi(bpi);
+  notice_text_ = "Timing vote queued.";
   host_->RequestHostEditorControlSync();
   host_->RequestViewRefresh(false);
-}
-
-void ConnectionEditorController::TargetSessionBpiChanged(const int value) {
-  if (host_ == nullptr) {
-    return;
-  }
-  host_->QueueTargetSessionBpi(value);
-  host_->RequestHostEditorControlSync();
-  host_->RequestViewRefresh(false);
+  return true;
 }
 
 void ConnectionEditorController::RemoteReturnChanged(const double value) {
@@ -743,8 +795,7 @@ void ConnectionEditorController::SessionCaptureEnabledChanged(const bool value) 
     return;
   }
   host_->SetSessionCaptureEnabled(value);
-  if (!value && !host_->IsWavStemExportEnabled() && !host_->IsMultitrackCaptureEnabled() &&
-      host_->IsRecordingRequested()) {
+  if (!HasEligibleRecordingOutput() && host_->IsRecordingRequested()) {
     host_->SetRecordingRequested(false);
   }
   notice_text_ = value ? "Session mix WAV enabled." : "Session mix WAV disabled.";
@@ -764,8 +815,7 @@ void ConnectionEditorController::WavStemExportEnabledChanged(const bool value) {
     return;
   }
   host_->SetWavStemExportEnabled(value);
-  if (!value && !host_->IsSessionCaptureEnabled() && !host_->IsMultitrackCaptureEnabled() &&
-      host_->IsRecordingRequested()) {
+  if (!HasEligibleRecordingOutput() && host_->IsRecordingRequested()) {
     host_->SetRecordingRequested(false);
   }
   notice_text_ = value ? "WAV stems enabled." : "WAV stems disabled.";
@@ -776,9 +826,14 @@ void ConnectionEditorController::MultitrackCaptureEnabledChanged(const bool valu
   if (host_ == nullptr) {
     return;
   }
+  const auto capabilities = CurrentActionCapabilities();
+  if (value && !capabilities.raw_session_capture.available) {
+    notice_text_ = capabilities.raw_session_capture.unavailable_reason;
+    host_->RequestViewRefresh(false);
+    return;
+  }
   host_->SetMultitrackCaptureEnabled(value);
-  if (!value && !host_->IsSessionCaptureEnabled() && !host_->IsWavStemExportEnabled() &&
-      host_->IsRecordingRequested()) {
+  if (!HasEligibleRecordingOutput() && host_->IsRecordingRequested()) {
     host_->SetRecordingRequested(false);
   }
   notice_text_ = value ? "Remix capture enabled." : "Remix capture disabled.";
@@ -789,15 +844,36 @@ void ConnectionEditorController::RecordingRequestedChanged(const bool value) {
   if (host_ == nullptr) {
     return;
   }
-  if (value && !host_->IsSessionCaptureEnabled() && !host_->IsWavStemExportEnabled() &&
-      !host_->IsMultitrackCaptureEnabled()) {
+  const auto capabilities = CurrentActionCapabilities();
+  if (value && !HasEligibleRecordingOutput()) {
     notice_text_ = "Choose a recording output first.";
+    if (host_->IsMultitrackCaptureEnabled() &&
+        !capabilities.raw_session_capture.available) {
+      notice_text_ = capabilities.raw_session_capture.unavailable_reason;
+    }
     host_->RequestViewRefresh(false);
     return;
   }
   host_->SetRecordingRequested(value);
   notice_text_ = value ? "Recording armed." : "Recording stopped.";
   host_->RequestViewRefresh(false);
+}
+
+EditorActionCapabilities ConnectionEditorController::CurrentActionCapabilities() const {
+  if (host_ == nullptr) {
+    return BuildEditorActionCapabilities(
+        ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable, false);
+  }
+  return BuildEditorActionCapabilities(host_->GetConnectionState(),
+                                       host_->IsConnectRequested());
+}
+
+bool ConnectionEditorController::HasEligibleRecordingOutput() const {
+  if (host_ == nullptr)
+    return false;
+  return host_->IsSessionCaptureEnabled() || host_->IsWavStemExportEnabled() ||
+         (host_->IsMultitrackCaptureEnabled() &&
+          CurrentActionCapabilities().raw_session_capture.available);
 }
 
 void ConnectionEditorController::MultitrackWavClipsEnabledChanged(const bool value) {

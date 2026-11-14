@@ -15,6 +15,9 @@
 
 namespace ninjamplugin::ui {
 
+EditorActionCapabilities BuildEditorActionCapabilities(int connection_state,
+                                                        bool connect_requested);
+
 struct ConnectionEditorRuntimeSnapshot {
   ninjamplugin::core::SessionOverview overview;
   std::string config_path;
@@ -125,6 +128,7 @@ class ConnectionEditorControllerHost {
   virtual void RequestHostParamsFlush() = 0;
 
   virtual bool IsConnectRequested() const = 0;
+  virtual int GetConnectionState() const = 0;
   virtual ninjamplugin::core::ConnectionSettings GetRuntimeConnectionSettings() const = 0;
   virtual void ApplyConnectionSettings(const ninjamplugin::core::ConnectionSettings& settings) = 0;
   virtual ninjamplugin::core::SessionOverview GetSessionOverview() const = 0;
@@ -230,8 +234,7 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
   void ReloadRequested() override;
   void ConnectRequested(const ninjamplugin::core::ConnectionSettings& settings) override;
   void DisconnectRequested() override;
-  void TargetSessionBpmChanged(double value) override;
-  void TargetSessionBpiChanged(int value) override;
+  bool TimingVoteRequested(double bpm, int bpi) override;
   void RemoteReturnChanged(double value) override;
   void MetronomeLevelChanged(double value) override;
   void MetronomeEnabledChanged(bool value) override;
@@ -319,6 +322,8 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
                                          int* out_channel_index) const;
   bool ApplyRemoteChannelSelectionAndNotify(int choice_index);
   void RefreshRecoveryCache();
+  EditorActionCapabilities CurrentActionCapabilities() const;
+  bool HasEligibleRecordingOutput() const;
 
   ConnectionEditorControllerHost* host_ = nullptr;
   ninjamplugin::core::ConnectionSettings draft_settings_;

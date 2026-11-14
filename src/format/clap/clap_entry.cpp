@@ -773,6 +773,12 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
     return instance_ != nullptr && instance_->runtime.IsConnectRequested();
   }
 
+  int GetConnectionState() const override {
+    return instance_ == nullptr
+               ? ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable
+               : instance_->runtime.GetConnectionState();
+  }
+
   ninjamplugin::core::ConnectionSettings GetRuntimeConnectionSettings() const override {
     return instance_ == nullptr ? ninjamplugin::core::ConnectionSettings()
                                 : instance_->runtime.GetConnectionSettings();

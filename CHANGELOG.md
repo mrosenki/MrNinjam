@@ -20,6 +20,11 @@ independently of the package version.
   projects and presets.
 - Make mixer peak rendering independent of host snapshot cadence by ingesting
   maxima and applying decay exclusively from elapsed UI time.
+- Derive connection-dependent action availability in the editor controller so
+  timing votes, chat, remote controls, and RAW capture cannot report success
+  while unavailable; keep offline WAV recording available.
+- Remove the unused duplicate connection drawer and require every editor
+  delegate command to have an explicit implementation.
 
 ## 0.2.1 - Development baseline
 

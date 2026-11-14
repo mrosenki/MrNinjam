@@ -164,6 +164,9 @@ struct SessionUiState {
   std::vector<RemoteChannelState> remote_channels;
   std::string session_feed_text;
   bool chat_send_enabled = false;
+  bool timing_vote_enabled = false;
+  std::string timing_vote_unavailable_text;
+  bool raw_session_capture_available = false;
   bool audio_processing_paused = false;
   double remote_return_level = 1.0;
   double remote_return_activity = 0.0;
@@ -211,8 +214,7 @@ struct MixerUiCallbacks {
   std::function<void()> on_reload_requested;
   std::function<void(bool)> on_diagnostic_logging_changed;
   std::function<void()> on_open_diagnostic_logs_requested;
-  std::function<void(double)> on_target_bpm_changed;
-  std::function<void(int)> on_target_bpi_changed;
+  std::function<bool(double, int)> on_timing_vote_requested;
   std::function<void(double)> on_metronome_level_changed;
   std::function<void(bool)> on_metronome_enabled_changed;
   std::function<void(int, bool)> on_local_input_enabled_changed;

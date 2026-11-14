@@ -252,10 +252,11 @@ std::string FormatSampleRate(double sample_rate) {
   return text.str();
 }
 
-void DrawToggle(visage::Canvas& canvas, bool enabled, float x, float y) {
-  canvas.setColor(enabled ? kGreen : kTrack);
+void DrawToggle(visage::Canvas& canvas, bool enabled, float x, float y,
+                bool available = true) {
+  canvas.setColor(available && enabled ? kGreen : kTrack);
   canvas.roundedRectangle(x, y, 34.0f, 18.0f, 9.0f);
-  canvas.setColor(kText);
+  canvas.setColor(available ? kText : kTextMuted);
   canvas.circle(x + (enabled ? 19.0f : 3.0f), y + 2.0f, 14.0f);
 }
 
@@ -1596,249 +1597,6 @@ public:
   }
 };
 
-class ConnectionDrawer : public visage::Frame {
-public:
-  ConnectionDrawer() : Frame("connection-drawer") {
-    setOnTop(true);
-    configureEditor(host_editor_, "Server host");
-    configureEditor(user_editor_, "anonymous");
-    configureEditor(password_editor_, "Password");
-    password_editor_.setPassword();
-    configureEditor(bpm_editor_, "120.0");
-    bpm_editor_.setNumberEntry();
-    configureEditor(bpi_editor_, "8");
-    bpi_editor_.setNumberEntry();
-
-    addChild(host_editor_);
-    addChild(user_editor_);
-    addChild(password_editor_);
-    addChild(bpm_editor_);
-    addChild(bpi_editor_);
-    bpm_editor_.setVisible(false);
-    bpi_editor_.setVisible(false);
-
-    host_editor_.onEnterKey() += [this] { requestConnectFromKeyboard(); };
-    user_editor_.onEnterKey() += [this] { requestConnectFromKeyboard(); };
-    password_editor_.onEnterKey() += [this] { requestConnectFromKeyboard(); };
-  }
-
-  std::function<void()> onClose;
-  std::function<void(const ConnectionUiDraft&)> onConnectRequested;
-  std::function<void()> onDisconnectRequested;
-  std::function<void(const ConnectionUiDraft&)> onSaveRequested;
-  std::function<void()> onReloadRequested;
-  std::function<void(double)> onTargetBpmChanged;
-  std::function<void(int)> onTargetBpiChanged;
-  std::function<void(int)> onTransmitModeChanged;
-  std::function<void(int)> onTransmitBitrateChanged;
-
-  void setState(const SessionUiState& state) {
-    const bool first_live_state = !state_.uses_live_backend && state.uses_live_backend;
-    state_ = state;
-    const bool fields_enabled = state.connect_enabled;
-    host_editor_.setActive(fields_enabled);
-    user_editor_.setActive(fields_enabled);
-    password_editor_.setActive(fields_enabled);
-    bpm_editor_.setActive(true);
-    bpi_editor_.setActive(true);
-    if (!editors_initialized_ || first_live_state || state.replace_form_fields) {
-      host_editor_.setText(state.host);
-      user_editor_.setText(state.user.empty() ? "anonymous" : state.user);
-      password_editor_.setText(state.password);
-      bpm_editor_.setText(formatBpm(state.target_bpm));
-      bpi_editor_.setText(std::to_string(state.target_bpi));
-      editors_initialized_ = true;
-    }
-    redraw();
-  }
-
-  ConnectionUiDraft draft() const {
-    return {
-        .host = host_editor_.text().toUtf8(),
-        .user = user_editor_.text().toUtf8(),
-        .password = password_editor_.text().toUtf8(),
-        .persist_password = true,
-    };
-  }
-
-  void resized() override {
-    const float field_width = std::max(120.0f, width() - 44.0f);
-    host_editor_.setBounds(22.0f, 102.0f, field_width, 34.0f);
-    user_editor_.setBounds(22.0f, 157.0f, field_width, 34.0f);
-    password_editor_.setBounds(22.0f, 212.0f, field_width, 34.0f);
-  }
-
-  void draw(visage::Canvas& canvas) override {
-    canvas.setColor(kOverlay);
-    canvas.roundedRectangle(0.0f, 0.0f, width(), height(), 16.0f);
-    canvas.setColor(kBorder);
-    canvas.roundedRectangleBorder(0.5f, 0.5f, width() - 1.0f, height() - 1.0f,
-                                  16.0f, 1.0f);
-    DrawText(canvas, "CONNECTION & SESSION", 10.0f, kCyan, 22.0f, 18.0f,
-             width() - 80.0f, 18.0f);
-    DrawText(canvas, "Settings", 24.0f, kText, 22.0f, 40.0f, width() - 80.0f, 32.0f);
-    DrawButton(canvas, "CLOSE", width() - 78.0f, 18.0f, 58.0f, 28.0f);
-
-    DrawText(canvas, "SERVER HOST", 9.0f, kTextMuted, 22.0f, 84.0f,
-             width() - 44.0f, 14.0f);
-    DrawText(canvas, "USERNAME", 9.0f, kTextMuted, 22.0f, 139.0f,
-             width() - 44.0f, 14.0f);
-    DrawText(canvas, "PASSWORD", 9.0f, kTextMuted, 22.0f, 194.0f,
-             width() - 44.0f, 14.0f);
-    DrawText(canvas, "NEW SEND DEFAULTS", 10.0f, kTextMuted, 22.0f, 258.0f,
-             width() - 44.0f, 18.0f);
-    DrawButton(canvas, state_.transmit_mode == 0 ? "MONO" : "STEREO",
-               22.0f, 282.0f, (width() - 54.0f) * 0.42f, 36.0f);
-    DrawButton(canvas, state_.transmit_bitrate_text,
-               32.0f + (width() - 54.0f) * 0.42f, 282.0f,
-               (width() - 54.0f) * 0.58f, 36.0f);
-
-    std::string status = state_.notice_text;
-    unsigned int status_color = kTextMuted;
-    if (!state_.failure_text.empty() && state_.failure_text != "None") {
-      status = state_.failure_text;
-      status_color = kRed;
-    }
-    if (status.empty())
-      status = state_.connection_state_text;
-    if (height() >= 460.0f) {
-      DrawText(canvas, status, 9.0f, status_color, 22.0f, height() - 88.0f,
-               width() - 44.0f, 18.0f);
-    }
-
-    const bool can_disconnect = state_.disconnect_enabled;
-    const bool connected = state_.connection_state_text == "Connected";
-    const float gap = 8.0f;
-    const float button_width = (width() - 44.0f - 2.0f * gap) / 3.0f;
-    DrawButton(canvas, can_disconnect ? (connected ? "DISCONNECT" : "CANCEL") : "CONNECT", 22.0f,
-               height() - 58.0f, button_width, 38.0f, true,
-               can_disconnect ? kRed : kGreen);
-    DrawButton(canvas, "SAVE DEFAULT", 22.0f + button_width + gap, height() - 58.0f,
-               button_width, 38.0f, false);
-    DrawButton(canvas, "LOAD DEFAULT", 22.0f + 2.0f * (button_width + gap),
-               height() - 58.0f, button_width, 38.0f, false);
-  }
-
-  void mouseDown(const visage::MouseEvent& event) override {
-    if (!event.isLeftButton())
-      return;
-    if (event.position.x >= width() - 90.0f && event.position.y < 60.0f) {
-      if (onClose)
-        onClose();
-      return;
-    }
-    if (event.position.y >= 274.0f && event.position.y <= 326.0f) {
-      const float split = 27.0f + (width() - 54.0f) * 0.42f;
-      if (event.position.x < split) {
-        visage::PopupMenu menu;
-        menu.addOption(0, "Mono").select(state_.transmit_mode == 0);
-        menu.addOption(1, "Stereo").select(state_.transmit_mode == 1);
-        menu.onSelection() += [this](int value) {
-          state_.transmit_mode = value;
-          if (onTransmitModeChanged) onTransmitModeChanged(value);
-          redraw();
-        };
-        menu.show(this, {22.0f, 318.0f});
-      } else {
-        visage::PopupMenu menu;
-        constexpr int rates[] = {80, 96, 112, 128, 160, 192, 256};
-        for (int index = 0; index < 7; ++index)
-          menu.addOption(index, std::to_string(rates[index]) + " kbps")
-              .select(index == state_.transmit_bitrate_index);
-        menu.onSelection() += [this](int value) {
-          state_.transmit_bitrate_index = value;
-          if (onTransmitBitrateChanged) onTransmitBitrateChanged(value);
-          redraw();
-        };
-        menu.show(this, {split, 318.0f});
-      }
-      return;
-    }
-    if (event.position.y > height() - 72.0f) {
-      const float gap = 8.0f;
-      const float button_width = (width() - 44.0f - 2.0f * gap) / 3.0f;
-      if (event.position.x < 22.0f + button_width) {
-        if (state_.disconnect_enabled && onDisconnectRequested)
-          onDisconnectRequested();
-        else if (state_.connect_enabled && onConnectRequested)
-          onConnectRequested(draft());
-      }
-      else if (event.position.x < 22.0f + 2.0f * button_width + gap) {
-        if (state_.save_enabled && onSaveRequested)
-          onSaveRequested(draft());
-      }
-      else if (state_.reload_enabled && onReloadRequested) {
-        onReloadRequested();
-      }
-    }
-  }
-
-  void mouseEnter(const visage::MouseEvent&) override {
-    setCursorStyle(visage::MouseCursor::Pointing);
-  }
-
-  void mouseExit(const visage::MouseEvent&) override {
-    setCursorStyle(visage::MouseCursor::Arrow);
-  }
-
-private:
-  static std::string formatBpm(double value) {
-    std::ostringstream text;
-    text << std::fixed << std::setprecision(1) << value;
-    return text.str();
-  }
-
-  static void configureEditor(visage::TextEditor& editor,
-                              const std::string& placeholder) {
-    editor.setDefaultText(placeholder);
-    editor.setFont(Font(12.0f));
-    editor.setJustification(visage::Font::kLeft);
-    editor.setMargin(10.0f, 8.0f);
-    editor.setSelectOnFocus(false);
-    editor.setMultiLine(false);
-  }
-
-  void requestConnectFromKeyboard() {
-    requestKeyboardFocus();
-    if (state_.connect_enabled && onConnectRequested)
-      onConnectRequested(draft());
-  }
-
-  void commitBpm() {
-    requestKeyboardFocus();
-    try {
-      const double value = std::clamp(std::stod(bpm_editor_.text().toUtf8()), 40.0, 300.0);
-      bpm_editor_.setText(formatBpm(value));
-      if (onTargetBpmChanged)
-        onTargetBpmChanged(value);
-    }
-    catch (...) {
-      bpm_editor_.setText(formatBpm(state_.target_bpm));
-    }
-  }
-
-  void commitBpi() {
-    requestKeyboardFocus();
-    try {
-      const int value = std::clamp(std::stoi(bpi_editor_.text().toUtf8()), 2, 64);
-      bpi_editor_.setText(std::to_string(value));
-      if (onTargetBpiChanged)
-        onTargetBpiChanged(value);
-    }
-    catch (...) {
-      bpi_editor_.setText(std::to_string(state_.target_bpi));
-    }
-  }
-
-  SessionUiState state_;
-  visage::TextEditor host_editor_{"connection-host"};
-  visage::TextEditor user_editor_{"connection-user"};
-  visage::TextEditor password_editor_{"connection-password"};
-  visage::TextEditor bpm_editor_{"target-bpm"};
-  visage::TextEditor bpi_editor_{"target-bpi"};
-  bool editors_initialized_ = false;
-};
-
 class SidePanelColumn : public visage::Frame {
 public:
   SidePanelColumn(std::string name, unsigned int accent)
@@ -2952,8 +2710,7 @@ public:
   std::function<void(bool)> onDiagnosticLoggingChanged;
   std::function<void()> onOpenDiagnosticLogsRequested;
   std::function<void(double)> onMetronomeLevelChanged;
-  std::function<void(double)> onTargetBpmChanged;
-  std::function<void(int)> onTargetBpiChanged;
+  std::function<bool(double, int)> onTimingVoteRequested;
   std::function<void(int)> onTransmitModeChanged;
   std::function<void(int)> onTransmitBitrateChanged;
 
@@ -2964,8 +2721,7 @@ public:
 
   void setState(const SessionUiState& state) {
     const bool first_live_state = !state_.uses_live_backend && state.uses_live_backend;
-    const bool connected = state.disconnect_enabled &&
-                           state.connection_state_text == "Connected";
+    const bool connected = state.timing_vote_enabled;
     const bool became_connected = connected && !was_connected_;
     state_ = state;
     if (!connected)
@@ -2998,6 +2754,8 @@ public:
     host_editor_.setActive(fields_enabled);
     user_editor_.setActive(fields_enabled);
     password_editor_.setActive(fields_enabled);
+    bpm_editor_.setActive(state.timing_vote_enabled);
+    bpi_editor_.setActive(state.timing_vote_enabled);
     updateConnectionEditorVisibility();
     redraw();
   }
@@ -3060,6 +2818,48 @@ public:
     return errors;
   }
 
+  std::vector<std::string> validateTimingVoteCapability() {
+    std::vector<std::string> errors;
+    const SessionUiState original_state = state_;
+    auto original_callback = std::move(onTimingVoteRequested);
+    const int original_feedback_ticks = vote_feedback_ticks_;
+    const std::string original_feedback_text = vote_feedback_text_;
+    int request_count = 0;
+    onTimingVoteRequested = [&request_count](double, int) {
+      ++request_count;
+      return true;
+    };
+
+    SessionUiState test_state = state_;
+    test_state.timing_vote_enabled = false;
+    test_state.timing_vote_unavailable_text = "Connect first.";
+    setState(test_state);
+    bpm_editor_.setText("120.0");
+    bpi_editor_.setText("8");
+    vote_feedback_ticks_ = 0;
+    visage::MouseEvent event;
+    event.button_id = visage::kMouseButtonLeft;
+    event.button_state = visage::kMouseButtonLeft;
+    event.position = {width() - 40.0f, 150.0f};
+    mouseDown(event);
+    if (request_count != 0 || vote_feedback_ticks_ != 0)
+      errors.emplace_back("disconnected timing vote produced success feedback");
+
+    test_state.timing_vote_enabled = true;
+    test_state.timing_vote_unavailable_text.clear();
+    setState(test_state);
+    mouseDown(event);
+    if (request_count != 1 || vote_feedback_ticks_ == 0)
+      errors.emplace_back("connected timing vote did not report a queued request");
+
+    state_ = original_state;
+    onTimingVoteRequested = std::move(original_callback);
+    vote_feedback_ticks_ = original_feedback_ticks;
+    vote_feedback_text_ = original_feedback_text;
+    redraw();
+    return errors;
+  }
+
   void draw(visage::Canvas& canvas) override {
     if (draw_chrome_) {
       canvas.setColor(kPanel);
@@ -3078,14 +2878,17 @@ public:
              width() - 36.0f, 14.0f);
     DrawText(canvas, "BPM", 8.0f, kAmber, 18.0f, 121.0f, 60.0f, 12.0f);
     DrawText(canvas, "BPI", 8.0f, kCyan, width() * 0.40f, 121.0f, 60.0f, 12.0f);
-    DrawButton(canvas, vote_feedback_ticks_ > 0 ? "VOTED" : "VOTE",
+    DrawButton(canvas, vote_feedback_ticks_ > 0 ? "QUEUED" : "VOTE",
                width() - 72.0f, 136.0f, 54.0f, 34.0f,
-               vote_feedback_ticks_ > 0, kCyan);
+               vote_feedback_ticks_ > 0, kCyan,
+               state_.timing_vote_enabled);
     const std::string notice = vote_feedback_ticks_ > 0
                                    ? vote_feedback_text_
-                                   : (state_.notice_text.empty()
-                                          ? state_.connection_state_text
-                                          : state_.notice_text);
+                                   : (!state_.timing_vote_enabled
+                                          ? state_.timing_vote_unavailable_text
+                                          : (state_.notice_text.empty()
+                                                 ? state_.connection_state_text
+                                                 : state_.notice_text));
     DrawText(canvas, notice, 9.0f,
              vote_feedback_ticks_ > 0 ? kCyan : kTextMuted,
              18.0f, 176.0f, width() - 36.0f, 28.0f);
@@ -3182,16 +2985,18 @@ public:
     }
     if (event.position.y >= 130.0f && event.position.y <= 178.0f &&
         event.position.x >= width() - 92.0f) {
+      if (!state_.timing_vote_enabled)
+        return;
       try {
         const double bpm = std::clamp(std::stod(bpm_editor_.text().toUtf8()), 40.0, 300.0);
         const int bpi = std::clamp(std::stoi(bpi_editor_.text().toUtf8()), 2, 64);
-        std::ostringstream feedback;
-        feedback << "Vote sent: " << std::fixed << std::setprecision(1) << bpm
-                 << " BPM / " << bpi << " BPI";
-        vote_feedback_text_ = feedback.str();
-        vote_feedback_ticks_ = 28;
-        if (onTargetBpmChanged) onTargetBpmChanged(bpm);
-        if (onTargetBpiChanged) onTargetBpiChanged(bpi);
+        if (onTimingVoteRequested && onTimingVoteRequested(bpm, bpi)) {
+          std::ostringstream feedback;
+          feedback << "Vote queued: " << std::fixed << std::setprecision(1) << bpm
+                   << " BPM / " << bpi << " BPI";
+          vote_feedback_text_ = feedback.str();
+          vote_feedback_ticks_ = 28;
+        }
         redraw();
       } catch (...) {
         vote_feedback_text_ = "Enter a BPM from 40–300 and BPI from 2–64";
@@ -3463,6 +3268,7 @@ public:
     session_mix_ = state.session_capture_enabled;
     stems_ = state.wav_stem_export_enabled;
     remix_ = state.multitrack_capture_enabled;
+    raw_session_capture_available_ = state.raw_session_capture_available;
     status_ = state.recording_status_text;
     path_ = state.recordings_path;
     if (!path_editor_.hasKeyboardFocus())
@@ -3479,6 +3285,8 @@ public:
     const bool original_recording = recording_;
     const bool original_stems = stems_;
     const bool original_record_enabled = record_enabled_;
+    const bool original_remix = remix_;
+    const bool original_raw_available = raw_session_capture_available_;
     record_enabled_ = true;
     visage::MouseEvent event;
     event.button_id = visage::kMouseButtonLeft;
@@ -3491,9 +3299,16 @@ public:
     mouseDown(event);
     if (stems_ == original_stems)
       errors.emplace_back("recording format option does not respond to a click");
+    raw_session_capture_available_ = false;
+    event.position = { 40.0f, 152.0f };
+    mouseDown(event);
+    if (remix_ != original_remix)
+      errors.emplace_back("unavailable RAW recording option changed while offline");
     recording_ = original_recording;
     stems_ = original_stems;
     record_enabled_ = original_record_enabled;
+    remix_ = original_remix;
+    raw_session_capture_available_ = original_raw_available;
     redraw();
     return errors;
   }
@@ -3508,12 +3323,18 @@ public:
     }
     DrawText(canvas, "RECORDING", 10.0f, kAmber, 18.0f, 16.0f,
              width() - 36.0f, 18.0f);
-    DrawText(canvas, recording_active_ ? "Recording" : "Ready to capture",
+    DrawText(canvas, recording_active_ ? "Recording"
+                                       : (record_enabled_ ? "Ready to capture"
+                                                          : "Recording unavailable"),
              17.0f, recording_active_ ? kRed : kText, 18.0f, 40.0f,
              width() - 36.0f, 26.0f);
-    drawOption(canvas, "Session mix WAV", session_mix_, 82.0f);
-    drawOption(canvas, "WAV stems", stems_, 112.0f);
-    drawOption(canvas, "Keep RAW session", remix_, 142.0f);
+    drawOption(canvas, "Session mix WAV", session_mix_, true, 82.0f);
+    drawOption(canvas, "WAV stems", stems_, true, 112.0f);
+    drawOption(canvas,
+               raw_session_capture_available_
+                   ? "Keep RAW session"
+                   : "Keep RAW session — connect first",
+               remix_, raw_session_capture_available_, 142.0f);
     DrawFolderButton(canvas, width() - 54.0f, 174.0f, 36.0f, 28.0f);
     DrawButton(canvas, recording_ ? "STOP" : "RECORD", 18.0f, 208.0f,
                width() - 36.0f, 36.0f, recording_, kRed, record_enabled_);
@@ -3606,8 +3427,10 @@ public:
         session_mix_ = !session_mix_;
       else if (event.position.y < 142.0f)
         stems_ = !stems_;
-      else
+      else if (raw_session_capture_available_)
         remix_ = !remix_;
+      else
+        return;
       if (event.position.y < 112.0f && onSessionMixChanged) onSessionMixChanged(session_mix_);
       else if (event.position.y < 142.0f && onStemsChanged) onStemsChanged(stems_);
       else if (onRemixChanged) onRemixChanged(remix_);
@@ -3625,9 +3448,11 @@ public:
   }
 
 private:
-  void drawOption(visage::Canvas& canvas, const std::string& label, bool enabled, float y) {
-    DrawToggle(canvas, enabled, 18.0f, y + 1.0f);
-    DrawText(canvas, label, 11.0f, enabled ? kText : kTextMuted, 60.0f, y,
+  void drawOption(visage::Canvas& canvas, const std::string& label, bool enabled,
+                  bool available, float y) {
+    DrawToggle(canvas, enabled, 18.0f, y + 1.0f, available);
+    DrawText(canvas, label, 11.0f,
+             available && enabled ? kText : kTextMuted, 60.0f, y,
              width() - 78.0f, 20.0f);
   }
 
@@ -3635,6 +3460,7 @@ private:
   bool session_mix_ = true;
   bool stems_ = false;
   bool remix_ = true;
+  bool raw_session_capture_available_ = false;
   bool recording_active_ = false;
   bool record_enabled_ = true;
   std::string status_;
@@ -4498,11 +4324,9 @@ public:
     };
     session_panel_.onDisconnectRequested = disconnect_requested;
     session_panel_.onMetronomeLevelChanged = metronome_changed;
-    session_panel_.onTargetBpmChanged = [this](double value) {
-      if (ui_callbacks_.on_target_bpm_changed) ui_callbacks_.on_target_bpm_changed(value);
-    };
-    session_panel_.onTargetBpiChanged = [this](int value) {
-      if (ui_callbacks_.on_target_bpi_changed) ui_callbacks_.on_target_bpi_changed(value);
+    session_panel_.onTimingVoteRequested = [this](double bpm, int bpi) {
+      return ui_callbacks_.on_timing_vote_requested &&
+             ui_callbacks_.on_timing_vote_requested(bpm, bpi);
     };
     session_panel_.onSaveRequested = [this](const ConnectionUiDraft& draft) {
       if (ui_callbacks_.on_save_requested)
@@ -5258,6 +5082,8 @@ public:
     if (session_panel_.height() > 300.0f) {
       auto session_errors = session_panel_.validateMetronomeHitTesting();
       errors.insert(errors.end(), session_errors.begin(), session_errors.end());
+      auto vote_errors = session_panel_.validateTimingVoteCapability();
+      errors.insert(errors.end(), vote_errors.begin(), vote_errors.end());
     }
 
     auto participant_errors = remote_panel_.validateParticipantInteractions();
