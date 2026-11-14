@@ -24,103 +24,97 @@ official binary release.
 
 ## Current baseline
 
-Version `0.2.3` is the current development baseline, not a frozen release.
+Version `0.2.7` is the current DAW-test candidate, not a frozen or officially
+distributed release. It is carried by the open integration stack ending at
+PR #45; `main` intentionally remains behind that stack until the focused
+timing-vote test and consolidated integration review are complete.
 
-Implemented and automated:
+Implemented, automated, and already DAW validated in the integration line:
 
 - permanent CLAP and VST3 identities, one Visage production editor, and
   V1--V21 saved-state decoding;
-- connection, reconnect, routing, chat, session timing, capture, recovery, RAW
-  import, and WAV export foundations;
+- a repeatable per-user verify/install workflow for macOS, Linux, and Windows;
+- host-independent CLAP timer/editor lifecycle guards, disconnected local
+  metering, and offline Session Mix WAV and per-route WAV-stem recording;
+- instance-owned operational configuration with passwords excluded from host
+  state and defaults;
+- host-cadence-independent meter ballistics and capability-driven session
+  actions, including truthful disconnected and failed-authentication states;
+- server-authoritative BPM/BPI publication for the header, interval ring,
+  metronome, and LIVE SESSION current-timing display; and
 - bounded audio lifecycle work, preallocated steady-state processing,
-  race-free routing publication, and guarded real-time diagnostics; and
-- clean-clone Linux, Windows, and macOS builds and tests.
+  race-free routing publication, guarded real-time diagnostics, and clean-clone
+  Linux, Windows, and macOS builds and tests.
 
-Still requiring hands-on DAW evidence:
+Immediate integration gate:
 
-- REAPER and Bitwig scanning, loading, resizing, audio-port negotiation, and
-  project recall for both formats;
-- representative connection, reconnect, routing, timing, chat, and
-  interoperability behaviour;
-- recording eligibility, failure reporting, recovery, and exported content;
-- runtime filesystem locations and removal of retired pre-release bundle names;
+1. Install `0.2.7` after its completed cross-platform CI run.
+2. Validate complete BPM/BPI proposal submission and server-authoritative UI
+   refresh in REAPER and Bitwig, covering unchanged, one-field, both-field, and
+   reconnect cases for #9 and #27.
+3. Record the privacy-safe result on the issues and close only the criteria
+   demonstrated by the test.
+4. Review one consolidated integration diff against `main`, including saved
+   state/identity invariants, version metadata, public-repository cleanliness,
+   and the accumulated DAW evidence.
+5. Merge the consolidated integration PR only after explicit approval and
+   successful CI, then close superseded stacked PRs with links to the merge.
+
+Still requiring product work or broader hands-on evidence:
+
+- explicit server-licence consent (#23);
+- removal of the retired `NinjamPlugin` compatibility and naming surface (#40);
+- the substantive architecture and code-quality audit (#31);
+- representative CLAP/VST3 session and legacy-client interoperability (#24);
+- recording eligibility, failure reporting, finalisation, recovery, and
+  exported-content validation (#8);
+- compact mixer usability with realistic participant and channel counts (#10);
   and
-- compact mixer usability with realistic participant and channel counts.
+- reproducible Ogg/Vorbis dependencies and macOS 11 compatibility (#11).
 
 ## Development sequence
 
-### `0.2.2` — Installable DAW testing baseline
+### `0.2.2` through `0.2.7` — Installable baseline and DAW corrections
 
-Objective: make verified local builds easy to install and establish a trusted
-starting point for practical host testing.
+Completed and recorded:
 
-Work, in order:
+- #7 real-time diagnostic safety, #21 worker-drain reliability, and #22 the
+  development installer;
+- #33 truthful capability-driven actions, #34 disconnected metering/offline
+  WAV recording, #35 distinct build versions, #38 per-instance configuration,
+  and #39 host-independent meter ballistics; and
+- repeated REAPER and Bitwig add/remove, project recall, multi-instance,
+  recording, and shutdown checks without a reproduced crash.
 
-1. [#28](https://github.com/mrosenki/MrNinjam/issues/28) investigates the
-   reported REAPER shutdown abort, adds focused lifecycle coverage, and records
-   controlled host evidence before assigning causality or declaring a fix.
-2. [#22](https://github.com/mrosenki/MrNinjam/issues/22) adds a safe per-user
-   development installer and REAPER/Bitwig smoke checklist.
-3. [#21](https://github.com/mrosenki/MrNinjam/issues/21) characterises and fixes
-   the intermittent Windows worker-drain failure without weakening the test or
-   merely increasing its timeout.
-4. Close [#7](https://github.com/mrosenki/MrNinjam/issues/7) after review confirms
-   that its merged implementation and recorded validation satisfy the issue.
-5. Run the basic scan/load/editor/audio/state/shutdown smoke matrix in REAPER
-   and Bitwig for CLAP and VST3.
+Open at this boundary:
 
-Acceptance criteria:
+- #9 and #27 require the focused `0.2.7` controlled-server test described in
+  the immediate integration gate;
+- #28 retains the unresolved distinction between a corrected plug-in lifecycle
+  risk and a host-side stale timer, despite positive sanitizer, regression, and
+  DAW evidence; close it only when its bounded investigation criteria are
+  explicitly documented; and
+- #23, #40, #31, and #24 continue after the integration merge rather than
+  enlarging the current branch stack.
 
-- one documented verify/install/rescan loop works without administrator access;
-- exact install targets, legacy-bundle coexistence, and rollback are explicit;
-- both hosts load both formats and report version `0.2.2` with unchanged IDs;
-- basic editor, audio I/O, saved-state recall, and repeated clean shutdown
-  results are recorded; and
-- CI remains required and stable enough that intermittent failures are not
-  dismissed by reruns.
+### Next `0.2.x` milestone — Consent, naming, and controlled sessions
 
-### `0.2.3` — DAW feedback and session control correctness
-
-Objective: correct issues exposed by hands-on DAW testing, then make controlled
-NINJAM session testing trustworthy and respectful of server terms.
+Objective: require explicit consent for server terms, remove unsupported
+pre-release compatibility debt, complete the high-risk architecture review,
+and then broaden representative session validation.
 
 Work, in order:
 
-1. [#38](https://github.com/mrosenki/MrNinjam/issues/38) moves operational
-   configuration into host-persisted instance state while keeping secrets out
-   of projects and presets.
-2. [#39](https://github.com/mrosenki/MrNinjam/issues/39) gives aggregate meters
-   host-independent peak ingestion and time-based decay.
-3. [#33](https://github.com/mrosenki/MrNinjam/issues/33) makes disconnected and
-   connection-dependent actions truthful and capability-driven.
-4. [#9](https://github.com/mrosenki/MrNinjam/issues/9) fixes initial BPM/BPI
-   proposal submission and distinguishes transmission from server/UI response;
-   [#27](https://github.com/mrosenki/MrNinjam/issues/27) is handled alongside
-   it so accepted server timing changes update BPM, BPI, and interval progress.
-5. [#23](https://github.com/mrosenki/MrNinjam/issues/23) replaces automatic
-   server-licence acceptance with an explicit, bounded, non-real-time consent
-   flow.
-6. [#40](https://github.com/mrosenki/MrNinjam/issues/40) removes the retired
-   `NinjamPlugin` compatibility surface and completes active-code naming under
-   the architectural review in
-   [#31](https://github.com/mrosenki/MrNinjam/issues/31).
-7. Start the controlled portion of
+1. Implement [#23](https://github.com/mrosenki/MrNinjam/issues/23) with bounded
+   plain-text agreement handling and explicit accept/decline behavior.
+2. Address [#40](https://github.com/mrosenki/MrNinjam/issues/40) in reviewable
+   stages informed by [#31](https://github.com/mrosenki/MrNinjam/issues/31),
+   preserving permanent plug-in IDs and supported state decoding.
+3. Run the controlled matrix in
    [#24](https://github.com/mrosenki/MrNinjam/issues/24) across both hosts and
-   formats.
+   formats, creating focused issues for reproducible findings.
 
-Acceptance criteria:
-
-- simultaneous instances retain independent connection, routing, and recording
-  locations across save/reload and duplication without persisting passwords;
-- meter ballistics remain stable across hosts and callback cadences;
-- unchanged and edited BPM/BPI proposals send the displayed values;
-- no supplied server agreement is accepted without an explicit user action;
-- connect, disconnect, reconnect, transport stop/start, timing, chat, and
-  credential boundaries behave consistently in both hosts and formats; and
-- tests and reports use synthetic identities and disclose no private server or
-  session information.
-
-### `0.2.4` — Recording and recovery reliability
+### Recording and recovery reliability
 
 Objective: make recording state and saved output accurately reflect what the
 plug-in can and did capture.
