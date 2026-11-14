@@ -2,25 +2,37 @@ diff --git a/ninjam/njclient.cpp b/ninjam/njclient.cpp
 index a9702260..fa0a9263 100644
 --- a/ninjam/njclient.cpp
 +++ b/ninjam/njclient.cpp
-@@ -16,5 +16,8 @@
+@@ -16,5 +16,9 @@
      along with NINJAM; if not, write to the Free Software
      Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 +
-+/* Modified by Micah Rosenkind for NinjamPlugin on 2026-07-27:
-+   add decoded remote-channel audio callback integration. */
++/* Modified by Micah Rosenkind for MrNinjam:
++   add project integration callbacks for decoded remote-channel audio and
++   authoritative server timing notifications. */
  
  /*
-@@ -614,6 +617,8 @@ NJClient::NJClient()
+@@ -614,6 +618,10 @@ NJClient::NJClient()
    ChatMessage_User=0;
    ChannelMixer=0;
    ChannelMixer_User=0;
 +  RemoteChannelAudioCallback=0;
 +  RemoteChannelAudio_User=0;
++  ServerTimingCallback=0;
++  ServerTiming_User=0;
  
    waveWrite=0;
  #ifndef NJCLIENT_NO_XMIT_SUPPORT
-@@ -1910,7 +1915,7 @@ void NJClient::process_samples(float **inbuf, int innch, float **outbuf, int out
+@@ -742,6 +750,8 @@ void NJClient::updateBPMinfo(int bpm, int bpi)
+   m_bpi=bpi;
+   m_beatinfo_updated=1;
+   m_misc_cs.Leave();
++  if (ServerTimingCallback)
++    ServerTimingCallback(ServerTiming_User,bpm,bpi);
+ }
+ 
+ 
+@@ -1910,7 +1920,7 @@ void NJClient::process_samples(float **inbuf, int innch, float **outbuf, int out
            if (m_issoloactive) muteflag = !(user->solomask & (1<<ch));
            else muteflag=(user->mutedmask & (1<<ch)) || user->muted;
  
@@ -29,7 +41,7 @@ index a9702260..fa0a9263 100644
              user->volume*user->channels[ch].volume,lpan,
                outbuf,user->channels[ch].out_chan_index + m_remote_chanoffs,len,srate,outnch,offset,decay,isPlaying,isSeek,cursessionpos);
          }
-@@ -2120,7 +2125,7 @@ static void mixFloatsNIOutput(float *src, int src_srate, int src_nch,  // length
+@@ -2120,7 +2130,7 @@ static void mixFloatsNIOutput(float *src, int src_srate, int src_nch,  // length
  
  
  
@@ -38,7 +50,7 @@ index a9702260..fa0a9263 100644
                              bool muted, float vol, float pan, float **outbuf, int out_channel, 
                              int len, int srate, int outnch, int offs, double vudecay,
                              bool isPlaying, bool isSeek, double playPos)
-@@ -2304,7 +2309,7 @@ void NJClient::mixInChannel(RemoteUser *user, int chanidx,
+@@ -2304,7 +2314,7 @@ void NJClient::mixInChannel(RemoteUser *user, int chanidx,
      float *sptr=chan->decode_codec->Get();
  
      // process VU meter, yay for powerful CPUs
@@ -47,7 +59,7 @@ index a9702260..fa0a9263 100644
      {
        float *p=sptr;
        int l=(needed)*srcnch;
-@@ -2353,20 +2358,44 @@ void NJClient::mixInChannel(RemoteUser *user, int chanidx,
+@@ -2353,20 +2363,44 @@ void NJClient::mixInChannel(RemoteUser *user, int chanidx,
  
        float lvol=vol;
        float *tmpbuf[2]={outbuf[idx]+offs,use_nch > 1 ? (outbuf[idx+1]+offs) : 0};
@@ -103,7 +115,7 @@ index a9702260..fa0a9263 100644
      }
  
      // advance the queue
-@@ -2399,7 +2428,7 @@ void NJClient::mixInChannel(RemoteUser *user, int chanidx,
+@@ -2399,7 +2438,7 @@ void NJClient::mixInChannel(RemoteUser *user, int chanidx,
          writeUserChanLog("v",user,userchan,chanidx);
      }
      if (sessionmode || (chan && chan->decode_codec && (chan->decode_fp||chan->decode_buf))) 
@@ -116,18 +128,19 @@ diff --git a/ninjam/njclient.h b/ninjam/njclient.h
 index 8df9dd1a..6803c85d 100644
 --- a/ninjam/njclient.h
 +++ b/ninjam/njclient.h
-@@ -16,5 +16,10 @@
+@@ -16,5 +16,11 @@
      along with NINJAM; if not, write to the Free Software
      Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 +
-+/* Modified by Micah Rosenkind for NinjamPlugin on 2026-07-27:
-+   add decoded remote-channel audio callback integration. */
++/* Modified by Micah Rosenkind for MrNinjam:
++   add project integration callbacks for decoded remote-channel audio and
++   authoritative server timing notifications. */
 +
 +#define NINJAMPLUGIN_NJCLIENT_REMOTE_CHANNEL_AUDIO_PATCH 1
  
  /*
-@@ -200,6 +203,14 @@ public:
+@@ -200,6 +206,19 @@ public:
    int (*ChannelMixer)(void *userData, float **inbuf, int in_offset, int innch, int chidx, float *outbuf, int len);
    void *ChannelMixer_User;
  
@@ -139,10 +152,15 @@ index 8df9dd1a..6803c85d 100644
 +                                     int channel_count, int sample_offset, int len);
 +  void *RemoteChannelAudio_User;
 +
++  // Called only after a SERVER_CONFIG_CHANGE_NOTIFY has been parsed. This is
++  // intentionally distinct from authentication/connection status.
++  void (*ServerTimingCallback)(void *userData, int bpm, int bpi);
++  void *ServerTiming_User;
++
    WDL_Mutex m_remotechannel_rd_mutex;
  
    bool is_likely_lobby() const {
-@@ -260,7 +271,7 @@ protected:
+@@ -260,7 +279,7 @@ protected:
  
    WDL_PtrList<Local_Channel> m_locchannels;
  
@@ -151,7 +169,7 @@ index 8df9dd1a..6803c85d 100644
                      bool muted, float vol, float pan, float **outbuf, int out_channel, 
                      int len, int srate, int outnch, int offs, double vudecay, bool isPlaying, bool isSeek, double playPos);
  
-@@ -270,6 +281,7 @@ protected:
+@@ -270,6 +289,7 @@ protected:
    WDL_PtrList<RemoteDownload> m_downloads;
  
    WDL_HeapBuf tmpblock;

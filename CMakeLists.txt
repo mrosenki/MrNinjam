@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(MrNinjam VERSION 0.2.9 LANGUAGES C CXX)
+project(MrNinjam VERSION 0.2.10 LANGUAGES C CXX)
 
 # Keep the host-visible CLAP version (also consumed by clap-wrapper for VST3)
 # and vcpkg package metadata aligned with the authoritative project version.

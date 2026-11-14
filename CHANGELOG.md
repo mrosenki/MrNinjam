@@ -6,6 +6,13 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.10 - DAW test build
+
+- Initialize timing proposals only from an actual server-config notification,
+  rather than inferring that timing is ready from successful authentication.
+- Exercise authentication and server-timing publication as separate fixture
+  events so first connection cannot copy the engine's 120/32 placeholder.
+
 ## 0.2.9 - DAW test build
 
 - Require a server-control publication from the current connection before
@@ -13,6 +20,9 @@ independently of the package version.
   initialization.
 - Cover the exact first-connection case where both the server and engine use
   120 BPM but the server uses 8 BPI and the engine placeholder uses 32 BPI.
+- Known DAW-test defect: successful authentication could be observed before
+  the first server-config message, causing the first connection to copy the
+  120/32 placeholder. Superseded by `0.2.10`.
 
 ## 0.2.8 - DAW test build
 

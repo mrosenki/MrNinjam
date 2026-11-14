@@ -307,7 +307,10 @@ struct NinjamPluginNJClient::RealtimeState {
 };
 
 NinjamPluginNJClient::NinjamPluginNJClient()
-    : realtime_(std::make_unique<RealtimeState>()) {}
+    : realtime_(std::make_unique<RealtimeState>()) {
+  ServerTimingCallback = &NinjamPluginNJClient::ServerTimingCallbackThunk;
+  ServerTiming_User = this;
+}
 NinjamPluginNJClient::~NinjamPluginNJClient() { StopRealtimeWorkers(); }
 
 void NinjamPluginNJClient::StopRealtimeWorkers() {
@@ -379,9 +382,19 @@ int NinjamPluginNJClient::Run() {
   m_srate = realtime_->sample_rate.load(std::memory_order_acquire);
   const int result = NJClient::Run();
   PublishControlSnapshot();
-  if (GetStatus() == NJC_STATUS_OK)
-    realtime_->server_timing_generation.fetch_add(1U, std::memory_order_release);
   return result;
+}
+
+void NinjamPluginNJClient::ServerTimingCallbackThunk(
+    void* user_data, const int bpm, const int bpi) {
+  if (user_data != nullptr)
+    static_cast<NinjamPluginNJClient*>(user_data)->PublishServerTiming(bpm, bpi);
+}
+
+void NinjamPluginNJClient::PublishServerTiming(const int bpm, const int bpi) {
+  realtime_->pending_bpm.store(std::max(1, bpm), std::memory_order_relaxed);
+  realtime_->pending_bpi.store(std::max(1, bpi), std::memory_order_relaxed);
+  realtime_->server_timing_generation.fetch_add(1U, std::memory_order_release);
 }
 
 void NinjamPluginNJClient::Disconnect() {

@@ -89,6 +89,8 @@ class NinjamPluginNJClient final : public NJClient {
   std::unique_ptr<RealtimeState> realtime_;
 
   void StopRealtimeWorkers();
+  static void ServerTimingCallbackThunk(void* user_data, int bpm, int bpi);
+  void PublishServerTiming(int bpm, int bpi);
   void CodecWorkerLoop();
   void SessionWorkerLoop();
   void PublishControlSnapshot();

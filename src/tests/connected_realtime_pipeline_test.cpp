@@ -144,6 +144,12 @@ class FixtureServer {
     requested_bpi_.store(bpi, std::memory_order_relaxed);
     timing_revision_.fetch_add(1U, std::memory_order_release);
   }
+  void DeferInitialTiming() {
+    defer_initial_timing_.store(true, std::memory_order_release);
+  }
+  void ReleaseInitialTiming() {
+    initial_timing_released_.store(true, std::memory_order_release);
+  }
 
  private:
   static void Send(Net_Connection* connection, Net_Message* message) {
@@ -157,10 +163,12 @@ class FixtureServer {
     auth.maxchan = 8;
     Send(connection, auth.build());
 
-    mpb_server_config_change_notify config;
-    config.beats_minute = requested_bpm_.load(std::memory_order_relaxed);
-    config.beats_interval = requested_bpi_.load(std::memory_order_relaxed);
-    Send(connection, config.build());
+    if (!defer_initial_timing_.load(std::memory_order_acquire)) {
+      mpb_server_config_change_notify config;
+      config.beats_minute = requested_bpm_.load(std::memory_order_relaxed);
+      config.beats_interval = requested_bpi_.load(std::memory_order_relaxed);
+      Send(connection, config.build());
+    }
 
     mpb_server_userinfo_change_notify users;
     users.build_add_rec(1, 0, 0, 0, 0, "peer", "Normal");
@@ -264,6 +272,7 @@ class FixtureServer {
     bool participant_left = false;
     bool participant_rejoined = false;
     bool channel_changed = false;
+    bool initial_timing_published = false;
     std::uint64_t applied_timing_revision = 0U;
     while (!stop_.load(std::memory_order_acquire)) {
       int wants_sleep = 1;
@@ -276,6 +285,8 @@ class FixtureServer {
             if (!auth.parse(raw) && !room_published) {
               PublishRoom(&connection);
               room_published = true;
+              initial_timing_published =
+                  !defer_initial_timing_.load(std::memory_order_acquire);
             }
             break;
           }
@@ -335,11 +346,16 @@ class FixtureServer {
       const int audio_block = current_audio_block_.load(std::memory_order_acquire);
       const std::uint64_t timing_revision =
           timing_revision_.load(std::memory_order_acquire);
-      if (room_published && timing_revision != applied_timing_revision) {
+      const bool timing_released =
+          !defer_initial_timing_.load(std::memory_order_acquire) ||
+          initial_timing_released_.load(std::memory_order_acquire);
+      if (room_published && timing_released &&
+          (!initial_timing_published || timing_revision != applied_timing_revision)) {
         mpb_server_config_change_notify config;
         config.beats_minute = requested_bpm_.load(std::memory_order_relaxed);
         config.beats_interval = requested_bpi_.load(std::memory_order_relaxed);
         Send(&connection, config.build());
+        initial_timing_published = true;
         applied_timing_revision = timing_revision;
       }
       if (room_published && !participant_left && audio_block >= 2200) {
@@ -385,6 +401,8 @@ class FixtureServer {
   std::atomic<int> requested_bpm_{120};
   std::atomic<int> requested_bpi_{1};
   std::atomic<std::uint64_t> timing_revision_{0U};
+  std::atomic_bool defer_initial_timing_{false};
+  std::atomic_bool initial_timing_released_{false};
 };
 
 }  // namespace
@@ -444,6 +462,7 @@ int main() {
   FixtureServer server;
   FixtureServer secondary_server;
   secondary_server.SetTiming(120, 8);
+  secondary_server.DeferInitialTiming();
   if (!server.Start() || !secondary_server.Start()) {
     std::cerr << "failed to start in-process NINJAM fixture\n";
     return 1;
@@ -523,6 +542,13 @@ int main() {
     return 3;
   }
   report_phase("initial-connect");
+
+  secondary_bridge.MainThreadTick();
+  if (secondary_bridge.HasSessionProposalSyncedForConnection()) {
+    std::cerr << "proposal synchronized before the server timing message\n";
+    return 5;
+  }
+  secondary_server.ReleaseInitialTiming();
 
   constexpr int kMaximumFrames = 512;
   std::array<std::array<float, kMaximumFrames>, 6> inputs{};
