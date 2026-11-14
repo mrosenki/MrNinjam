@@ -6,9 +6,9 @@ VST3 through clap-wrapper.
 
 The canonical repository is <https://github.com/mrosenki/MrNinjam>.
 
-The current development baseline is version `0.2.1`. The independent Git
+The current development baseline is version `0.2.3`. The independent Git
 history began with the reviewed `0.1.132` migration snapshot; that historical
-baseline remains preserved in the initial commit. Version `0.2.1` is a
+baseline remains preserved in the initial commit. Version `0.2.3` is a
 development-stage source-code preview, not a production-ready release. The
 GPL-licensed source is available for inspection, building, testing, and
 contribution, but the project does not provide official CLAP or VST3 binaries.
@@ -75,7 +75,7 @@ commands. Exact source pins and provenance are in
 
 ## Status and compatibility
 
-Version `0.2.1` establishes the permanent CLAP ID
+Version `0.2.1` established the permanent CLAP ID
 `io.github.mrosenki.mrninjam` and retains the VST3 CID
 `CF3108E94031432BAEC75E1A03E0978F`. The CLAP ID replaces the development-only
 `io.github.mrosenki.ninjamplugin` identity in an approved one-time break before
