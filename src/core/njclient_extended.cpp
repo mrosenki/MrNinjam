@@ -251,6 +251,8 @@ struct NinjamPluginNJClient::RealtimeState {
   std::uint64_t audio_connection_generation = 0U;
   std::atomic<int> published_position{0};
   std::atomic<int> published_length{1000};
+  std::atomic<int> published_active_bpm{120};
+  std::atomic<int> published_active_bpi{32};
   std::atomic<std::uint64_t> published_interval_generation{0U};
 
   bool previous_playing = false;
@@ -495,6 +497,15 @@ void NinjamPluginNJClient::GetPosition(int* position, int* length) {
     *length = realtime_->published_length.load(std::memory_order_acquire);
 }
 
+float NinjamPluginNJClient::GetActualBPM() const {
+  return static_cast<float>(
+      realtime_->published_active_bpm.load(std::memory_order_acquire));
+}
+
+int NinjamPluginNJClient::GetBPI() const {
+  return realtime_->published_active_bpi.load(std::memory_order_acquire);
+}
+
 void NinjamPluginNJClient::AudioProc(
     float** input, int input_channels, float** output, int output_channels,
     int frames, int sample_rate, bool just_monitor, bool playing, bool seeked,
@@ -623,6 +634,8 @@ void NinjamPluginNJClient::AudioProc(
       ++state.interval_generation;
       state.published_interval_generation.store(state.interval_generation,
           std::memory_order_release);
+      state.published_active_bpm.store(state.active_bpm, std::memory_order_release);
+      state.published_active_bpi.store(state.active_bpi, std::memory_order_release);
       state.published_length.store(state.interval_length, std::memory_order_release);
       interval_started = true;
     }
