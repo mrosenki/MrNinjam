@@ -6,7 +6,7 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
-## 0.2.5 - DAW test build
+## 0.2.6 - DAW test build
 
 - Harden the host-independent CLAP timer and editor lifecycle, including
   teardown ordering and offline editor updates.
@@ -29,6 +29,8 @@ independently of the package version.
   can edit credentials and retry immediately without a fictitious disconnect.
 - Keep passwords memory-only: omit them from defaults and host state, ignore
   legacy saved password entries, and remove the obsolete persistence option.
+- Publish the replacement real-time engine's active server BPM and BPI at
+  interval boundaries so current timing, metronome and interval UI agree.
 - Add a verified per-user development installer for CLAP and VST3 on macOS,
   Windows, and Linux, with transactional rollback and symbolic-link/path
   safeguards.
