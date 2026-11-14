@@ -129,6 +129,11 @@ struct NinjamPluginInstance {
   std::atomic_bool pending_target_session_bpi_dirty{false};
   std::atomic<int> pending_target_session_bpi{
       ninjamplugin::core::NinjamBridge::kSessionBpiDefault};
+  std::atomic_bool pending_timing_vote_dirty{false};
+  std::atomic<double> pending_timing_vote_bpm{
+      ninjamplugin::core::NinjamBridge::kSessionBpmDefault};
+  std::atomic<int> pending_timing_vote_bpi{
+      ninjamplugin::core::NinjamBridge::kSessionBpiDefault};
   std::atomic_bool pending_monitor_mix_dirty{false};
   std::atomic<double> pending_monitor_mix{
       ninjamplugin::core::NinjamBridge::kMonitorMixDefault};
@@ -313,6 +318,20 @@ void QueueTargetSessionBpiOnMainThread(NinjamPluginInstance* instance, const int
   RequestHostMainThreadCallback(instance, true);
 }
 
+void QueueTimingVoteOnMainThread(NinjamPluginInstance* instance,
+                                 const double bpm,
+                                 const int bpi) {
+  if (instance == nullptr) return;
+  instance->pending_timing_vote_bpm.store(
+      ninjamplugin::core::NinjamBridge::ClampSessionBpm(bpm),
+      std::memory_order_relaxed);
+  instance->pending_timing_vote_bpi.store(
+      ninjamplugin::core::NinjamBridge::ClampSessionBpi(bpi),
+      std::memory_order_relaxed);
+  instance->pending_timing_vote_dirty.store(true, std::memory_order_release);
+  RequestHostMainThreadCallback(instance, true);
+}
+
 void QueueMonitorMixOnMainThread(NinjamPluginInstance* instance, const double value) {
   if (instance == nullptr) {
     return;
@@ -401,6 +420,18 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
     const int bpi = instance->pending_target_session_bpi.load(std::memory_order_acquire);
     instance->runtime.SetSessionBpi(bpi);
     ninjamplugin::core::DebugLogf("clap", "ApplyPending TargetSessionBpi=%d", bpi);
+  }
+  if (instance->pending_timing_vote_dirty.exchange(false, std::memory_order_acq_rel)) {
+    const double bpm = instance->pending_timing_vote_bpm.load(std::memory_order_acquire);
+    const int bpi = instance->pending_timing_vote_bpi.load(std::memory_order_acquire);
+    instance->runtime.SubmitTimingVote(bpm, bpi);
+    // Keep parameter reads coherent with the transactional UI command.
+    instance->pending_target_session_bpm.store(bpm, std::memory_order_relaxed);
+    instance->pending_target_session_bpm_dirty.store(false, std::memory_order_release);
+    instance->pending_target_session_bpi.store(bpi, std::memory_order_relaxed);
+    instance->pending_target_session_bpi_dirty.store(false, std::memory_order_release);
+    ninjamplugin::core::DebugLogf(
+        "clap", "ApplyPending TimingVote=%.2f BPM / %d BPI", bpm, bpi);
   }
   if (instance->pending_monitor_mix_dirty.exchange(false, std::memory_order_acq_rel)) {
     const double mix = instance->pending_monitor_mix.load(std::memory_order_acquire);
@@ -1051,6 +1082,10 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
 
   void QueueTargetSessionBpi(const int value) override {
     ::QueueTargetSessionBpiOnMainThread(instance_, value);
+  }
+
+  void QueueTimingVote(const double bpm, const int bpi) override {
+    ::QueueTimingVoteOnMainThread(instance_, bpm, bpi);
   }
 
   void QueueRemoteReturn(const double value) override {

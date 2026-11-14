@@ -191,6 +191,7 @@ class ConnectionEditorControllerHost {
   virtual void QueueConnectRequested(bool value) = 0;
   virtual void QueueTargetSessionBpm(double value) = 0;
   virtual void QueueTargetSessionBpi(int value) = 0;
+  virtual void QueueTimingVote(double bpm, int bpi) = 0;
   virtual void QueueRemoteReturn(double value) = 0;
   virtual void QueueMetronomeLevel(double value) = 0;
   virtual void QueueMetronomeEnabled(bool value) = 0;

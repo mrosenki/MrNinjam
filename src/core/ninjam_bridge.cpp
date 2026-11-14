@@ -1244,18 +1244,22 @@ void NinjamBridge::MainThreadTick() {
   }
 
   if (connected_ && !was_connected) {
-    // A timing proposal starts from the session we actually joined, not from
-    // the disconnected/default values shown while the handshake was pending.
-    // Preserve an explicit proposal that was already queued during connect.
-    if (!session_bpm_sync_pending_) {
-      session_bpm_ = actual_session_bpm_;
-      last_sent_session_bpm_ = RoundedSessionBpm(session_bpm_);
-    }
-    if (!session_bpi_sync_pending_) {
-      session_bpi_ = actual_session_bpi_;
-      last_sent_session_bpi_ = RoundedSessionBpi(session_bpi_);
-    }
     DebugLog("bridge", "Connected transition observed");
+  }
+  if (connected_ && interval_position_valid_.load(std::memory_order_acquire) &&
+      !session_proposal_synced_for_connection_) {
+    // NJClient reports OK before the replacement audio path has activated its
+    // first server interval. Initialise proposals only from that authoritative
+    // boundary, never from the pre-connect 120/32 placeholder.
+    session_bpm_ = actual_session_bpm_;
+    session_bpi_ = actual_session_bpi_;
+    last_sent_session_bpm_ = RoundedSessionBpm(session_bpm_);
+    last_sent_session_bpi_ = RoundedSessionBpi(session_bpi_);
+    session_bpm_sync_pending_ = false;
+    session_bpi_sync_pending_ = false;
+    session_proposal_synced_for_connection_ = true;
+    DebugLogf("bridge", "Proposal timing synced from server: %.2f BPM / %d BPI",
+              session_bpm_, session_bpi_);
   }
   if ((multitrack_capture_enabled || wav_stem_export_enabled) && multitrack_capture_active_ &&
       connection_state_ == kConnectionStateConnected) {
@@ -1523,6 +1527,7 @@ void NinjamBridge::SetConnectRequested(const bool value) {
     connect_timeout_reported_ = false;
     connect_attempt_count_ = 0;
     last_failure_reason_ = kLastFailureNone;
+    session_proposal_synced_for_connection_ = false;
     disconnect_pending_ = false;
     disconnect_pending_since_ms_ = 0;
   }
@@ -1535,6 +1540,7 @@ void NinjamBridge::SetConnectRequested(const bool value) {
     connect_attempt_started_ms_ = 0;
     connect_timeout_reported_ = false;
     last_failure_reason_ = kLastFailureNone;
+    session_proposal_synced_for_connection_ = false;
     disconnect_pending_ = true;
     disconnect_pending_since_ms_ = MonotonicNowMs();
   }
@@ -1805,6 +1811,7 @@ void NinjamBridge::SetSessionBpm(const double value) {
     return;
   }
   session_bpm_ = next;
+  if (connected_) session_proposal_synced_for_connection_ = true;
   session_bpm_last_changed_ms_ = MonotonicNowMs();
   const int target_bpm = RoundedSessionBpm(session_bpm_);
   if (connected_ && target_bpm != last_sent_session_bpm_) {
@@ -1813,6 +1820,19 @@ void NinjamBridge::SetSessionBpm(const double value) {
     session_bpm_sync_pending_ = false;
   }
   DebugLogf("bridge", "SetSessionBpm=%.2f", session_bpm_);
+}
+
+void NinjamBridge::SubmitTimingVote(const double bpm, const int bpi) {
+  session_bpm_ = ClampSessionBpm(bpm);
+  session_bpi_ = ClampSessionBpi(bpi);
+  const std::uint64_t now_ms = MonotonicNowMs();
+  session_bpm_last_changed_ms_ = now_ms;
+  session_bpi_last_changed_ms_ = now_ms;
+  session_proposal_synced_for_connection_ = connected_;
+  session_bpm_sync_pending_ = connected_;
+  session_bpi_sync_pending_ = connected_;
+  DebugLogf("bridge", "SubmitTimingVote=%.2f BPM / %d BPI",
+            session_bpm_, session_bpi_);
 }
 
 double NinjamBridge::GetSessionBpm() const {
@@ -1841,6 +1861,7 @@ void NinjamBridge::SetSessionBpi(const int value) {
     return;
   }
   session_bpi_ = next;
+  if (connected_) session_proposal_synced_for_connection_ = true;
   session_bpi_last_changed_ms_ = MonotonicNowMs();
   if (connected_ && session_bpi_ != last_sent_session_bpi_) {
     session_bpi_sync_pending_ = true;

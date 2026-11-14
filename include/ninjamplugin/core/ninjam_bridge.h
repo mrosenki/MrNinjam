@@ -215,6 +215,7 @@ class NinjamBridge {
   void ApplyConnectionSettings(const ConnectionSettings& settings);
 
   void SetSessionBpm(double value);
+  void SubmitTimingVote(double bpm, int bpi);
   double GetSessionBpm() const;
   double GetActualSessionBpm() const;
   double GetSessionIntervalProgress() const;
@@ -469,6 +470,7 @@ class NinjamBridge {
   int last_sent_session_bpi_ = 0;
   bool session_bpm_sync_pending_ = false;
   bool session_bpi_sync_pending_ = false;
+  bool session_proposal_synced_for_connection_ = false;
   bool connection_config_loaded_ = false;
   bool socket_library_open_ = false;
   std::string connection_host_;

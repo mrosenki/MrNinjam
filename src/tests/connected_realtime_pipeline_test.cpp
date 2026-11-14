@@ -124,6 +124,8 @@ class FixtureServer {
   int voice_uploads() const { return voice_uploads_.load(std::memory_order_acquire); }
   int session_uploads() const { return session_uploads_.load(std::memory_order_acquire); }
   int session_messages() const { return session_messages_.load(std::memory_order_acquire); }
+  int bpm_votes() const { return bpm_votes_.load(std::memory_order_acquire); }
+  int bpi_votes() const { return bpi_votes_.load(std::memory_order_acquire); }
   int upload_begins() const { return upload_begins_.load(std::memory_order_acquire); }
   int channel_updates() const { return channel_updates_.load(std::memory_order_acquire); }
   int presence_updates() const { return presence_updates_.load(std::memory_order_acquire); }
@@ -214,6 +216,13 @@ class FixtureServer {
   }
 
   void EchoSessionMessage(Net_Connection* connection, mpb_chat_message* message) {
+    if (message->parms[0] != nullptr && message->parms[1] != nullptr &&
+        std::strcmp(message->parms[0], "MSG") == 0) {
+      if (std::strncmp(message->parms[1], "!vote bpm ", 10) == 0)
+        bpm_votes_.fetch_add(1, std::memory_order_relaxed);
+      if (std::strncmp(message->parms[1], "!vote bpi ", 10) == 0)
+        bpi_votes_.fetch_add(1, std::memory_order_relaxed);
+    }
     if (message->parms[0] == nullptr || std::strcmp(message->parms[0], "SESSION") != 0 ||
         message->parms[1] == nullptr || message->parms[2] == nullptr ||
         message->parms[3] == nullptr) return;
@@ -365,6 +374,8 @@ class FixtureServer {
   std::atomic<int> voice_uploads_{0};
   std::atomic<int> session_uploads_{0};
   std::atomic<int> session_messages_{0};
+  std::atomic<int> bpm_votes_{0};
+  std::atomic<int> bpi_votes_{0};
   std::atomic<int> upload_begins_{0};
   std::atomic<int> channel_updates_{0};
   std::atomic<int> presence_updates_{0};
@@ -598,6 +609,24 @@ int main() {
   report_phase("audio-complete");
   const double updated_actual_bpm = bridge.GetActualSessionBpm();
   const int updated_actual_bpi = bridge.GetActualSessionBpi();
+  if (std::fabs(bridge.GetSessionBpm() - 120.0) > 0.1 ||
+      bridge.GetSessionBpi() != 1) {
+    std::cerr << "proposal did not initialise from the joined session bpm="
+              << bridge.GetSessionBpm() << " bpi=" << bridge.GetSessionBpi() << '\n';
+    return 5;
+  }
+  bridge.SubmitTimingVote(updated_actual_bpm, updated_actual_bpi);
+  const bool complete_vote_sent = WaitFor(std::chrono::seconds(2), [&] {
+    return server.bpm_votes() > 0 && server.bpi_votes() > 0;
+  }, [&] {
+    bridge.MainThreadTick();
+    secondary_bridge.MainThreadTick();
+  });
+  if (!complete_vote_sent) {
+    std::cerr << "transactional timing vote omitted a displayed value bpm_votes="
+              << server.bpm_votes() << " bpi_votes=" << server.bpi_votes() << '\n';
+    return 5;
+  }
   const auto before_drain = bridge.GetRealtimePipelineDiagnostics();
   const auto drain_target =
       before_drain.local_submitted_frames + before_drain.local_overflow_frames;

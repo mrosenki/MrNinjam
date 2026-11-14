@@ -746,8 +746,7 @@ bool ConnectionEditorController::TimingVoteRequested(const double bpm, const int
     host_->RequestViewRefresh(false);
     return false;
   }
-  host_->QueueTargetSessionBpm(bpm);
-  host_->QueueTargetSessionBpi(bpi);
+  host_->QueueTimingVote(bpm, bpi);
   notice_text_ = "Timing vote queued.";
   host_->RequestHostEditorControlSync();
   host_->RequestViewRefresh(false);
