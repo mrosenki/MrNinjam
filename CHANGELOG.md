@@ -6,6 +6,14 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.7 - DAW test build
+
+- Submit BPM and BPI as one complete timing proposal, including when either
+  field has not emitted an edit event.
+- Initialise proposal fields from the server-authoritative timing on each
+  successful connection while keeping later server changes separate from an
+  in-progress user proposal.
+
 ## 0.2.6 - DAW test build
 
 - Harden the host-independent CLAP timer and editor lifecycle, including
