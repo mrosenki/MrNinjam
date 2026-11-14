@@ -1,10 +1,13 @@
 param(
   [string]$BuildType = "Release",
-  [string]$BuildDir = ""
+  [string]$BuildDir = "",
+  [string]$ClapArtifact = "",
+  [string]$Vst3Artifact = ""
 )
 
 $ErrorActionPreference = "Stop"
 $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+. (Join-Path $PSScriptRoot "development_artifacts.ps1")
 $BuildDir = if ($BuildDir) {
   [System.IO.Path]::GetFullPath($BuildDir)
 } elseif ($env:NINJAMPLUGIN_BUILD_DIR) {
@@ -12,8 +15,16 @@ $BuildDir = if ($BuildDir) {
 } else {
   Join-Path $RootDir ("build/{0}" -f $BuildType)
 }
-$ClapArtifact = Join-Path $BuildDir "plugin/MrNinjam.clap"
-$Vst3Artifact = Join-Path $BuildDir "plugin/MrNinjam.vst3"
+$RequestedClapArtifact = if ($ClapArtifact) {
+  $ClapArtifact
+} else {
+  $env:NINJAMPLUGIN_CLAP_ARTIFACT
+}
+$RequestedVst3Artifact = if ($Vst3Artifact) {
+  $Vst3Artifact
+} else {
+  $env:NINJAMPLUGIN_VST3_ARTIFACT
+}
 
 & (Join-Path $RootDir "scripts/check_submodule_clean.ps1")
 if (-not $?) {
@@ -39,10 +50,12 @@ if ($LASTEXITCODE -ne 0) {
   throw "CTest failed with exit code $LASTEXITCODE."
 }
 
+$ClapArtifact = Resolve-DevelopmentArtifactPath -Format "CLAP" `
+  -BuildDir $BuildDir -BuildType $BuildType -ExplicitPath $RequestedClapArtifact
+$Vst3Artifact = Resolve-DevelopmentArtifactPath -Format "VST3" `
+  -BuildDir $BuildDir -BuildType $BuildType -ExplicitPath $RequestedVst3Artifact
+
 foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
-  if (-not (Test-Path $ArtifactPath)) {
-    Write-Error ("Expected plugin artifact not found: {0}" -f $ArtifactPath)
-  }
   Write-Host ("Plugin artifact: {0}" -f $ArtifactPath)
 }
 

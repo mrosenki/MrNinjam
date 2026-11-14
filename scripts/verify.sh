@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_TYPE="${1:-Release}"
 BUILD_DIR="${NINJAMPLUGIN_BUILD_DIR:-${ROOT_DIR}/build/${BUILD_TYPE}}"
-CLAP_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.clap"
-VST3_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.vst3"
+CLAP_ARTIFACT="${NINJAMPLUGIN_CLAP_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.clap}"
+VST3_ARTIFACT="${NINJAMPLUGIN_VST3_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.vst3}"
 
 "${ROOT_DIR}/scripts/check_submodule_clean.sh"
 

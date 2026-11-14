@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 BUILD_TYPE="${1:-Release}"
 SOURCE_BUILD_DIR="${2:-${ROOT_DIR}/build/${BUILD_TYPE}}"
+SOURCE_CLAP_ARTIFACT="${3:-${SOURCE_BUILD_DIR}/plugin/MrNinjam.clap}"
+SOURCE_VST3_ARTIFACT="${4:-${SOURCE_BUILD_DIR}/plugin/MrNinjam.vst3}"
 INSTALLER="${ROOT_DIR}/scripts/install_development.sh"
 TEST_ROOT="$(mktemp -d -t mrninjam-installer-test.XXXXXX)"
 SYNTHETIC_BUILD_TYPE="InstallerSymlinkTest$$"
@@ -23,6 +25,8 @@ run_installer() {
   NINJAMPLUGIN_CLAP_INSTALL_DIR="$CLAP_DIR" \
   NINJAMPLUGIN_VST3_INSTALL_DIR="$VST3_DIR" \
   NINJAMPLUGIN_BUILD_DIR="$SOURCE_BUILD_DIR" \
+  NINJAMPLUGIN_CLAP_ARTIFACT="$SOURCE_CLAP_ARTIFACT" \
+  NINJAMPLUGIN_VST3_ARTIFACT="$SOURCE_VST3_ARTIFACT" \
     "$INSTALLER" "$BUILD_TYPE" "$@"
 }
 
@@ -32,19 +36,21 @@ test ! -e "${VST3_DIR}/MrNinjam.vst3"
 
 run_installer --skip-verify
 run_installer --skip-verify
-diff -rq "${SOURCE_BUILD_DIR}/plugin/MrNinjam.clap" \
+diff -rq "$SOURCE_CLAP_ARTIFACT" \
   "${CLAP_DIR}/MrNinjam.clap"
-diff -rq "${SOURCE_BUILD_DIR}/plugin/MrNinjam.vst3" \
+diff -rq "$SOURCE_VST3_ARTIFACT" \
   "${VST3_DIR}/MrNinjam.vst3"
 test -e "${CLAP_DIR}/NinjamPlugin.clap"
 test -e "${VST3_DIR}/NinjamPlugin.vst3"
 
 mkdir -p "${SYNTHETIC_BUILD_DIR}/plugin"
-ln -s "${SOURCE_BUILD_DIR}/plugin/MrNinjam.clap" \
+ln -s "$SOURCE_CLAP_ARTIFACT" \
   "${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.clap"
-ln -s "${SOURCE_BUILD_DIR}/plugin/MrNinjam.vst3" \
+ln -s "$SOURCE_VST3_ARTIFACT" \
   "${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.vst3"
 if NINJAMPLUGIN_BUILD_DIR="$SYNTHETIC_BUILD_DIR" \
+   NINJAMPLUGIN_CLAP_ARTIFACT="${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.clap" \
+   NINJAMPLUGIN_VST3_ARTIFACT="${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.vst3" \
    "$INSTALLER" "$SYNTHETIC_BUILD_TYPE" --dry-run --skip-verify >/dev/null 2>&1; then
   printf 'ERROR: installer accepted symbolic-link artifacts.\n' >&2
   exit 1
@@ -60,7 +66,7 @@ fi
 test ! -e "${ROOT_DIR}/generated-clap"
 
 rm -rf "${CLAP_DIR}/MrNinjam.clap"
-ln -s "${SOURCE_BUILD_DIR}/plugin/MrNinjam.clap" \
+ln -s "$SOURCE_CLAP_ARTIFACT" \
   "${CLAP_DIR}/MrNinjam.clap"
 if run_installer --skip-verify >/dev/null 2>&1; then
   printf 'ERROR: installer replaced a symbolic-link target.\n' >&2

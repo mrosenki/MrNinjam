@@ -67,14 +67,21 @@ ctest --test-dir build/Release -C Release --output-on-failure
 Or run `./scripts/verify.sh Release` to perform the dependency check, build,
 CTest run, artifact existence checks, and packaged-file path scan.
 Set `NINJAMPLUGIN_BUILD_DIR` to an absolute configured build directory when a
-generator or CI job uses a layout such as `build/plugin` instead of
-`build/Release/plugin`; verification and development installation then use the
-same explicit artifact root.
+generator or CI job uses a different build tree. If its plug-in outputs do not
+use the default `<build>/plugin` layout, set `NINJAMPLUGIN_CLAP_ARTIFACT` and
+`NINJAMPLUGIN_VST3_ARTIFACT` to the exact artifact paths. CTest supplies those
+paths directly from the CMake targets, including for multi-configuration
+generators whose CLAP and VST3 outputs have different parent directories.
 
-Expected products are under `build/Release/plugin`:
+With the documented single-configuration build, expected products are under
+`build/Release/plugin`:
 
 - `MrNinjam.clap`
 - `MrNinjam.vst3`
+
+Other generators may place the two formats in separate configuration-aware
+directories. Use the exact artifact overrides above rather than copying or
+renaming outputs to imitate the single-configuration layout.
 
 For a verified per-user development installation, run
 `./scripts/install_development.sh Release` on macOS/Linux or

@@ -128,11 +128,13 @@ require_resolved_destination_outside_source "$CLAP_INSTALL_DIR"
 require_resolved_destination_outside_source "$VST3_INSTALL_DIR"
 
 BUILD_DIR="${NINJAMPLUGIN_BUILD_DIR:-${ROOT_DIR}/build/${BUILD_TYPE}}"
-CLAP_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.clap"
-VST3_ARTIFACT="${BUILD_DIR}/plugin/MrNinjam.vst3"
+CLAP_ARTIFACT="${NINJAMPLUGIN_CLAP_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.clap}"
+VST3_ARTIFACT="${NINJAMPLUGIN_VST3_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.vst3}"
 
 if [[ "$SKIP_VERIFY" -eq 0 ]]; then
   NINJAMPLUGIN_BUILD_DIR="$BUILD_DIR" \
+  NINJAMPLUGIN_CLAP_ARTIFACT="$CLAP_ARTIFACT" \
+  NINJAMPLUGIN_VST3_ARTIFACT="$VST3_ARTIFACT" \
     "${ROOT_DIR}/scripts/verify.sh" "$BUILD_TYPE"
 fi
 

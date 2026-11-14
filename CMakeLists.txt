@@ -321,17 +321,30 @@ if(NINJAMPLUGIN_ENABLE_TESTS AND TARGET ninjamplugin_vst3)
 endif()
 
 if(NINJAMPLUGIN_ENABLE_TESTS AND TARGET ninjamplugin_clap AND TARGET ninjamplugin_vst3)
+  if(APPLE)
+    set(NINJAMPLUGIN_CLAP_DEVELOPMENT_ARTIFACT
+      "$<TARGET_FILE_DIR:ninjamplugin_clap>/../..")
+  else()
+    set(NINJAMPLUGIN_CLAP_DEVELOPMENT_ARTIFACT
+      "$<TARGET_FILE:ninjamplugin_clap>")
+  endif()
+  set(NINJAMPLUGIN_VST3_DEVELOPMENT_ARTIFACT
+    "$<TARGET_FILE_DIR:ninjamplugin_vst3>/../..")
   if(WIN32)
     add_test(NAME ninjamplugin_development_installer
       COMMAND powershell -NoProfile -ExecutionPolicy Bypass
         -File "${CMAKE_SOURCE_DIR}/scripts/test_install_development.ps1"
         -BuildType "$<CONFIG>"
         -BuildDir "${CMAKE_BINARY_DIR}"
+        -ClapArtifact "${NINJAMPLUGIN_CLAP_DEVELOPMENT_ARTIFACT}"
+        -Vst3Artifact "${NINJAMPLUGIN_VST3_DEVELOPMENT_ARTIFACT}"
     )
   else()
     add_test(NAME ninjamplugin_development_installer
       COMMAND "${CMAKE_SOURCE_DIR}/scripts/test_install_development.sh"
         "$<CONFIG>" "${CMAKE_BINARY_DIR}"
+        "${NINJAMPLUGIN_CLAP_DEVELOPMENT_ARTIFACT}"
+        "${NINJAMPLUGIN_VST3_DEVELOPMENT_ARTIFACT}"
     )
   endif()
   set_tests_properties(ninjamplugin_development_installer PROPERTIES TIMEOUT 120)

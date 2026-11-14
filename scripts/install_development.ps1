@@ -6,6 +6,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+. (Join-Path $PSScriptRoot "development_artifacts.ps1")
 
 if ($BuildType -notmatch '^[A-Za-z0-9._-]+$') {
   throw "Invalid build type: $BuildType"
@@ -71,20 +72,24 @@ $BuildDir = if ($env:NINJAMPLUGIN_BUILD_DIR) {
 } else {
   Join-Path $RootDir ("build/{0}" -f $BuildType)
 }
-$ClapArtifact = Join-Path $BuildDir "plugin/MrNinjam.clap"
-$Vst3Artifact = Join-Path $BuildDir "plugin/MrNinjam.vst3"
 
 if (-not $SkipVerify) {
-  & (Join-Path $RootDir "scripts/verify.ps1") -BuildType $BuildType -BuildDir $BuildDir
+  & (Join-Path $RootDir "scripts/verify.ps1") -BuildType $BuildType `
+    -BuildDir $BuildDir -ClapArtifact $env:NINJAMPLUGIN_CLAP_ARTIFACT `
+    -Vst3Artifact $env:NINJAMPLUGIN_VST3_ARTIFACT
   if (-not $?) {
     throw "Development build verification failed; installed plug-ins were not changed."
   }
 }
 
+$ClapArtifact = Resolve-DevelopmentArtifactPath -Format "CLAP" `
+  -BuildDir $BuildDir -BuildType $BuildType `
+  -ExplicitPath $env:NINJAMPLUGIN_CLAP_ARTIFACT
+$Vst3Artifact = Resolve-DevelopmentArtifactPath -Format "VST3" `
+  -BuildDir $BuildDir -BuildType $BuildType `
+  -ExplicitPath $env:NINJAMPLUGIN_VST3_ARTIFACT
+
 foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
-  if (-not (Test-Path -LiteralPath $ArtifactPath)) {
-    throw "Expected development artifact not found: $ArtifactPath"
-  }
   $ArtifactEntries = @(
     Get-Item -LiteralPath $ArtifactPath -Force
     Get-ChildItem -LiteralPath $ArtifactPath -Recurse -Force

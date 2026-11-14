@@ -1,6 +1,8 @@
 param(
   [string]$BuildType = "Release",
-  [string]$BuildDir = ""
+  [string]$BuildDir = "",
+  [string]$ClapArtifact = "",
+  [string]$Vst3Artifact = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +21,8 @@ $OriginalLocalAppData = $env:LOCALAPPDATA
 $OriginalClapDir = $env:NINJAMPLUGIN_CLAP_INSTALL_DIR
 $OriginalVst3Dir = $env:NINJAMPLUGIN_VST3_INSTALL_DIR
 $OriginalBuildDir = $env:NINJAMPLUGIN_BUILD_DIR
+$OriginalClapArtifact = $env:NINJAMPLUGIN_CLAP_ARTIFACT
+$OriginalVst3Artifact = $env:NINJAMPLUGIN_VST3_ARTIFACT
 
 function Invoke-ExpectedFailure {
   param(
@@ -48,6 +52,12 @@ try {
   $env:NINJAMPLUGIN_VST3_INSTALL_DIR = $Vst3Dir
   if ($BuildDir) {
     $env:NINJAMPLUGIN_BUILD_DIR = [System.IO.Path]::GetFullPath($BuildDir)
+  }
+  if ($ClapArtifact) {
+    $env:NINJAMPLUGIN_CLAP_ARTIFACT = [System.IO.Path]::GetFullPath($ClapArtifact)
+  }
+  if ($Vst3Artifact) {
+    $env:NINJAMPLUGIN_VST3_ARTIFACT = [System.IO.Path]::GetFullPath($Vst3Artifact)
   }
 
   & $Installer -BuildType $BuildType -DryRun -SkipVerify
@@ -141,6 +151,8 @@ try {
   $env:NINJAMPLUGIN_CLAP_INSTALL_DIR = $OriginalClapDir
   $env:NINJAMPLUGIN_VST3_INSTALL_DIR = $OriginalVst3Dir
   $env:NINJAMPLUGIN_BUILD_DIR = $OriginalBuildDir
+  $env:NINJAMPLUGIN_CLAP_ARTIFACT = $OriginalClapArtifact
+  $env:NINJAMPLUGIN_VST3_ARTIFACT = $OriginalVst3Artifact
   if (Test-Path Function:\Move-Item) {
     Remove-Item Function:\Move-Item
   }
