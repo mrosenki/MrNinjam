@@ -239,7 +239,8 @@ const char* TransmitModeName(const int mode) {
 std::string SanitizeCaptureToken(const std::string& value, const char* fallback) {
   std::string sanitized;
   sanitized.reserve(value.size());
-  for (const unsigned char ch : value) {
+  for (const char raw_character : value) {
+    const auto ch = static_cast<unsigned char>(raw_character);
     if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) {
       sanitized.push_back(static_cast<char>(ch));
     } else if (ch == '-' || ch == '_' || ch == '.') {
@@ -288,6 +289,28 @@ std::string CreateMultitrackSessionDirectory(const std::string& recordings_root,
     return {};
   }
   return session_dir.string();
+}
+
+std::string CreateWavStemCaptureDirectory(const std::string& recordings_root) {
+  namespace fs = std::filesystem;
+  const fs::path root_path =
+      recordings_root.empty() ? fs::path(GetDefaultSessionCaptureDirectory())
+                              : fs::path(recordings_root);
+  const std::string base_name =
+      "wav-stems-" + BuildCaptureTimestampToken() + "-local";
+  for (int suffix = 1; suffix < 10000; ++suffix) {
+    const fs::path candidate =
+        root_path /
+        (suffix == 1 ? base_name : base_name + "-" + std::to_string(suffix));
+    std::error_code create_error;
+    if (fs::create_directories(candidate, create_error)) {
+      return candidate.string();
+    }
+    if (create_error) {
+      return {};
+    }
+  }
+  return {};
 }
 
 std::string ChatParam(const char** parms, const int nparms, const int index) {
@@ -428,6 +451,7 @@ void NinjamBridge::ServiceRealtimeLifecycleRequests() {
 
 void NinjamBridge::FinishLifecycleWorkers() {
   session_capture_recorder_.Stop();
+  StopLocalStemCaptureRecorders();
   remix_stem_exporter_.Wait();
 }
 
@@ -728,6 +752,12 @@ bool NinjamBridge::PrepareAudioStorage(
     }
     session_capture_left_buffer_.resize(maximum_frame_count);
     session_capture_right_buffer_.resize(maximum_frame_count);
+    for (auto& buffer : local_stem_left_buffers_) {
+      buffer.resize(maximum_frame_count);
+    }
+    for (auto& buffer : local_stem_right_buffers_) {
+      buffer.resize(maximum_frame_count);
+    }
     for (auto& buffer : runtime_send_input_buffers_) {
       buffer.resize(maximum_frame_count);
     }
@@ -833,6 +863,10 @@ void NinjamBridge::StopProcessing() {
     state_.store(RuntimeState::kActive, std::memory_order_release);
   }
   session_capture_recorder_.RequestStop();
+  for (auto& recorder : local_stem_recorders_) {
+    recorder.RequestStop();
+  }
+  local_stem_capture_active_.store(false, std::memory_order_release);
   pending_realtime_lifecycle_events_.fetch_or(kLifecycleStopped,
                                               std::memory_order_release);
 }
@@ -855,6 +889,8 @@ void NinjamBridge::MainThreadTick() {
     actual_session_bpi_ = session_bpi_;
     connection_state_ = IsRuntimeConnectionAvailable() ? kConnectionStateDisconnected
                                                        : kConnectionStateUnavailable;
+    ServiceSessionCaptureRecorder();
+    ServiceLocalStemCaptureRecorders();
     return;
   }
 
@@ -883,7 +919,8 @@ void NinjamBridge::MainThreadTick() {
   const bool recording_requested = recording_requested_.load(std::memory_order_acquire);
   const bool should_prepare_multitrack =
       recording_requested && (multitrack_capture_enabled || wav_stem_export_enabled) &&
-      connect_requested && !connection_host_.empty();
+      status == NJClient::NJC_STATUS_OK &&
+      !connection_host_.empty();
   if (should_prepare_multitrack && multitrack_capture_directory_.empty()) {
     const std::string recordings_root =
         session_capture_directory_.empty() ? GetDefaultSessionCaptureDirectory()
@@ -912,7 +949,11 @@ void NinjamBridge::MainThreadTick() {
       auto log_path_text = log_path.string();
       client_->SetWorkDir(work_dir.data());
       client_->config_savelocalaudio =
-          multitrack_wav_clips_enabled_.load(std::memory_order_acquire) ? 2 : 1;
+          multitrack_capture_enabled
+              ? (multitrack_wav_clips_enabled_.load(std::memory_order_acquire)
+                     ? 2
+                     : 1)
+              : 0;
       client_->SetLogFile(log_path_text.data());
       multitrack_capture_active_ = true;
       DebugLogf("bridge",
@@ -935,10 +976,18 @@ void NinjamBridge::MainThreadTick() {
     multitrack_capture_status_text_ =
         (multitrack_capture_enabled || wav_stem_export_enabled) ? "Ready" : "Idle";
     if (wav_stem_export_enabled && !completed_multitrack_directory.empty()) {
-      if (remix_stem_exporter_.Start(completed_multitrack_directory, preserve_multitrack_directory)) {
+      RemixStemExportOptions options;
+      options.output_directory = local_stem_capture_directory_;
+      options.include_local_tracks = false;
+      options.include_remote_tracks = true;
+      options.preserve_session_directory = preserve_multitrack_directory;
+      options.bits_per_sample =
+          session_capture_bits_per_sample_.load(std::memory_order_acquire);
+      if (remix_stem_exporter_.Start(completed_multitrack_directory, options)) {
         DebugLogf("bridge",
-                  "WAV stem export started source=%s preserve=%d",
+                  "Remote WAV stem export started source=%s output=%s preserve=%d",
                   completed_multitrack_directory.c_str(),
+                  options.output_directory.c_str(),
                   preserve_multitrack_directory ? 1 : 0);
       } else {
         DebugLogf("bridge",
@@ -1179,35 +1228,54 @@ void NinjamBridge::MainThreadTick() {
     last_failure_reason_ = kLastFailureCantConnect;
   }
 
+  bool active_timing_matches_server = false;
+  bool server_timing_published_for_connection = false;
   if (connected_) {
     double observed_bpm = 0.0;
+    int pending_bpm = 0;
+    int pending_bpi = 0;
     {
       std::lock_guard<std::mutex> lock(client_mutex_);
       if (client_ != nullptr) {
         observed_bpm = static_cast<double>(client_->GetActualBPM());
         actual_session_bpi_ = client_->GetBPI();
+        pending_bpm = client_->GetPendingBPM();
+        pending_bpi = client_->GetPendingBPI();
+        server_timing_published_for_connection =
+            client_->GetServerTimingGeneration() >
+            server_timing_generation_at_connect_;
       }
     }
     actual_session_bpm_ =
         std::isfinite(observed_bpm) && observed_bpm > 0.0 ? observed_bpm : session_bpm_;
+    active_timing_matches_server =
+        RoundedSessionBpm(actual_session_bpm_) == pending_bpm &&
+        actual_session_bpi_ == pending_bpi;
   } else {
     actual_session_bpm_ = session_bpm_;
     actual_session_bpi_ = session_bpi_;
   }
 
   if (connected_ && !was_connected) {
-    // A timing proposal starts from the session we actually joined, not from
-    // the disconnected/default values shown while the handshake was pending.
-    // Preserve an explicit proposal that was already queued during connect.
-    if (!session_bpm_sync_pending_) {
-      session_bpm_ = actual_session_bpm_;
-      last_sent_session_bpm_ = RoundedSessionBpm(session_bpm_);
-    }
-    if (!session_bpi_sync_pending_) {
-      session_bpi_ = actual_session_bpi_;
-      last_sent_session_bpi_ = RoundedSessionBpi(session_bpi_);
-    }
     DebugLog("bridge", "Connected transition observed");
+  }
+  if (connected_ && interval_position_valid_.load(std::memory_order_acquire) &&
+      server_timing_published_for_connection &&
+      active_timing_matches_server &&
+      !session_proposal_synced_for_connection_) {
+    // NJClient reports OK and the replacement audio path starts an initial
+    // placeholder interval before the first server configuration becomes
+    // active. Wait until the active interval agrees with the server control
+    // snapshot so the placeholder can never become the proposal baseline.
+    session_bpm_ = actual_session_bpm_;
+    session_bpi_ = actual_session_bpi_;
+    last_sent_session_bpm_ = RoundedSessionBpm(session_bpm_);
+    last_sent_session_bpi_ = RoundedSessionBpi(session_bpi_);
+    session_bpm_sync_pending_ = false;
+    session_bpi_sync_pending_ = false;
+    session_proposal_synced_for_connection_ = true;
+    DebugLogf("bridge", "Proposal timing synced from server: %.2f BPM / %d BPI",
+              session_bpm_, session_bpi_);
   }
   if ((multitrack_capture_enabled || wav_stem_export_enabled) && multitrack_capture_active_ &&
       connection_state_ == kConnectionStateConnected) {
@@ -1273,35 +1341,6 @@ void NinjamBridge::MainThreadTick() {
               LastFailureName(prev_last_failure_reason),
               LastFailureName(last_failure_reason_));
   }
-  const bool should_record_session_capture =
-      recording_requested_.load(std::memory_order_acquire) &&
-      session_capture_enabled_.load(std::memory_order_acquire) &&
-      connection_state_ == kConnectionStateConnected && IsProcessing();
-  if (should_record_session_capture && !session_capture_recorder_.IsActive()) {
-    const std::string recordings_dir =
-        session_capture_directory_.empty() ? GetDefaultSessionCaptureDirectory()
-                                           : session_capture_directory_;
-    if (session_capture_recorder_.Start(sample_rate_,
-                                        recordings_dir,
-                                        connection_host_,
-                                        connection_user_,
-                                        session_capture_bits_per_sample_.load(
-                                            std::memory_order_acquire))) {
-      DebugLogf("bridge",
-                "Session capture started path=%s",
-                session_capture_recorder_.GetActiveFilePath().c_str());
-    } else {
-      DebugLogf("bridge",
-                "Session capture start failed dir=%s status=%s",
-                recordings_dir.c_str(),
-                session_capture_recorder_.GetStatusText().c_str());
-    }
-  } else if (!should_record_session_capture && session_capture_recorder_.NeedsCleanup()) {
-    DebugLogf("bridge",
-              "Session capture stopping status=%s",
-              session_capture_recorder_.GetStatusText().c_str());
-    session_capture_recorder_.Stop();
-  }
   if (level_diagnostics_enabled_ &&
       (level_diagnostics_last_log_ms_ == 0 ||
        (now_ms - level_diagnostics_last_log_ms_) >= kLevelDiagnosticsLogIntervalMs)) {
@@ -1324,6 +1363,134 @@ void NinjamBridge::MainThreadTick() {
   actual_session_bpm_ = session_bpm_;
   last_failure_reason_ = kLastFailureNone;
 #endif
+  ServiceSessionCaptureRecorder();
+  ServiceLocalStemCaptureRecorders();
+}
+
+void NinjamBridge::ServiceSessionCaptureRecorder() {
+  const bool should_record =
+      recording_requested_.load(std::memory_order_acquire) &&
+      session_capture_enabled_.load(std::memory_order_acquire) && IsProcessing();
+  if (should_record && !session_capture_recorder_.IsActive()) {
+    const std::string recordings_dir =
+        session_capture_directory_.empty() ? GetDefaultSessionCaptureDirectory()
+                                           : session_capture_directory_;
+    const bool connected = connection_state_ == kConnectionStateConnected;
+    const std::string capture_host = connected ? connection_host_ : "offline";
+    if (session_capture_recorder_.Start(sample_rate_, recordings_dir,
+                                        capture_host, connection_user_,
+                                        session_capture_bits_per_sample_.load(
+                                            std::memory_order_acquire))) {
+      DebugLogf("bridge", "Session capture started mode=%s path=%s",
+                connected ? "connected" : "offline-local",
+                session_capture_recorder_.GetActiveFilePath().c_str());
+    } else {
+      DebugLogf("bridge", "Session capture start failed dir=%s status=%s",
+                recordings_dir.c_str(),
+                session_capture_recorder_.GetStatusText().c_str());
+    }
+  } else if (!should_record && session_capture_recorder_.NeedsCleanup()) {
+    DebugLogf("bridge", "Session capture stopping status=%s",
+              session_capture_recorder_.GetStatusText().c_str());
+    session_capture_recorder_.Stop();
+  }
+}
+
+void NinjamBridge::StopLocalStemCaptureRecorders() {
+  bool had_capture =
+      local_stem_capture_active_.load(std::memory_order_acquire);
+  for (auto& recorder : local_stem_recorders_) {
+    had_capture = had_capture || recorder.NeedsCleanup();
+    recorder.Stop();
+  }
+  local_stem_capture_active_.store(false, std::memory_order_release);
+  local_stem_capture_start_attempted_ = false;
+  if (had_capture && !local_stem_capture_directory_.empty()) {
+    multitrack_capture_status_text_ = "Saved local WAV stems";
+  }
+}
+
+void NinjamBridge::ServiceLocalStemCaptureRecorders() {
+  const bool should_record =
+      recording_requested_.load(std::memory_order_acquire) &&
+      wav_stem_export_enabled_.load(std::memory_order_acquire) && IsProcessing();
+  if (!should_record) {
+    local_stem_capture_start_attempted_ = false;
+    bool needs_cleanup = false;
+    for (const auto& recorder : local_stem_recorders_) {
+      needs_cleanup = needs_cleanup || recorder.NeedsCleanup();
+    }
+    if (needs_cleanup) {
+      StopLocalStemCaptureRecorders();
+    }
+    return;
+  }
+  if (local_stem_capture_active_.load(std::memory_order_acquire)) {
+    const bool any_recorder_active = std::any_of(
+        local_stem_recorders_.begin(), local_stem_recorders_.end(),
+        [](const SessionCaptureRecorder& recorder) { return recorder.IsActive(); });
+    if (any_recorder_active) {
+      return;
+    }
+    StopLocalStemCaptureRecorders();
+    local_stem_capture_start_attempted_ = true;
+    multitrack_capture_status_text_ = "WAV stem recording error";
+    return;
+  }
+  if (local_stem_capture_start_attempted_) {
+    return;
+  }
+  local_stem_capture_start_attempted_ = true;
+
+  std::array<LocalInputRouteConfig, kMaxSupportedLocalInputPairs> routes{};
+  bool has_enabled_route = false;
+  for (int route_index = 0; route_index < kMaxSupportedLocalInputPairs;
+       ++route_index) {
+    auto& route = routes[static_cast<std::size_t>(route_index)];
+    route = GetLocalInputRouteConfig(route_index);
+    has_enabled_route = has_enabled_route || (route.configured && route.enabled);
+  }
+  if (!has_enabled_route) {
+    multitrack_capture_status_text_ =
+        "WAV stems unavailable: no enabled inputs";
+    return;
+  }
+
+  const std::string recordings_root =
+      session_capture_directory_.empty() ? GetDefaultSessionCaptureDirectory()
+                                         : session_capture_directory_;
+  local_stem_capture_directory_ =
+      CreateWavStemCaptureDirectory(recordings_root);
+  if (local_stem_capture_directory_.empty()) {
+    multitrack_capture_status_text_ = "WAV stems unavailable";
+    return;
+  }
+
+  bool started_any = false;
+  for (int route_index = 0; route_index < kMaxSupportedLocalInputPairs;
+       ++route_index) {
+    const auto& route = routes[static_cast<std::size_t>(route_index)];
+    if (!route.configured || !route.enabled) {
+      continue;
+    }
+    const std::string route_name =
+        route.name.empty() ? "input-" + std::to_string(route_index + 1)
+                           : route.name;
+    const std::string prefix =
+        "local-stem-" + std::to_string(route_index + 1) + "-" + route_name;
+    if (local_stem_recorders_[static_cast<std::size_t>(route_index)].Start(
+            sample_rate_, local_stem_capture_directory_, "local", route_name,
+            session_capture_bits_per_sample_.load(std::memory_order_acquire),
+            prefix)) {
+      started_any = true;
+    }
+  }
+  local_stem_capture_active_.store(started_any, std::memory_order_release);
+  multitrack_capture_status_text_ =
+      started_any ? "Writing local WAV stems"
+                  : "WAV stems unavailable: no enabled inputs";
+  DebugLogf("bridge", "Local WAV stem capture started=%d path=%s",
+            started_any ? 1 : 0, local_stem_capture_directory_.c_str());
 }
 
 bool NinjamBridge::IsInitialized() const {
@@ -1357,6 +1524,11 @@ void NinjamBridge::SetConnectRequested(const bool value) {
   if (value && !was_requested) {
     interval_position_valid_.store(false, std::memory_order_release);
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+    {
+      std::lock_guard<std::mutex> lock(client_mutex_);
+      server_timing_generation_at_connect_ =
+          client_ != nullptr ? client_->GetServerTimingGeneration() : 0U;
+    }
     if (disconnect_pending_) {
       std::lock_guard<std::mutex> lock(client_mutex_);
       if (client_ != nullptr) {
@@ -1376,6 +1548,7 @@ void NinjamBridge::SetConnectRequested(const bool value) {
     connect_timeout_reported_ = false;
     connect_attempt_count_ = 0;
     last_failure_reason_ = kLastFailureNone;
+    session_proposal_synced_for_connection_ = false;
     disconnect_pending_ = false;
     disconnect_pending_since_ms_ = 0;
   }
@@ -1388,6 +1561,7 @@ void NinjamBridge::SetConnectRequested(const bool value) {
     connect_attempt_started_ms_ = 0;
     connect_timeout_reported_ = false;
     last_failure_reason_ = kLastFailureNone;
+    session_proposal_synced_for_connection_ = false;
     disconnect_pending_ = true;
     disconnect_pending_since_ms_ = MonotonicNowMs();
   }
@@ -1418,13 +1592,13 @@ ConnectionSettings NinjamBridge::GetConnectionSettings() const {
   settings.user = connection_user_.empty() ? "anonymous" : connection_user_;
   settings.pass = connection_pass_;
   settings.recordings_path = session_capture_directory_;
-  settings.persist_password = true;
   settings.source = GetConnectionConfigPath();
   return settings;
 }
 
 void NinjamBridge::ApplyConnectionSettings(const ConnectionSettings& settings) {
-  const ConnectionSettingsValidationResult validation = ValidateConnectionSettings(settings);
+  const ConnectionSettingsValidationResult validation =
+      ValidateConnectionSettings(settings, false);
   if (!validation.ok) {
     connection_host_.clear();
     connection_user_ = "anonymous";
@@ -1658,6 +1832,7 @@ void NinjamBridge::SetSessionBpm(const double value) {
     return;
   }
   session_bpm_ = next;
+  if (connected_) session_proposal_synced_for_connection_ = true;
   session_bpm_last_changed_ms_ = MonotonicNowMs();
   const int target_bpm = RoundedSessionBpm(session_bpm_);
   if (connected_ && target_bpm != last_sent_session_bpm_) {
@@ -1666,6 +1841,23 @@ void NinjamBridge::SetSessionBpm(const double value) {
     session_bpm_sync_pending_ = false;
   }
   DebugLogf("bridge", "SetSessionBpm=%.2f", session_bpm_);
+}
+
+void NinjamBridge::SubmitTimingVote(const double bpm, const int bpi) {
+  session_bpm_ = ClampSessionBpm(bpm);
+  session_bpi_ = ClampSessionBpi(bpi);
+  const std::uint64_t now_ms = MonotonicNowMs();
+  session_proposal_synced_for_connection_ = connected_;
+  session_bpm_sync_pending_ =
+      connected_ && RoundedSessionBpm(session_bpm_) != last_sent_session_bpm_;
+  session_bpi_sync_pending_ =
+      connected_ && RoundedSessionBpi(session_bpi_) != last_sent_session_bpi_;
+  if (session_bpm_sync_pending_) session_bpm_last_changed_ms_ = now_ms;
+  if (session_bpi_sync_pending_) session_bpi_last_changed_ms_ = now_ms;
+  DebugLogf("bridge",
+            "SubmitTimingVote=%.2f BPM / %d BPI pending_bpm=%d pending_bpi=%d",
+            session_bpm_, session_bpi_, session_bpm_sync_pending_ ? 1 : 0,
+            session_bpi_sync_pending_ ? 1 : 0);
 }
 
 double NinjamBridge::GetSessionBpm() const {
@@ -1688,12 +1880,17 @@ bool NinjamBridge::HasSessionIntervalPosition() const {
   return interval_position_valid_.load(std::memory_order_acquire) && IsConnected();
 }
 
+bool NinjamBridge::HasSessionProposalSyncedForConnection() const {
+  return connected_ && session_proposal_synced_for_connection_;
+}
+
 void NinjamBridge::SetSessionBpi(const int value) {
   const int next = ClampSessionBpi(value);
   if (next == session_bpi_) {
     return;
   }
   session_bpi_ = next;
+  if (connected_) session_proposal_synced_for_connection_ = true;
   session_bpi_last_changed_ms_ = MonotonicNowMs();
   if (connected_ && session_bpi_ != last_sent_session_bpi_) {
     session_bpi_sync_pending_ = true;
@@ -1794,9 +1991,10 @@ double NinjamBridge::GetSessionReturnPeakLevel() const {
   // Remote audio is routed by the bridge callback rather than NJClient's
   // legacy master-output mixer. Report the cyan RECEIVE monitor path here so
   // the header meter follows the same signal as its monitor-only fader.
-  const double left = ExchangePeakAtomic(&remote_monitor_master_peak_left_bits_);
-  const double right =
-      ExchangePeakAtomic(&remote_monitor_master_peak_right_bits_);
+  const double left = static_cast<double>(
+      ExchangePeakAtomic(&remote_monitor_master_peak_left_bits_));
+  const double right = static_cast<double>(
+      ExchangePeakAtomic(&remote_monitor_master_peak_right_bits_));
   return std::clamp(std::max(left, right), 0.0, 1.0);
 #else
   return 0.0;
@@ -1963,12 +2161,14 @@ double NinjamBridge::GetRemoteUserChannelPeakLevel(const int user_index,
   if (slot_index < 0) return 0.0;
   const auto index = static_cast<std::size_t>(slot_index);
   if (channel == 0)
-    return ExchangePeakAtomic(&remote_record_peak_left_bits_[index]);
+    return static_cast<double>(
+        ExchangePeakAtomic(&remote_record_peak_left_bits_[index]));
   if (channel == 1)
-    return ExchangePeakAtomic(&remote_record_peak_right_bits_[index]);
+    return static_cast<double>(
+        ExchangePeakAtomic(&remote_record_peak_right_bits_[index]));
   const auto left = ExchangePeakAtomic(&remote_record_peak_left_bits_[index]);
   const auto right = ExchangePeakAtomic(&remote_record_peak_right_bits_[index]);
-  return std::max(left, right);
+  return static_cast<double>(std::max(left, right));
 }
 
 double NinjamBridge::GetRemoteUserChannelMonitorPeakLevel(
@@ -1977,12 +2177,14 @@ double NinjamBridge::GetRemoteUserChannelMonitorPeakLevel(
   if (slot_index < 0) return 0.0;
   const auto index = static_cast<std::size_t>(slot_index);
   if (channel == 0)
-    return ExchangePeakAtomic(&remote_monitor_peak_left_bits_[index]);
+    return static_cast<double>(
+        ExchangePeakAtomic(&remote_monitor_peak_left_bits_[index]));
   if (channel == 1)
-    return ExchangePeakAtomic(&remote_monitor_peak_right_bits_[index]);
+    return static_cast<double>(
+        ExchangePeakAtomic(&remote_monitor_peak_right_bits_[index]));
   const auto left = ExchangePeakAtomic(&remote_monitor_peak_left_bits_[index]);
   const auto right = ExchangePeakAtomic(&remote_monitor_peak_right_bits_[index]);
-  return std::max(left, right);
+  return static_cast<double>(std::max(left, right));
 }
 
 void NinjamBridge::SetSessionCaptureEnabled(const bool value) {
@@ -2031,8 +2233,10 @@ void NinjamBridge::SetRecordingRequested(const bool value) {
     return;
   }
   recording_requested_.store(value, std::memory_order_release);
+  local_stem_capture_start_attempted_ = false;
   if (!value) {
     session_capture_recorder_.Stop();
+    StopLocalStemCaptureRecorders();
     if (!multitrack_capture_active_ && multitrack_capture_directory_.empty()) {
       multitrack_capture_status_text_ =
           (multitrack_capture_enabled_.load(std::memory_order_acquire) ||
@@ -2086,7 +2290,8 @@ bool NinjamBridge::IsMultitrackCaptureEnabled() const {
 }
 
 bool NinjamBridge::IsMultitrackCaptureActive() const {
-  return multitrack_capture_active_;
+  return multitrack_capture_active_ ||
+         local_stem_capture_active_.load(std::memory_order_acquire);
 }
 
 std::string NinjamBridge::GetMultitrackCaptureStatusText() const {
@@ -2103,6 +2308,7 @@ std::string NinjamBridge::GetMultitrackCaptureDirectory() const {
 
 void NinjamBridge::SetWavStemExportEnabled(const bool value) {
   wav_stem_export_enabled_.store(value, std::memory_order_release);
+  local_stem_capture_start_attempted_ = false;
   if (!value) {
     if (!multitrack_capture_enabled_.load(std::memory_order_acquire)) {
       multitrack_capture_status_text_ = "Idle";
@@ -2127,7 +2333,9 @@ std::string NinjamBridge::GetWavStemExportStatusText() const {
 }
 
 std::string NinjamBridge::GetWavStemExportDirectory() const {
-  return remix_stem_exporter_.GetOutputDirectory();
+  return local_stem_capture_directory_.empty()
+             ? remix_stem_exporter_.GetOutputDirectory()
+             : local_stem_capture_directory_;
 }
 
 void NinjamBridge::SetMultitrackWavClipsEnabled(const bool value) {
@@ -2135,7 +2343,10 @@ void NinjamBridge::SetMultitrackWavClipsEnabled(const bool value) {
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   std::lock_guard<std::mutex> lock(client_mutex_);
   if (client_ != nullptr && multitrack_capture_active_) {
-    client_->config_savelocalaudio = value ? 2 : 1;
+    client_->config_savelocalaudio =
+        multitrack_capture_enabled_.load(std::memory_order_acquire)
+            ? (value ? 2 : 1)
+            : 0;
   }
 #endif
   DebugLogf("bridge", "SetMultitrackWavClipsEnabled=%d", value ? 1 : 0);
@@ -2949,13 +3160,15 @@ void NinjamBridge::SetLocalInputChannelEnabled(const int index, const bool value
   }
   for (auto& route : local_input_routes_) {
     if (!route.configured) {
-      route = LocalInputRouteConfig{true,
-                                    true,
-                                    true,
-                                    index,
-                                    kLocalInputSendLevelDefault,
-                                    kLocalInputMonitorLevelDefault,
-                                    0};
+      route = LocalInputRouteConfig{
+          .configured = true,
+          .enabled = true,
+          .monitor_enabled = true,
+          .source_pair_index = index,
+          .send_level = kLocalInputSendLevelDefault,
+          .monitor_level = kLocalInputMonitorLevelDefault,
+          .output_pair_index = 0,
+      };
       local_channel_topology_revision_.fetch_add(1, std::memory_order_release);
       PublishLocalInputRoutingSnapshotLocked();
       DebugLogf("bridge",
@@ -3058,6 +3271,11 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
   const LocalInputRoutingSnapshot& routing_snapshot =
       *routing_snapshot_read.snapshot;
   const auto& local_input_routes = routing_snapshot.routes;
+  const bool capture_session_mix =
+      !apply_gain && session_capture_recorder_.IsActive();
+  const bool capture_local_stems =
+      !apply_gain &&
+      local_stem_capture_active_.load(std::memory_order_acquire);
 
   if (!apply_gain) {
     last_runtime_monitor_valid_.store(false, std::memory_order_release);
@@ -3139,6 +3357,67 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
       if (clipped)
         local_input_clip_latched_[slot].store(true, std::memory_order_release);
     }
+
+    std::fill_n(session_capture_left_buffer_.data(), frame_count, 0.0f);
+    std::fill_n(session_capture_right_buffer_.data(), frame_count, 0.0f);
+    if (capture_local_stems) {
+      for (std::size_t slot = 0; slot < local_stem_recorders_.size(); ++slot) {
+        if (!local_stem_recorders_[slot].IsActive()) {
+          continue;
+        }
+        std::fill_n(local_stem_left_buffers_[slot].data(), frame_count, 0.0f);
+        std::fill_n(local_stem_right_buffers_[slot].data(), frame_count, 0.0f);
+      }
+    }
+    if (capture_session_mix || capture_local_stems) {
+      // The session-mix recording follows the amber SEND/RECORD lanes,
+      // independently of connection state and selected DAW monitor outputs.
+      // Connected remote record lanes are added by MixRemoteChannelAudio().
+      for (std::size_t slot = 0; slot < local_input_routes.size(); ++slot) {
+        const auto& route = local_input_routes[slot];
+        const int source_start = route.source_channel_index;
+        const int source_count = route.source_channel_count;
+        if (!route.configured || source_start < 0 ||
+            source_start + source_count > active_input_channel_count ||
+            input_channels[static_cast<std::size_t>(source_start)] == nullptr ||
+            (source_count > 1 &&
+             input_channels[static_cast<std::size_t>(source_start + 1)] == nullptr)) {
+          continue;
+        }
+        const bool audible = route.enabled && !route.send_muted &&
+                             (!send_solo_active || route.send_solo);
+        if (!audible) {
+          continue;
+        }
+        const float level =
+            static_cast<float>(ClampLocalInputSendLevel(route.send_level));
+        const float pan = source_count == 2
+                              ? static_cast<float>(
+                                    std::clamp(route.send_pan, -1.0, 1.0))
+                              : 0.0f;
+        const float left_gain = level * (pan > 0.0f ? 1.0f - pan : 1.0f);
+        const float right_gain = level * (pan < 0.0f ? 1.0f + pan : 1.0f);
+        for (std::size_t frame = 0; frame < frame_count; ++frame) {
+          const float left =
+              input_channels[static_cast<std::size_t>(source_start)][frame];
+          const float right =
+              source_count > 1
+                  ? input_channels[static_cast<std::size_t>(source_start + 1)]
+                                  [frame]
+                  : left;
+          const float routed_left = left * left_gain;
+          const float routed_right = right * right_gain;
+          if (capture_session_mix) {
+            session_capture_left_buffer_[frame] += routed_left;
+            session_capture_right_buffer_[frame] += routed_right;
+          }
+          if (capture_local_stems && local_stem_recorders_[slot].IsActive()) {
+            local_stem_left_buffers_[slot][frame] = routed_left;
+            local_stem_right_buffers_[slot][frame] = routed_right;
+          }
+        }
+      }
+    }
   }
 
   float diagnostics_dry_peak = 0.0f;
@@ -3171,8 +3450,6 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
     const int active_output_channel_count = GetActiveDawOutputChannelCount();
     current_remote_mix_frame_count_ = frame_count;
     current_remote_mix_output_channel_count_ = active_output_channel_count;
-    std::fill_n(session_capture_left_buffer_.data(), frame_count, 0.0f);
-    std::fill_n(session_capture_right_buffer_.data(), frame_count, 0.0f);
     std::array<float*, kMaxSupportedAudioChannels> runtime_out{};
     for (int channel = 0; channel < active_output_channel_count; ++channel) {
       auto& buffer = routed_output_buffers_[static_cast<std::size_t>(channel)];
@@ -3264,38 +3541,6 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
                        transport.playing,
                        transport.seeked,
                        transport.position_seconds);
-    // The session-mix recording follows the amber SEND/RECORD lanes, never
-    // the selected DAW monitor outputs. This keeps audition and monitor-only
-    // adjustments out of the captured mix.
-    for (const auto& route : local_input_routes) {
-      const int source_start = route.source_channel_index;
-      const int source_count = route.source_channel_count;
-      if (!route.configured || source_start < 0 ||
-          source_start + source_count > active_input_channel_count)
-        continue;
-      const bool audible = route.enabled && !route.send_muted &&
-                           (!send_solo_active || route.send_solo);
-      if (!audible) continue;
-      const float level =
-          static_cast<float>(ClampLocalInputSendLevel(route.send_level));
-      const float pan = source_count == 2
-                            ? static_cast<float>(
-                                  std::clamp(route.send_pan, -1.0, 1.0))
-                            : 0.0f;
-      const float left_gain = level * (pan > 0.0f ? 1.0f - pan : 1.0f);
-      const float right_gain = level * (pan < 0.0f ? 1.0f + pan : 1.0f);
-      for (std::size_t frame = 0; frame < frame_count; ++frame) {
-        const float left =
-            input_channels[static_cast<std::size_t>(source_start)][frame];
-        const float right =
-            source_count > 1
-                ? input_channels[static_cast<std::size_t>(source_start + 1)]
-                                [frame]
-                : left;
-        session_capture_left_buffer_[frame] += left * left_gain;
-        session_capture_right_buffer_[frame] += right * right_gain;
-      }
-    }
     int interval_position = 0;
     int interval_length = 0;
     client_->GetPosition(&interval_position, &interval_length);
@@ -3388,13 +3633,23 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
     }
   }
 
+  if (capture_session_mix) {
+    session_capture_recorder_.Push(session_capture_left_buffer_.data(),
+                                   session_capture_right_buffer_.data(),
+                                   frame_count);
+  }
+  if (capture_local_stems) {
+    for (std::size_t slot = 0; slot < local_stem_recorders_.size(); ++slot) {
+      if (local_stem_recorders_[slot].IsActive()) {
+        local_stem_recorders_[slot].Push(local_stem_left_buffers_[slot].data(),
+                                         local_stem_right_buffers_[slot].data(),
+                                         frame_count);
+      }
+    }
+  }
+
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   if (!apply_gain && runtime_monitor_ready) {
-    if (session_capture_recorder_.IsActive()) {
-      session_capture_recorder_.Push(session_capture_left_buffer_.data(),
-                                     session_capture_right_buffer_.data(),
-                                     frame_count);
-    }
     for (std::size_t frame = 0; frame < frame_count; ++frame) {
       output_left[frame] = routed_output_buffers_[0][frame];
       output_right[frame] = routed_output_buffers_[1][frame];

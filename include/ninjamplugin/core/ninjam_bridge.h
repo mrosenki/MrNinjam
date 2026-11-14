@@ -215,10 +215,12 @@ class NinjamBridge {
   void ApplyConnectionSettings(const ConnectionSettings& settings);
 
   void SetSessionBpm(double value);
+  void SubmitTimingVote(double bpm, int bpi);
   double GetSessionBpm() const;
   double GetActualSessionBpm() const;
   double GetSessionIntervalProgress() const;
   bool HasSessionIntervalPosition() const;
+  bool HasSessionProposalSyncedForConnection() const;
   static double ClampSessionBpm(double value);
   void SetSessionBpi(int value);
   int GetSessionBpi() const;
@@ -433,6 +435,9 @@ class NinjamBridge {
   void AppendSessionFeedLine(const std::string& line);
   void ClearSessionFeedState();
   void ServiceRealtimeLifecycleRequests();
+  void ServiceSessionCaptureRecorder();
+  void ServiceLocalStemCaptureRecorders();
+  void StopLocalStemCaptureRecorders();
   void FinishLifecycleWorkers();
   void StartKeepaliveThread();
   void StopKeepaliveThread();
@@ -466,6 +471,8 @@ class NinjamBridge {
   int last_sent_session_bpi_ = 0;
   bool session_bpm_sync_pending_ = false;
   bool session_bpi_sync_pending_ = false;
+  bool session_proposal_synced_for_connection_ = false;
+  std::uint64_t server_timing_generation_at_connect_ = 0U;
   bool connection_config_loaded_ = false;
   bool socket_library_open_ = false;
   std::string connection_host_;
@@ -547,6 +554,10 @@ class NinjamBridge {
   mutable std::array<std::vector<float>, kMaxSupportedAudioChannels> routed_output_buffers_{};
   mutable std::vector<float> session_capture_left_buffer_;
   mutable std::vector<float> session_capture_right_buffer_;
+  mutable std::array<std::vector<float>, kMaxSupportedLocalInputPairs>
+      local_stem_left_buffers_{};
+  mutable std::array<std::vector<float>, kMaxSupportedLocalInputPairs>
+      local_stem_right_buffers_{};
   mutable std::array<std::vector<float>, kMaxSupportedAudioChannels> runtime_send_input_buffers_{};
   mutable std::array<const float*, kMaxSupportedAudioChannels> runtime_send_input_ptrs_{};
   mutable std::atomic<std::size_t> last_runtime_monitor_frame_count_{0};
@@ -593,7 +604,12 @@ class NinjamBridge {
   std::atomic_bool wav_stem_export_enabled_{false};
   std::atomic_bool multitrack_wav_clips_enabled_{false};
   mutable SessionCaptureRecorder session_capture_recorder_;
+  mutable std::array<SessionCaptureRecorder, kMaxSupportedLocalInputPairs>
+      local_stem_recorders_{};
   mutable RemixStemExporter remix_stem_exporter_;
+  std::atomic_bool local_stem_capture_active_{false};
+  bool local_stem_capture_start_attempted_ = false;
+  std::string local_stem_capture_directory_;
   bool multitrack_capture_active_ = false;
   std::string multitrack_capture_directory_;
   std::string multitrack_capture_status_text_ = "Idle";

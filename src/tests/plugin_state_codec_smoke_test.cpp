@@ -15,6 +15,10 @@ bool NearlyEqual(const double lhs, const double rhs, const double epsilon = 1.0e
 
 int main() {
   ninjamplugin::core::PersistedPluginState source{};
+  source.has_instance_connection_settings = true;
+  source.connection_host = "session.example.test:2049";
+  source.connection_user = "instance-user";
+  source.recordings_path = "/recordings/DAW instance A";
   source.gain = 1.25;
   source.connect_requested = true;
   source.session_bpm = 140.0;
@@ -57,7 +61,11 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  if (!NearlyEqual(parsed.gain, source.gain) ||
+  if (!parsed.has_instance_connection_settings ||
+      parsed.connection_host != source.connection_host ||
+      parsed.connection_user != source.connection_user ||
+      parsed.recordings_path != source.recordings_path ||
+      !NearlyEqual(parsed.gain, source.gain) ||
       parsed.connect_requested != source.connect_requested ||
       !NearlyEqual(parsed.session_bpm, source.session_bpm) ||
       parsed.session_bpi != source.session_bpi ||
@@ -74,6 +82,13 @@ int main() {
       parsed.multitrack_wav_clips_enabled != source.multitrack_wav_clips_enabled ||
       parsed.local_input_routes != source.local_input_routes) {
     std::cerr << "Roundtrip mismatch\n";
+    return EXIT_FAILURE;
+  }
+
+  if (blob.find("instance-user") != std::string::npos ||
+      blob.find("/recordings/DAW instance A") != std::string::npos ||
+      blob.find("password") != std::string::npos || blob.find("pass=") != std::string::npos) {
+    std::cerr << "Instance state should encode paths/identity and exclude credentials\n";
     return EXIT_FAILURE;
   }
 

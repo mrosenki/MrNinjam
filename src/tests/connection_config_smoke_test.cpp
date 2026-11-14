@@ -24,11 +24,9 @@ bool CheckLoaded(const ninjamplugin::core::ConnectionSettings& settings,
                  const std::string& host,
                  const std::string& user,
                  const std::string& pass,
-                 const std::string& recordings_path = {},
-                 const bool persist_password = true) {
+                 const std::string& recordings_path = {}) {
   return settings.host == host && settings.user == user && settings.pass == pass &&
-         settings.recordings_path == recordings_path &&
-         settings.persist_password == persist_password;
+         settings.recordings_path == recordings_path;
 }
 
 }  // namespace
@@ -66,13 +64,13 @@ int main() {
   if (!CheckLoaded(settings,
                    "127.0.0.1:2049",
                    "alice",
-                   "secret",
+                   "",
                    "/tmp/ninjam-captures")) {
-    std::cerr << "Unexpected file-backed config values\n";
+    std::cerr << "File-backed config did not discard its legacy password\n";
     return 2;
   }
 
-  SetEnvVar("NINJAM_SERVER_HOST", "82.17.147.6:2049");
+  SetEnvVar("NINJAM_SERVER_HOST", "session.example.test:2049");
   SetEnvVar("NINJAM_SERVER_USER", "anonymous");
   SetEnvVar("NINJAM_SERVER_PASS", "env-override-pass");
   SetEnvVar("NINJAMPLUGIN_RECORDINGS_PATH", "/tmp/env-captures");
@@ -81,7 +79,7 @@ int main() {
     return 3;
   }
   if (!CheckLoaded(settings,
-                   "82.17.147.6:2049",
+                   "session.example.test:2049",
                    "anonymous",
                    "env-override-pass",
                    "/tmp/env-captures")) {
@@ -94,10 +92,9 @@ int main() {
   save_settings.user = "bob";
   save_settings.pass = "topsecret";
   save_settings.recordings_path = "/tmp/custom-captures";
-  save_settings.persist_password = false;
   const std::filesystem::path saved_config_path = temp_dir / "saved-ninjamplugin_settings.cfg";
   if (!ninjamplugin::core::SaveConnectionSettings(save_settings, saved_config_path.string())) {
-    std::cerr << "SaveConnectionSettings failed for persist_password=false\n";
+    std::cerr << "SaveConnectionSettings failed\n";
     return 5;
   }
   {
@@ -127,8 +124,7 @@ int main() {
                    "example.org:2049",
                    "bob",
                    "",
-                   "/tmp/custom-captures",
-                   false)) {
+                   "/tmp/custom-captures")) {
     std::cerr << "Unexpected saved config values\n";
     return 8;
   }

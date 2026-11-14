@@ -24,83 +24,100 @@ official binary release.
 
 ## Current baseline
 
-Version `0.2.1` is the current development baseline, not a frozen release.
+Version `0.2.10` is the current DAW-test candidate, not a frozen or officially
+distributed release. It is carried by the open integration stack ending at
+PR #45; `main` intentionally remains behind that stack until the focused
+timing-vote test and consolidated integration review are complete.
 
-Implemented and automated:
+Implemented, automated, and already DAW validated in the integration line:
 
 - permanent CLAP and VST3 identities, one Visage production editor, and
-  V1--V20 saved-state decoding;
-- connection, reconnect, routing, chat, session timing, capture, recovery, RAW
-  import, and WAV export foundations;
+  V1--V21 saved-state decoding;
+- a repeatable per-user verify/install workflow for macOS, Linux, and Windows;
+- host-independent CLAP timer/editor lifecycle guards, disconnected local
+  metering, and offline Session Mix WAV and per-route WAV-stem recording;
+- instance-owned operational configuration with passwords excluded from host
+  state and defaults;
+- host-cadence-independent meter ballistics and capability-driven session
+  actions, including truthful disconnected and failed-authentication states;
+- server-authoritative BPM/BPI publication for the header, interval ring,
+  metronome, and LIVE SESSION current-timing display; and
 - bounded audio lifecycle work, preallocated steady-state processing,
-  race-free routing publication, and guarded real-time diagnostics; and
-- clean-clone Linux, Windows, and macOS builds and tests.
+  race-free routing publication, guarded real-time diagnostics, and clean-clone
+  Linux, Windows, and macOS builds and tests.
 
-Still requiring hands-on DAW evidence:
+Immediate integration gate:
 
-- REAPER and Bitwig scanning, loading, resizing, audio-port negotiation, and
-  project recall for both formats;
-- representative connection, reconnect, routing, timing, chat, and
-  interoperability behaviour;
-- recording eligibility, failure reporting, recovery, and exported content;
-- runtime filesystem locations and coexistence with the retired development
-  bundle names; and
-- compact mixer usability with realistic participant and channel counts.
+1. **Completed:** `0.2.10` passed Linux, Windows, and macOS CI and the focused
+   first-connection REAPER VST3 test. Server proposal initialization plus
+   BPM-only, BPI-only, and combined voting passed; #9 is closed.
+2. **Completed:** #27 is closed after reconciling its focused defect evidence;
+   broader cross-host/format interoperability remains tracked by #24.
+3. **Reviewed locally:** the consolidated diff preserves permanent identities,
+   parameter/state compatibility, and host-independent lifecycle behavior. The
+   review removed a public endpoint literal, added a repository privacy scan,
+   corrected V21 documentation, and recorded non-blocking decomposition work
+   under #31.
+4. Retarget the consolidated integration PR to `main`, run its final
+   cross-platform CI, and merge only after explicit approval. Then close the
+   superseded stacked PRs with links to the merge.
+   successful CI, then close superseded stacked PRs with links to the merge.
+
+Still requiring product work or broader hands-on evidence:
+
+- explicit server-licence consent (#23);
+- removal of the retired `NinjamPlugin` compatibility and naming surface (#40);
+- the substantive architecture and code-quality audit (#31);
+- representative CLAP/VST3 session and legacy-client interoperability (#24);
+- recording eligibility, failure reporting, finalisation, recovery, and
+  exported-content validation (#8);
+- compact mixer usability with realistic participant and channel counts (#10);
+  and
+- reproducible Ogg/Vorbis dependencies and macOS 11 compatibility (#11).
 
 ## Development sequence
 
-### `0.2.2` — Installable DAW testing baseline
+### `0.2.2` through `0.2.7` — Installable baseline and DAW corrections
 
-Objective: make verified local builds easy to install and establish a trusted
-starting point for practical host testing.
+Completed and recorded:
 
-Work, in order:
+- #7 real-time diagnostic safety, #21 worker-drain reliability, and #22 the
+  development installer;
+- #33 truthful capability-driven actions, #34 disconnected metering/offline
+  WAV recording, #35 distinct build versions, #38 per-instance configuration,
+  and #39 host-independent meter ballistics; and
+- repeated REAPER and Bitwig add/remove, project recall, multi-instance,
+  recording, and shutdown checks without a reproduced crash.
 
-1. [#22](https://github.com/mrosenki/MrNinjam/issues/22) adds a safe per-user
-   development installer and REAPER/Bitwig smoke checklist.
-2. [#21](https://github.com/mrosenki/MrNinjam/issues/21) characterises and fixes
-   the intermittent Windows worker-drain failure without weakening the test or
-   merely increasing its timeout.
-3. Close [#7](https://github.com/mrosenki/MrNinjam/issues/7) after review confirms
-   that its merged implementation and recorded validation satisfy the issue.
-4. Run the basic scan/load/editor/audio/state smoke matrix in REAPER and Bitwig
-   for CLAP and VST3.
+Open at this boundary:
 
-Acceptance criteria:
+- #9 is complete and closed after the focused `0.2.10` first-connection test;
+  #27 remains open only for reconciliation of its broader host/format criteria;
+- #28 retains the unresolved distinction between a corrected plug-in lifecycle
+  risk and a host-side stale timer, despite positive sanitizer, regression, and
+  DAW evidence; close it only when its bounded investigation criteria are
+  explicitly documented; and
+- #23, #40, #31, and #24 continue after the integration merge rather than
+  enlarging the current branch stack.
 
-- one documented verify/install/rescan loop works without administrator access;
-- exact install targets, legacy-bundle coexistence, and rollback are explicit;
-- both hosts load both formats and report version `0.2.2` with unchanged IDs;
-- basic editor, audio I/O, and saved-state recall results are recorded; and
-- CI remains required and stable enough that intermittent failures are not
-  dismissed by reruns.
+### Next `0.2.x` milestone — Consent, naming, and controlled sessions
 
-### `0.2.3` — Session control correctness
-
-Objective: make controlled NINJAM session testing trustworthy and respectful of
-server terms.
+Objective: require explicit consent for server terms, remove unsupported
+pre-release compatibility debt, complete the high-risk architecture review,
+and then broaden representative session validation.
 
 Work, in order:
 
-1. [#9](https://github.com/mrosenki/MrNinjam/issues/9) fixes initial BPM/BPI
-   proposal submission and distinguishes transmission from server/UI response.
-2. [#23](https://github.com/mrosenki/MrNinjam/issues/23) replaces automatic
-   server-licence acceptance with an explicit, bounded, non-real-time consent
-   flow.
-3. Start the controlled portion of
+1. Implement [#23](https://github.com/mrosenki/MrNinjam/issues/23) with bounded
+   plain-text agreement handling and explicit accept/decline behavior.
+2. Address [#40](https://github.com/mrosenki/MrNinjam/issues/40) in reviewable
+   stages informed by [#31](https://github.com/mrosenki/MrNinjam/issues/31),
+   preserving permanent plug-in IDs and supported state decoding.
+3. Run the controlled matrix in
    [#24](https://github.com/mrosenki/MrNinjam/issues/24) across both hosts and
-   formats.
+   formats, creating focused issues for reproducible findings.
 
-Acceptance criteria:
-
-- unchanged and edited BPM/BPI proposals send the displayed values;
-- no supplied server agreement is accepted without an explicit user action;
-- connect, disconnect, reconnect, transport stop/start, timing, chat, and
-  credential boundaries behave consistently in both hosts and formats; and
-- tests and reports use synthetic identities and disclose no private server or
-  session information.
-
-### `0.2.4` — Recording and recovery reliability
+### Recording and recovery reliability
 
 Objective: make recording state and saved output accurately reflect what the
 plug-in can and did capture.
@@ -170,6 +187,9 @@ testing unless it exposes a direct safety or compatibility problem.
 ## Issue hygiene and change safeguards
 
 - Keep one focused issue and PR per unrelated change.
+- Use [#31](https://github.com/mrosenki/MrNinjam/issues/31) as the continuing
+  architecture and code-quality review track; observed symptoms still receive
+  focused issues and regression tests rather than accumulating local patches.
 - Record whether evidence is automated, controlled-fixture, or hands-on DAW
   testing.
 - Turn reproducible DAW/session findings into focused issues; do not commit

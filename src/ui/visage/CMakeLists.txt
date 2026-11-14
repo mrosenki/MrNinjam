@@ -69,6 +69,23 @@ if(NINJAMPLUGIN_BUILD_UI_HARNESS AND NINJAMPLUGIN_ENABLE_TESTS)
 endif()
 
 if(NINJAMPLUGIN_ENABLE_TESTS)
+  add_executable(ninjamplugin_peak_meter_ballistics_test
+    "${PROJECT_SOURCE_DIR}/src/tests/peak_meter_ballistics_test.cpp"
+  )
+  target_include_directories(ninjamplugin_peak_meter_ballistics_test
+    PRIVATE
+      "${PROJECT_SOURCE_DIR}/include"
+  )
+  target_compile_features(
+    ninjamplugin_peak_meter_ballistics_test PRIVATE cxx_std_20
+  )
+  if(NINJAMPLUGIN_ENABLE_STRICT_WARNINGS)
+    ninjamplugin_apply_warnings(ninjamplugin_peak_meter_ballistics_test)
+  endif()
+  add_test(NAME ninjamplugin_peak_meter_ballistics_test
+    COMMAND ninjamplugin_peak_meter_ballistics_test
+  )
+
   add_executable(ninjamplugin_layout_preferences_smoke_test
     "${PROJECT_SOURCE_DIR}/src/tests/layout_preferences_smoke_test.cpp"
   )

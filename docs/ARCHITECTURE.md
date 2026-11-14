@@ -27,7 +27,7 @@ permanent CLAP ID and VST3 CID. The permanent CLAP ID replaces the former
 development ID `io.github.mrosenki.ninjamplugin` before public release. The
 historical `ninjamplugin` source namespace, CMake targets, entry symbols,
 environment variables, and serialized state headers remain unchanged.
-Parameter IDs and V1--V20 decoding are retained.
+Parameter IDs and V1--V21 decoding are retained.
 
 Changing bundle filenames can expose host-specific recall limitations even
 when a format identity is otherwise unchanged. The VST3 CID remains stable, so
@@ -44,11 +44,26 @@ absolute installation path may also require a rescan or manual substitution.
 | Plugin state and controls | `src/core/plugin_state.cpp`, `parameter_model.cpp` | Versioned project state and parameter model |
 | NINJAM runtime bridge | `src/core/ninjam_bridge.cpp`, `njclient_extended.cpp` | Session lifecycle, routing, audio exchange, remote state |
 | Connection settings | `src/core/connection_config.cpp` | Application settings and credential boundary |
-| Session recording | `src/core/session_capture_recorder.cpp` | Buffered capture, finalization, and recovery |
+| Session recording | `src/core/session_capture_recorder.cpp` | Bounded asynchronous Session Mix and local-input stem capture, finalization, and recovery |
 | Stem export | `src/core/remix_stem_exporter.cpp` | Non-destructive RAW-session decoding and WAV export |
 | Shared editor controller | `src/ui/connection_editor_controller.cpp` | UI-independent view state and commands |
 | Production editor | `src/ui/editor_shell_visage.cpp`, `src/ui/visage/` | Visage-backed rendering, layout, input, and UI preferences |
 | UI test harness | `tools/ui_harness/` | Optional standalone layout and interaction validation |
+
+The editor follows an MVC-style boundary rather than treating widgets as the
+application model:
+
+- the runtime bridge owns NINJAM, routing, recording, and connection state;
+- the editor controller derives immutable view state, action capabilities, and
+  command outcomes from that runtime state; and
+- Visage renders the supplied state and forwards user intent without inferring
+  action capability from labels, host names, or optimistic local click state.
+
+This boundary is intentionally pragmatic rather than framework-driven. UI-only
+layout and appearance preferences may remain in the view, but session and audio
+behavior must remain testable without constructing Visage widgets. Dead
+alternate views and duplicate command paths should be removed rather than kept
+in parallel.
 
 ## Threading boundaries
 
@@ -112,6 +127,9 @@ absolute installation path may also require a rescan or manual substitution.
   never detached and cannot outlive the bridge.
 - UI frames communicate through the shared controller and must not call the
   NINJAM runtime, recording services, or format adapter directly.
+- UI peak meters ingest runtime snapshots as maxima; only elapsed UI time can
+  reduce a displayed peak. This keeps the meter ballistics consistent when
+  hosts deliver main-thread callbacks at different or irregular cadences.
 
 The shared CLAP implementation records each valid, non-zero audio block with a
 lock-free counter. A main-thread heartbeat compares that counter against a
@@ -155,12 +173,25 @@ zero. Routing publication is the completed Issue #6 design.
 Channel topology changes are distinct from live gain/pan changes. Mixer changes
 must not unnecessarily delete and recreate NINJAM channels.
 
+Session Mix WAV and local-input WAV stems consume the post-SEND route signal
+and therefore remain available without a server connection. Connected remote
+stems are added through the NINJAM multitrack source/export path. Native RAW
+session material remains connection-dependent because it requires server
+interval and participant data.
+
 ## Persistence boundaries
 
-- DAW project state stores plugin controls and versioned routing state.
-- Connection credentials are not stored in DAW project state.
-- Connection settings, recording location, and UI preferences use platform
-  application-data locations.
+- DAW project state is instance-owned. It stores plug-in controls, versioned
+  routing, connection endpoint and username, and recording location so copies,
+  presets, projects, and simultaneous hosts do not share mutable operational
+  configuration.
+- Passwords and other connection secrets are not stored in DAW project state.
+  A credential already loaded from application defaults is reused only when
+  the restored endpoint and username match it.
+- Application-data settings are explicit defaults, not live shared instance
+  state. Saving or loading a default copies values to or from one instance.
+- Diagnostics and optional UI appearance defaults remain user-global because
+  they do not alter session audio, routing, connection, or recording output.
 - Environment variables may override selected paths and connection settings for
   development or diagnostics.
 - Recordings and exports go to a user-selected location or a platform-owned
@@ -168,6 +199,7 @@ must not unnecessarily delete and recreate NINJAM channels.
 
 New settings, UI preferences, diagnostics, logs, and fallback recording paths
 use `MrNinjam` in their platform-owned directory or filename. On first access,
+Until issue #40 removes the retired pre-release compatibility surface,
 connection settings are copied from the former
 `NinjamPlugin/ninjamplugin_settings.cfg` path when the new settings file does
 not exist. Existing diagnostic and layout preferences are read from their

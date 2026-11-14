@@ -15,6 +15,9 @@
 
 namespace ninjamplugin::ui {
 
+EditorActionCapabilities BuildEditorActionCapabilities(int connection_state,
+                                                        bool connect_requested);
+
 struct ConnectionEditorRuntimeSnapshot {
   ninjamplugin::core::SessionOverview overview;
   std::string config_path;
@@ -61,6 +64,7 @@ struct ConnectionEditorRuntimeSnapshot {
   bool connect_requested = false;
   bool audio_processing_paused = false;
   bool session_interval_progress_valid = false;
+  bool session_proposal_synced = false;
   std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_route_configured{true, true};
   std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
@@ -125,6 +129,7 @@ class ConnectionEditorControllerHost {
   virtual void RequestHostParamsFlush() = 0;
 
   virtual bool IsConnectRequested() const = 0;
+  virtual int GetConnectionState() const = 0;
   virtual ninjamplugin::core::ConnectionSettings GetRuntimeConnectionSettings() const = 0;
   virtual void ApplyConnectionSettings(const ninjamplugin::core::ConnectionSettings& settings) = 0;
   virtual ninjamplugin::core::SessionOverview GetSessionOverview() const = 0;
@@ -187,6 +192,7 @@ class ConnectionEditorControllerHost {
   virtual void QueueConnectRequested(bool value) = 0;
   virtual void QueueTargetSessionBpm(double value) = 0;
   virtual void QueueTargetSessionBpi(int value) = 0;
+  virtual void QueueTimingVote(double bpm, int bpi) = 0;
   virtual void QueueRemoteReturn(double value) = 0;
   virtual void QueueMetronomeLevel(double value) = 0;
   virtual void QueueMetronomeEnabled(bool value) = 0;
@@ -230,8 +236,7 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
   void ReloadRequested() override;
   void ConnectRequested(const ninjamplugin::core::ConnectionSettings& settings) override;
   void DisconnectRequested() override;
-  void TargetSessionBpmChanged(double value) override;
-  void TargetSessionBpiChanged(int value) override;
+  bool TimingVoteRequested(double bpm, int bpi) override;
   void RemoteReturnChanged(double value) override;
   void MetronomeLevelChanged(double value) override;
   void MetronomeEnabledChanged(bool value) override;
@@ -319,6 +324,8 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
                                          int* out_channel_index) const;
   bool ApplyRemoteChannelSelectionAndNotify(int choice_index);
   void RefreshRecoveryCache();
+  EditorActionCapabilities CurrentActionCapabilities() const;
+  bool HasEligibleRecordingOutput() const;
 
   ConnectionEditorControllerHost* host_ = nullptr;
   ninjamplugin::core::ConnectionSettings draft_settings_;

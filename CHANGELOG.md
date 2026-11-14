@@ -6,7 +6,79 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
-## 0.2.1 - In development
+## 0.2.10 - DAW test build
+
+- Initialize timing proposals only from an actual server-config notification,
+  rather than inferring that timing is ready from successful authentication.
+- Exercise authentication and server-timing publication as separate fixture
+  events so first connection cannot copy the engine's 120/32 placeholder.
+
+## 0.2.9 - DAW test build
+
+- Require a server-control publication from the current connection before
+  treating matching active/pending timing values as authoritative proposal
+  initialization.
+- Cover the exact first-connection case where both the server and engine use
+  120 BPM but the server uses 8 BPI and the engine placeholder uses 32 BPI.
+- Known DAW-test defect: successful authentication could be observed before
+  the first server-config message, causing the first connection to copy the
+  120/32 placeholder. Superseded by `0.2.10`.
+
+## 0.2.8 - DAW test build
+
+- Wait for the first active interval that matches the server control timing
+  before replacing the editable proposal, rather than accepting the audio
+  engine's temporary 120/32 startup placeholder.
+- Publish proposal synchronization explicitly through the controller/UI state
+  so the editor updates exactly once per connection without overwriting later
+  user edits.
+- Submit only BPM or BPI values that differ from the connected-session proposal
+  baseline while capturing both editor values in one main-thread command.
+- Known DAW-test defect: the first connection could still accept matching
+  placeholder stores as authoritative before server timing was published.
+  Superseded by `0.2.9`.
+
+## 0.2.7 - DAW test build
+
+- Attempt to capture both timing fields in one main-thread vote request and
+  initialise proposals from connected-session timing.
+- Known DAW-test defect: the proposal could latch the temporary 120/32 startup
+  interval and every vote emitted both fields. Superseded by `0.2.8`.
+
+## 0.2.6 - DAW test build
+
+- Harden the host-independent CLAP timer and editor lifecycle, including
+  teardown ordering and offline editor updates.
+- Keep local input metering active before connecting to a NINJAM server.
+- Allow Session Mix WAV and per-route WAV stem recording while offline, while
+  retaining server-dependent native NINJAM RAW capture.
+- Give DAW test builds a distinct host-visible version for reliable issue and
+  screenshot identification.
+- Store connection identity and recording location in V21 host state so
+  multiple plug-in instances remain independent; passwords remain outside DAW
+  projects and presets.
+- Make mixer peak rendering independent of host snapshot cadence by ingesting
+  maxima and applying decay exclusively from elapsed UI time.
+- Derive connection-dependent action availability in the editor controller so
+  timing votes, chat, remote controls, and RAW capture cannot report success
+  while unavailable; keep offline WAV recording available.
+- Remove the unused duplicate connection drawer and require every editor
+  delegate command to have an explicit implementation.
+- Treat authentication and connection failures as terminal attempts so users
+  can edit credentials and retry immediately without a fictitious disconnect.
+- Keep passwords memory-only: omit them from defaults and host state, ignore
+  legacy saved password entries, and remove the obsolete persistence option.
+- Publish the replacement real-time engine's active server BPM and BPI at
+  interval boundaries so current timing, metronome and interval UI agree.
+- Add a verified per-user development installer for CLAP and VST3 on macOS,
+  Windows, and Linux, with transactional rollback and symbolic-link/path
+  safeguards.
+- Add a privacy-safe REAPER and Bitwig smoke-test baseline for locally built
+  development versions.
+- Preserve the permanent plug-in identifiers, parameter IDs, and V1--V21
+  saved-state decoding established through the current development line.
+
+## 0.2.1 - Development baseline
 
 - Establish the permanent CLAP ID `io.github.mrosenki.mrninjam` and VST3
   CID `CF3108E94031432BAEC75E1A03E0978F` before public release.

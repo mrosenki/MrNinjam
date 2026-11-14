@@ -124,6 +124,8 @@ class FixtureServer {
   int voice_uploads() const { return voice_uploads_.load(std::memory_order_acquire); }
   int session_uploads() const { return session_uploads_.load(std::memory_order_acquire); }
   int session_messages() const { return session_messages_.load(std::memory_order_acquire); }
+  int bpm_votes() const { return bpm_votes_.load(std::memory_order_acquire); }
+  int bpi_votes() const { return bpi_votes_.load(std::memory_order_acquire); }
   int upload_begins() const { return upload_begins_.load(std::memory_order_acquire); }
   int channel_updates() const { return channel_updates_.load(std::memory_order_acquire); }
   int presence_updates() const { return presence_updates_.load(std::memory_order_acquire); }
@@ -136,6 +138,17 @@ class FixtureServer {
   }
   int latest_voice_upload_block() const {
     return latest_voice_upload_block_.load(std::memory_order_acquire);
+  }
+  void SetTiming(const int bpm, const int bpi) {
+    requested_bpm_.store(bpm, std::memory_order_relaxed);
+    requested_bpi_.store(bpi, std::memory_order_relaxed);
+    timing_revision_.fetch_add(1U, std::memory_order_release);
+  }
+  void DeferInitialTiming() {
+    defer_initial_timing_.store(true, std::memory_order_release);
+  }
+  void ReleaseInitialTiming() {
+    initial_timing_released_.store(true, std::memory_order_release);
   }
 
  private:
@@ -150,10 +163,12 @@ class FixtureServer {
     auth.maxchan = 8;
     Send(connection, auth.build());
 
-    mpb_server_config_change_notify config;
-    config.beats_minute = 120;
-    config.beats_interval = 1;
-    Send(connection, config.build());
+    if (!defer_initial_timing_.load(std::memory_order_acquire)) {
+      mpb_server_config_change_notify config;
+      config.beats_minute = requested_bpm_.load(std::memory_order_relaxed);
+      config.beats_interval = requested_bpi_.load(std::memory_order_relaxed);
+      Send(connection, config.build());
+    }
 
     mpb_server_userinfo_change_notify users;
     users.build_add_rec(1, 0, 0, 0, 0, "peer", "Normal");
@@ -209,6 +224,13 @@ class FixtureServer {
   }
 
   void EchoSessionMessage(Net_Connection* connection, mpb_chat_message* message) {
+    if (message->parms[0] != nullptr && message->parms[1] != nullptr &&
+        std::strcmp(message->parms[0], "MSG") == 0) {
+      if (std::strncmp(message->parms[1], "!vote bpm ", 10) == 0)
+        bpm_votes_.fetch_add(1, std::memory_order_relaxed);
+      if (std::strncmp(message->parms[1], "!vote bpi ", 10) == 0)
+        bpi_votes_.fetch_add(1, std::memory_order_relaxed);
+    }
     if (message->parms[0] == nullptr || std::strcmp(message->parms[0], "SESSION") != 0 ||
         message->parms[1] == nullptr || message->parms[2] == nullptr ||
         message->parms[3] == nullptr) return;
@@ -250,6 +272,8 @@ class FixtureServer {
     bool participant_left = false;
     bool participant_rejoined = false;
     bool channel_changed = false;
+    bool initial_timing_published = false;
+    std::uint64_t applied_timing_revision = 0U;
     while (!stop_.load(std::memory_order_acquire)) {
       int wants_sleep = 1;
       Net_Message* raw = connection.Run(&wants_sleep);
@@ -261,6 +285,8 @@ class FixtureServer {
             if (!auth.parse(raw) && !room_published) {
               PublishRoom(&connection);
               room_published = true;
+              initial_timing_published =
+                  !defer_initial_timing_.load(std::memory_order_acquire);
             }
             break;
           }
@@ -318,6 +344,20 @@ class FixtureServer {
         raw->releaseRef();
       }
       const int audio_block = current_audio_block_.load(std::memory_order_acquire);
+      const std::uint64_t timing_revision =
+          timing_revision_.load(std::memory_order_acquire);
+      const bool timing_released =
+          !defer_initial_timing_.load(std::memory_order_acquire) ||
+          initial_timing_released_.load(std::memory_order_acquire);
+      if (room_published && timing_released &&
+          (!initial_timing_published || timing_revision != applied_timing_revision)) {
+        mpb_server_config_change_notify config;
+        config.beats_minute = requested_bpm_.load(std::memory_order_relaxed);
+        config.beats_interval = requested_bpi_.load(std::memory_order_relaxed);
+        Send(&connection, config.build());
+        initial_timing_published = true;
+        applied_timing_revision = timing_revision;
+      }
       if (room_published && !participant_left && audio_block >= 2200) {
         PublishPresence(&connection, false, "Normal");
         participant_left = true;
@@ -350,12 +390,19 @@ class FixtureServer {
   std::atomic<int> voice_uploads_{0};
   std::atomic<int> session_uploads_{0};
   std::atomic<int> session_messages_{0};
+  std::atomic<int> bpm_votes_{0};
+  std::atomic<int> bpi_votes_{0};
   std::atomic<int> upload_begins_{0};
   std::atomic<int> channel_updates_{0};
   std::atomic<int> presence_updates_{0};
   std::atomic<int> current_audio_block_{-1};
   std::atomic<int> first_voice_upload_block_{-1};
   std::atomic<int> latest_voice_upload_block_{-1};
+  std::atomic<int> requested_bpm_{120};
+  std::atomic<int> requested_bpi_{1};
+  std::atomic<std::uint64_t> timing_revision_{0U};
+  std::atomic_bool defer_initial_timing_{false};
+  std::atomic_bool initial_timing_released_{false};
 };
 
 }  // namespace
@@ -414,6 +461,8 @@ int main() {
   };
   FixtureServer server;
   FixtureServer secondary_server;
+  secondary_server.SetTiming(120, 8);
+  secondary_server.DeferInitialTiming();
   if (!server.Start() || !secondary_server.Start()) {
     std::cerr << "failed to start in-process NINJAM fixture\n";
     return 1;
@@ -494,6 +543,13 @@ int main() {
   }
   report_phase("initial-connect");
 
+  secondary_bridge.MainThreadTick();
+  if (secondary_bridge.HasSessionProposalSyncedForConnection()) {
+    std::cerr << "proposal synchronized before the server timing message\n";
+    return 5;
+  }
+  secondary_server.ReleaseInitialTiming();
+
   constexpr int kMaximumFrames = 512;
   std::array<std::array<float, kMaximumFrames>, 6> inputs{};
   std::array<float, kMaximumFrames> output_left{};
@@ -515,6 +571,9 @@ int main() {
   constexpr std::array<int, 6> kVariableFrames = {1, 64, 127, 128, 257, 512};
   report_phase("audio-start");
   for (int block = 0; block < 2500; ++block) {
+    if (block == 200) {
+      server.SetTiming(160, 4);
+    }
     if (block == 1000) {
       bridge.SetRealtimeWorkerPausedForTesting(true);
       report_phase("worker-saturation-start");
@@ -575,6 +634,62 @@ int main() {
     CooperativeSchedule(block);
   }
   report_phase("audio-complete");
+  const double updated_actual_bpm = bridge.GetActualSessionBpm();
+  const int updated_actual_bpi = bridge.GetActualSessionBpi();
+  if (!bridge.HasSessionProposalSyncedForConnection() ||
+      std::fabs(bridge.GetSessionBpm() - 120.0) > 0.1 ||
+      bridge.GetSessionBpi() != 1) {
+    std::cerr << "proposal did not initialise from the joined session bpm="
+              << bridge.GetSessionBpm() << " bpi=" << bridge.GetSessionBpi() << '\n';
+    return 5;
+  }
+  if (!secondary_bridge.HasSessionProposalSyncedForConnection() ||
+      std::fabs(secondary_bridge.GetSessionBpm() - 120.0) > 0.1 ||
+      secondary_bridge.GetSessionBpi() != 8) {
+    std::cerr << "first connection retained the 120/32 placeholder bpm="
+              << secondary_bridge.GetSessionBpm()
+              << " bpi=" << secondary_bridge.GetSessionBpi() << '\n';
+    return 5;
+  }
+  bridge.SubmitTimingVote(updated_actual_bpm, updated_actual_bpi);
+  const bool complete_vote_sent = WaitFor(std::chrono::seconds(2), [&] {
+    return server.bpm_votes() > 0 && server.bpi_votes() > 0;
+  }, [&] {
+    bridge.MainThreadTick();
+    secondary_bridge.MainThreadTick();
+  });
+  if (!complete_vote_sent) {
+    std::cerr << "transactional timing vote omitted a displayed value bpm_votes="
+              << server.bpm_votes() << " bpi_votes=" << server.bpi_votes() << '\n';
+    return 5;
+  }
+  const int bpm_votes_after_complete = server.bpm_votes();
+  const int bpi_votes_after_complete = server.bpi_votes();
+  bridge.SubmitTimingVote(updated_actual_bpm, updated_actual_bpi + 1);
+  const bool bpi_only_vote_sent = WaitFor(std::chrono::seconds(2), [&] {
+    return server.bpi_votes() == bpi_votes_after_complete + 1;
+  }, [&] {
+    bridge.MainThreadTick();
+    secondary_bridge.MainThreadTick();
+  });
+  if (!bpi_only_vote_sent || server.bpm_votes() != bpm_votes_after_complete) {
+    std::cerr << "BPI-only edit also submitted BPM bpm_votes="
+              << server.bpm_votes() << " bpi_votes=" << server.bpi_votes() << '\n';
+    return 5;
+  }
+  const int bpi_votes_after_bpi_only = server.bpi_votes();
+  bridge.SubmitTimingVote(updated_actual_bpm + 1.0, updated_actual_bpi + 1);
+  const bool bpm_only_vote_sent = WaitFor(std::chrono::seconds(2), [&] {
+    return server.bpm_votes() == bpm_votes_after_complete + 1;
+  }, [&] {
+    bridge.MainThreadTick();
+    secondary_bridge.MainThreadTick();
+  });
+  if (!bpm_only_vote_sent || server.bpi_votes() != bpi_votes_after_bpi_only) {
+    std::cerr << "BPM-only edit also submitted BPI bpm_votes="
+              << server.bpm_votes() << " bpi_votes=" << server.bpi_votes() << '\n';
+    return 5;
+  }
   const auto before_drain = bridge.GetRealtimePipelineDiagnostics();
   const auto drain_target =
       before_drain.local_submitted_frames + before_drain.local_overflow_frames;
@@ -711,6 +826,8 @@ int main() {
   report_phase("reconnect-audio-complete");
   const bool interval_valid = bridge.HasSessionIntervalPosition();
   const double interval_progress = bridge.GetSessionIntervalProgress();
+  const double actual_bpm = bridge.GetActualSessionBpm();
+  const int actual_bpi = bridge.GetActualSessionBpi();
   const auto realtime = bridge.GetRealtimePipelineDiagnostics();
   const int voice_schedule_blocks = first_voice_block >= 0 &&
           voice_source_block_at_first_output >= 0
@@ -781,6 +898,16 @@ int main() {
               << " submitted=" << realtime.local_submitted_frames
               << " processed=" << realtime.local_processed_frames
               << " overflow=" << realtime.local_overflow_frames << '\n';
+    return 6;
+  }
+  if (std::fabs(updated_actual_bpm - 160.0) > 0.1 || updated_actual_bpi != 4) {
+    std::cerr << "server timing did not reach the bridge snapshot bpm="
+              << updated_actual_bpm << " bpi=" << updated_actual_bpi << '\n';
+    return 6;
+  }
+  if (std::fabs(actual_bpm - 120.0) > 0.1 || actual_bpi != 1) {
+    std::cerr << "reconnected session retained stale timing bpm="
+              << actual_bpm << " bpi=" << actual_bpi << '\n';
     return 6;
   }
   if (normal_peak <= 0.0 || voice_peak <= 0.0 || second_voice_peak <= 0.0 ||

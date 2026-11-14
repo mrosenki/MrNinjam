@@ -28,6 +28,12 @@ struct PersistedLocalInputRouteState {
 };
 
 struct PersistedPluginState {
+  // Operational configuration belongs to the plug-in instance and is stored
+  // by the host with the project/preset. Passwords are deliberately excluded.
+  bool has_instance_connection_settings = false;
+  std::string connection_host;
+  std::string connection_user = "anonymous";
+  std::string recordings_path;
   double gain = 1.0;
   bool connect_requested = false;
   double session_bpm = 120.0;

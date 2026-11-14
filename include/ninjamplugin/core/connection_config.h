@@ -7,9 +7,9 @@ namespace ninjamplugin::core {
 struct ConnectionSettings {
   std::string host;
   std::string user = "anonymous";
+  // Runtime-only secret. Config files and plug-in state must never serialize it.
   std::string pass;
   std::string recordings_path;
-  bool persist_password = true;
   std::string source;
 };
 
@@ -22,7 +22,8 @@ struct ConnectionSettingsValidationResult {
 
 std::string GetConnectionConfigPath();
 std::string GetConnectionConfigDirectory();
-ConnectionSettingsValidationResult ValidateConnectionSettings(const ConnectionSettings& settings);
+ConnectionSettingsValidationResult ValidateConnectionSettings(
+    const ConnectionSettings& settings, bool require_host = true);
 bool LoadPersistedConnectionSettings(ConnectionSettings* out_settings);
 bool LoadEffectiveConnectionSettings(ConnectionSettings* out_settings);
 bool SaveConnectionSettings(const ConnectionSettings& settings, const std::string& path = {});

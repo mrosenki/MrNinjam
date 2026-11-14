@@ -30,6 +30,13 @@ class NinjamPluginNJClient final : public NJClient {
                  int srate, bool justmonitor = false, bool isPlaying = true,
                  bool isSeek = false, double cursessionpos = -1.0);
   void GetPosition(int* pos, int* length);
+  // The replacement audio path owns interval activation, so its atomically
+  // published timing must hide NJClient's legacy AudioProc-owned getters too.
+  float GetActualBPM() const;
+  int GetBPI() const;
+  int GetPendingBPM() const;
+  int GetPendingBPI() const;
+  std::uint64_t GetServerTimingGeneration() const;
 
   void DeleteLocalChannel(int channel);
   void SetLocalChannelInfo(int channel, const char* name, bool set_source,
@@ -82,6 +89,8 @@ class NinjamPluginNJClient final : public NJClient {
   std::unique_ptr<RealtimeState> realtime_;
 
   void StopRealtimeWorkers();
+  static void ServerTimingCallbackThunk(void* user_data, int bpm, int bpi);
+  void PublishServerTiming(int bpm, int bpi);
   void CodecWorkerLoop();
   void SessionWorkerLoop();
   void PublishControlSnapshot();

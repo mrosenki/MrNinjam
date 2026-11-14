@@ -94,6 +94,24 @@ struct LocalInputPairViewState {
   bool operator==(const LocalInputPairViewState&) const = default;
 };
 
+struct ActionAvailability {
+  bool available = false;
+  std::string unavailable_reason;
+
+  bool operator==(const ActionAvailability&) const = default;
+};
+
+struct EditorActionCapabilities {
+  ActionAvailability timing_vote;
+  ActionAvailability chat;
+  ActionAvailability remote_session_controls;
+  ActionAvailability raw_session_capture;
+  ActionAvailability session_mix_capture{true, {}};
+  ActionAvailability wav_stem_capture{true, {}};
+
+  bool operator==(const EditorActionCapabilities&) const = default;
+};
+
 struct ConnectionEditorViewState {
   ninjamplugin::core::ConnectionSettings settings;
   std::string config_path;
@@ -117,6 +135,7 @@ struct ConnectionEditorViewState {
   std::string multitrack_status_text;
   std::string detail_text;
   std::string notice_text;
+  EditorActionCapabilities capabilities;
   std::array<LocalInputPairViewState,
              ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_pairs{};
@@ -162,6 +181,7 @@ struct ConnectionEditorViewState {
   bool reload_enabled = true;
   bool replace_form_fields = false;
   bool session_interval_progress_valid = false;
+  bool session_proposal_synced = false;
   std::vector<ninjamplugin::core::IncompleteSessionCaptureInfo>
       incomplete_session_captures;
   ninjamplugin::core::RemixSessionPreflight raw_session_preflight;
@@ -176,8 +196,7 @@ class ConnectionEditorDelegate {
   virtual void ReloadRequested() = 0;
   virtual void ConnectRequested(const ninjamplugin::core::ConnectionSettings& settings) = 0;
   virtual void DisconnectRequested() = 0;
-  virtual void TargetSessionBpmChanged(double value) = 0;
-  virtual void TargetSessionBpiChanged(int value) = 0;
+  virtual bool TimingVoteRequested(double bpm, int bpi) = 0;
   virtual void RemoteReturnChanged(double value) = 0;
   virtual void MetronomeLevelChanged(double value) = 0;
   virtual void MetronomeEnabledChanged(bool value) = 0;
@@ -192,52 +211,51 @@ class ConnectionEditorDelegate {
   virtual void LocalInputPairEnabledChanged(int pair_index, bool value) = 0;
   virtual void LocalInputPairSourceChanged(int pair_index, int source_pair_index) = 0;
   virtual void LocalInputSourceChanged(int route_index, int source_channel_index,
-                                       int source_channel_count) {}
-  virtual void LocalInputNameChanged(int route_index, const std::string& name) {}
-  virtual void ActiveDawInputChannelCountChanged(int channel_count) {}
-  virtual void ActiveDawOutputChannelCountChanged(int channel_count) {}
+                                       int source_channel_count) = 0;
+  virtual void LocalInputNameChanged(int route_index, const std::string& name) = 0;
+  virtual void ActiveDawInputChannelCountChanged(int channel_count) = 0;
+  virtual void ActiveDawOutputChannelCountChanged(int channel_count) = 0;
   virtual void LocalInputPairSendLevelChanged(int pair_index, double value) = 0;
-  virtual void LocalInputSendPanChanged(int, double) {}
-  virtual void LocalInputSendMutedChanged(int, bool) {}
-  virtual void LocalInputSendSoloChanged(int, bool) {}
-  virtual void LocalInputSendClipResetRequested(int) {}
+  virtual void LocalInputSendPanChanged(int route_index, double value) = 0;
+  virtual void LocalInputSendMutedChanged(int route_index, bool value) = 0;
+  virtual void LocalInputSendSoloChanged(int route_index, bool value) = 0;
+  virtual void LocalInputSendClipResetRequested(int route_index) = 0;
   virtual void LocalInputPairMonitorLevelChanged(int pair_index, double value) = 0;
-  virtual void LocalInputMonitorPanChanged(int route_index, double value) {}
-  virtual void LocalInputMonitorMutedChanged(int route_index, bool value) {}
-  virtual void LocalInputMonitorSoloChanged(int route_index, bool value) {}
-  virtual void LocalInputAuditionSendChanged(int route_index, bool value) {}
-  virtual void LocalInputOutputPairChanged(int route_index, int output_pair_index) {}
-  virtual void LocalInputChannelModeChanged(int route_index, int channel_mode) {}
-  virtual void LocalInputBitrateChanged(int route_index, int bitrate) {}
+  virtual void LocalInputMonitorPanChanged(int route_index, double value) = 0;
+  virtual void LocalInputMonitorMutedChanged(int route_index, bool value) = 0;
+  virtual void LocalInputMonitorSoloChanged(int route_index, bool value) = 0;
+  virtual void LocalInputAuditionSendChanged(int route_index, bool value) = 0;
+  virtual void LocalInputOutputPairChanged(int route_index, int output_pair_index) = 0;
+  virtual void LocalInputChannelModeChanged(int route_index, int channel_mode) = 0;
+  virtual void LocalInputBitrateChanged(int route_index, int bitrate) = 0;
   virtual void LocalInputRouteAddRequested() = 0;
   virtual void LocalInputRouteAddRequested(int source_channel_index,
-                                           int source_channel_count) {
-    LocalInputRouteAddRequested();
-  }
+                                           int source_channel_count) = 0;
   virtual void LocalInputRouteRemoveRequested(int pair_index) = 0;
   virtual void LocalMonitorMasterChanged(double value) = 0;
   virtual bool ChatMessageSendRequested(const std::string& text) = 0;
   virtual void RecordingsPathChanged(const std::string& value) = 0;
-  virtual void RecordingRecoveryRefreshRequested() {}
-  virtual void RecordingRecoveryFinalizeRequested(const std::string& partial_file_path) {}
-  virtual void RawSessionFolderSelected(const std::string& session_directory) {}
+  virtual void RecordingRecoveryRefreshRequested() = 0;
+  virtual void RecordingRecoveryFinalizeRequested(
+      const std::string& partial_file_path) = 0;
+  virtual void RawSessionFolderSelected(const std::string& session_directory) = 0;
   virtual void RawSessionExportRequested(
-      const ninjamplugin::core::RemixStemExportOptions& options) {}
+      const ninjamplugin::core::RemixStemExportOptions& options) = 0;
   virtual void RemoteChannelSelectionChanged(int index) = 0;
   virtual void RemoteChannelSubscriptionChanged(bool value) = 0;
   virtual void RemoteChannelMuteChanged(bool value) = 0;
-  virtual void RemoteChannelSoloChanged(bool value) {}
+  virtual void RemoteChannelSoloChanged(bool value) = 0;
   virtual void RemoteChannelLevelChanged(double value) = 0;
-  virtual void RemoteChannelPanChanged(double value) {}
-  virtual void RemoteChannelMonitorMuteChanged(bool value) {}
-  virtual void RemoteChannelMonitorSoloChanged(bool value) {}
-  virtual void RemoteChannelMonitorLevelChanged(double value) {}
-  virtual void RemoteChannelMonitorPanChanged(double value) {}
-  virtual void RemoteChannelAuditionRecordChanged(bool value) {}
-  virtual void RemoteChannelOutputPairChanged(int output_pair_index) {}
+  virtual void RemoteChannelPanChanged(double value) = 0;
+  virtual void RemoteChannelMonitorMuteChanged(bool value) = 0;
+  virtual void RemoteChannelMonitorSoloChanged(bool value) = 0;
+  virtual void RemoteChannelMonitorLevelChanged(double value) = 0;
+  virtual void RemoteChannelMonitorPanChanged(double value) = 0;
+  virtual void RemoteChannelAuditionRecordChanged(bool value) = 0;
+  virtual void RemoteChannelOutputPairChanged(int output_pair_index) = 0;
   virtual void RemoteMixerRowPressed(int row_index) = 0;
-  virtual void RemoteParticipantMuteChanged(int user_index, bool value) {}
-  virtual void RemoteParticipantLevelChanged(int user_index, double value) {}
+  virtual void RemoteParticipantMuteChanged(int user_index, bool value) = 0;
+  virtual void RemoteParticipantLevelChanged(int user_index, double value) = 0;
   virtual void RemoteMixerRowSubscriptionChanged(int index, bool value) = 0;
   virtual void RemoteMixerRowMuteChanged(int index, bool value) = 0;
   virtual void RemoteMixerRowLevelAdjusted(int index, double delta) = 0;

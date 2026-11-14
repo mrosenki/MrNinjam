@@ -221,7 +221,6 @@ bool ParseConfigFile(const std::filesystem::path& path, ConnectionSettings* sett
   }
 
   std::string line;
-  bool saw_pass_key = false;
   while (std::getline(input, line)) {
     const std::string trimmed = Trim(line);
     if (trimmed.empty() || trimmed[0] == '#') {
@@ -237,15 +236,11 @@ bool ParseConfigFile(const std::filesystem::path& path, ConnectionSettings* sett
       settings->host = value;
     } else if (key == "user") {
       settings->user = value;
-    } else if (key == "pass") {
-      settings->pass = value;
-      saw_pass_key = true;
     } else if (key == "recordings_path") {
       settings->recordings_path = value;
     }
   }
 
-  settings->persist_password = saw_pass_key;
   settings->host = Trim(settings->host);
   settings->user = Trim(settings->user);
   settings->recordings_path = Trim(settings->recordings_path);
@@ -280,11 +275,12 @@ std::string GetConnectionConfigDirectory() {
   return std::filesystem::path(config_path).parent_path().string();
 }
 
-ConnectionSettingsValidationResult ValidateConnectionSettings(const ConnectionSettings& settings) {
-  if (Trim(settings.host).empty()) {
+ConnectionSettingsValidationResult ValidateConnectionSettings(
+    const ConnectionSettings& settings, const bool require_host) {
+  if (require_host && Trim(settings.host).empty()) {
     return {.ok = false, .message = "Server host is required."};
   }
-  if (ContainsWhitespace(settings.host)) {
+  if (!Trim(settings.host).empty() && ContainsWhitespace(settings.host)) {
     return {.ok = false, .message = "Server host must not contain whitespace."};
   }
   if (ContainsWhitespace(settings.user)) {
@@ -345,11 +341,9 @@ bool LoadEffectiveConnectionSettings(ConnectionSettings* out_settings) {
   }
   if (const char* pass = std::getenv("NINJAM_PASS")) {
     settings.pass = pass;
-    settings.persist_password = true;
   }
   if (const char* pass = std::getenv("NINJAM_SERVER_PASS")) {
     settings.pass = pass;
-    settings.persist_password = true;
   }
   if (const char* recordings_path = ReadEnvNonEmpty("NINJAMPLUGIN_RECORDINGS_PATH")) {
     settings.recordings_path = recordings_path;
@@ -401,9 +395,6 @@ bool SaveConnectionSettings(const ConnectionSettings& settings, const std::strin
   output << "user=" << (Trim(settings.user).empty() ? "anonymous" : Trim(settings.user)) << '\n';
   if (!Trim(settings.recordings_path).empty()) {
     output << "recordings_path=" << Trim(settings.recordings_path) << '\n';
-  }
-  if (settings.persist_password) {
-    output << "pass=" << settings.pass << '\n';
   }
   return output.good();
 }

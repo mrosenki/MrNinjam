@@ -19,6 +19,7 @@
 #include "ninjamplugin/core/plugin_state.h"
 #include "ninjamplugin/core/debug_log.h"
 #include "ninjamplugin/format/clap/audio_processing_heartbeat.h"
+#include "ninjamplugin/format/clap/main_thread_pump_policy.h"
 #include "ninjamplugin/format/clap/plugin_config.h"
 #include "ninjamplugin/ui/connection_editor_controller.h"
 #include "ninjamplugin/ui/editor_shell.h"
@@ -114,7 +115,7 @@ struct NinjamPluginInstance {
   std::unique_ptr<ninjamplugin::ui::ConnectionEditorController> editor_controller;
   bool editor_created = false;
   bool editor_visible = false;
-  bool plugin_active = false;
+  std::atomic_bool plugin_active{false};
   bool main_thread_timer_registered = false;
   clap_id main_thread_timer_id = CLAP_INVALID_ID;
   ninjamplugin::format::clap::AudioProcessingHeartbeat audio_processing_heartbeat;
@@ -127,6 +128,11 @@ struct NinjamPluginInstance {
       ninjamplugin::core::NinjamBridge::kSessionBpmDefault};
   std::atomic_bool pending_target_session_bpi_dirty{false};
   std::atomic<int> pending_target_session_bpi{
+      ninjamplugin::core::NinjamBridge::kSessionBpiDefault};
+  std::atomic_bool pending_timing_vote_dirty{false};
+  std::atomic<double> pending_timing_vote_bpm{
+      ninjamplugin::core::NinjamBridge::kSessionBpmDefault};
+  std::atomic<int> pending_timing_vote_bpi{
       ninjamplugin::core::NinjamBridge::kSessionBpiDefault};
   std::atomic_bool pending_monitor_mix_dirty{false};
   std::atomic<double> pending_monitor_mix{
@@ -312,6 +318,20 @@ void QueueTargetSessionBpiOnMainThread(NinjamPluginInstance* instance, const int
   RequestHostMainThreadCallback(instance, true);
 }
 
+void QueueTimingVoteOnMainThread(NinjamPluginInstance* instance,
+                                 const double bpm,
+                                 const int bpi) {
+  if (instance == nullptr) return;
+  instance->pending_timing_vote_bpm.store(
+      ninjamplugin::core::NinjamBridge::ClampSessionBpm(bpm),
+      std::memory_order_relaxed);
+  instance->pending_timing_vote_bpi.store(
+      ninjamplugin::core::NinjamBridge::ClampSessionBpi(bpi),
+      std::memory_order_relaxed);
+  instance->pending_timing_vote_dirty.store(true, std::memory_order_release);
+  RequestHostMainThreadCallback(instance, true);
+}
+
 void QueueMonitorMixOnMainThread(NinjamPluginInstance* instance, const double value) {
   if (instance == nullptr) {
     return;
@@ -371,9 +391,25 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
   }
   if (instance->pending_connect_requested_dirty.exchange(false, std::memory_order_acq_rel)) {
     const bool requested = instance->pending_connect_requested.load(std::memory_order_acquire);
+    const int connection_state = instance->runtime.GetConnectionState();
+    const bool retrying_terminal_failure =
+        requested && instance->runtime.IsConnectRequested() &&
+        (connection_state ==
+             ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth ||
+         connection_state ==
+             ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect);
+    if (retrying_terminal_failure) {
+      // SetConnectRequested(true) is intentionally idempotent during a live
+      // attempt. A terminal failure needs an explicit false -> true edge so
+      // the NJClient attempt counters, timeout state and transport are reset.
+      instance->runtime.SetConnectRequested(false);
+    }
     instance->runtime.SetConnectRequested(requested);
     ninjamplugin::core::DebugLogf(
-        "clap", "ApplyPending ConnectRequest=%d", requested ? 1 : 0);
+        "clap",
+        "ApplyPending ConnectRequest=%d retry=%d",
+        requested ? 1 : 0,
+        retrying_terminal_failure ? 1 : 0);
   }
   if (instance->pending_target_session_bpm_dirty.exchange(false, std::memory_order_acq_rel)) {
     const double bpm = instance->pending_target_session_bpm.load(std::memory_order_acquire);
@@ -384,6 +420,18 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
     const int bpi = instance->pending_target_session_bpi.load(std::memory_order_acquire);
     instance->runtime.SetSessionBpi(bpi);
     ninjamplugin::core::DebugLogf("clap", "ApplyPending TargetSessionBpi=%d", bpi);
+  }
+  if (instance->pending_timing_vote_dirty.exchange(false, std::memory_order_acq_rel)) {
+    const double bpm = instance->pending_timing_vote_bpm.load(std::memory_order_acquire);
+    const int bpi = instance->pending_timing_vote_bpi.load(std::memory_order_acquire);
+    instance->runtime.SubmitTimingVote(bpm, bpi);
+    // Keep parameter reads coherent with the transactional UI command.
+    instance->pending_target_session_bpm.store(bpm, std::memory_order_relaxed);
+    instance->pending_target_session_bpm_dirty.store(false, std::memory_order_release);
+    instance->pending_target_session_bpi.store(bpi, std::memory_order_relaxed);
+    instance->pending_target_session_bpi_dirty.store(false, std::memory_order_release);
+    ninjamplugin::core::DebugLogf(
+        "clap", "ApplyPending TimingVote=%.2f BPM / %d BPI", bpm, bpi);
   }
   if (instance->pending_monitor_mix_dirty.exchange(false, std::memory_order_acq_rel)) {
     const double mix = instance->pending_monitor_mix.load(std::memory_order_acquire);
@@ -418,14 +466,33 @@ bool ShouldKeepMainThreadPumping(const NinjamPluginInstance* instance) {
   if (instance == nullptr) {
     return false;
   }
-  return (instance->runtime.IsConnectRequested() &&
-          instance->runtime.IsRuntimeConnectionAvailable()) ||
-         instance->runtime.IsRecordingRequested() ||
-         instance->runtime.IsSessionCaptureActive() ||
-         instance->runtime.IsMultitrackCaptureActive() ||
-         instance->runtime.IsWavStemExportActive() ||
-         (instance->editor_controller != nullptr &&
-          instance->editor_controller->IsRawSessionExportActive());
+  return ninjamplugin::format::clap::NeedsMainThreadPump({
+      .plugin_active =
+          instance->plugin_active.load(std::memory_order_acquire),
+      .editor_visible = instance->editor_visible,
+      .connection_active = instance->runtime.IsConnectRequested() &&
+                           instance->runtime.IsRuntimeConnectionAvailable(),
+      .recording_requested = instance->runtime.IsRecordingRequested(),
+      .session_capture_active = instance->runtime.IsSessionCaptureActive(),
+      .multitrack_capture_active = instance->runtime.IsMultitrackCaptureActive(),
+      .wav_stem_export_active = instance->runtime.IsWavStemExportActive(),
+      .raw_session_export_active =
+          instance->editor_controller != nullptr &&
+          instance->editor_controller->IsRawSessionExportActive(),
+  });
+}
+
+void RefreshHostMainThreadPump(NinjamPluginInstance* instance) {
+  if (instance == nullptr) {
+    return;
+  }
+  const bool keep_pumping = ShouldKeepMainThreadPumping(instance);
+  instance->keep_main_thread_pumping.store(keep_pumping);
+  const bool timer_registered =
+      UpdateHostMainThreadTimer(instance, keep_pumping);
+  if (keep_pumping && !timer_registered) {
+    RequestHostMainThreadCallback(instance);
+  }
 }
 
 bool GetEffectiveConnectRequested(const NinjamPluginInstance* instance) {
@@ -591,6 +658,8 @@ ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSn
   snapshot.project_sample_rate = instance->runtime.GetSampleRate();
   snapshot.session_interval_progress = instance->runtime.GetSessionIntervalProgress();
   snapshot.session_interval_progress_valid = instance->runtime.HasSessionIntervalPosition();
+  snapshot.session_proposal_synced =
+      instance->runtime.HasSessionProposalSyncedForConnection();
   snapshot.metronome_level_value =
       instance->pending_metronome_level_dirty.load(std::memory_order_acquire)
           ? instance->pending_metronome_level.load(std::memory_order_acquire)
@@ -716,25 +785,8 @@ void SyncEditorDraftSettingsFromRuntime(NinjamPluginInstance* instance, const bo
   if (instance == nullptr || instance->editor_controller == nullptr) {
     return;
   }
-  auto settings = instance->runtime.GetConnectionSettings();
-  ninjamplugin::core::ConnectionSettings persisted_settings;
-  if (ninjamplugin::core::LoadPersistedConnectionSettings(&persisted_settings)) {
-    if (settings.host.empty()) {
-      settings.host = persisted_settings.host;
-    }
-    if (settings.user.empty() || settings.user == "anonymous") {
-      settings.user = persisted_settings.user.empty() ? settings.user : persisted_settings.user;
-    }
-    if (settings.pass.empty() && persisted_settings.persist_password) {
-      settings.pass = persisted_settings.pass;
-    }
-    const char* recordings_path_override = std::getenv("NINJAMPLUGIN_RECORDINGS_PATH");
-    if ((recordings_path_override == nullptr || recordings_path_override[0] == '\0') &&
-        !persisted_settings.recordings_path.empty()) {
-      settings.recordings_path = persisted_settings.recordings_path;
-    }
-  }
-  instance->editor_controller->SyncDraftSettingsFromRuntime(settings, force);
+  instance->editor_controller->SyncDraftSettingsFromRuntime(
+      instance->runtime.GetConnectionSettings(), force);
 }
 
 class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditorControllerHost {
@@ -768,6 +820,12 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
 
   bool IsConnectRequested() const override {
     return instance_ != nullptr && instance_->runtime.IsConnectRequested();
+  }
+
+  int GetConnectionState() const override {
+    return instance_ == nullptr
+               ? ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable
+               : instance_->runtime.GetConnectionState();
   }
 
   ninjamplugin::core::ConnectionSettings GetRuntimeConnectionSettings() const override {
@@ -1026,6 +1084,10 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
 
   void QueueTargetSessionBpi(const int value) override {
     ::QueueTargetSessionBpiOnMainThread(instance_, value);
+  }
+
+  void QueueTimingVote(const double bpm, const int bpi) override {
+    ::QueueTimingVoteOnMainThread(instance_, bpm, bpi);
   }
 
   void QueueRemoteReturn(const double value) override {
@@ -1379,7 +1441,13 @@ void CLAP_ABI PluginDestroy(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   ninjamplugin::core::DebugLog("clap", "PluginDestroy");
+  instance->plugin_active.store(false, std::memory_order_release);
+  instance->keep_main_thread_pumping.store(false, std::memory_order_release);
+  instance->main_thread_callback_pending.store(false, std::memory_order_release);
   UnregisterHostMainThreadTimer(instance);
+  if (instance->editor_shell != nullptr) {
+    instance->editor_shell->SetDelegate(nullptr);
+  }
   instance->editor_shell.reset();
   delete instance;
 }
@@ -1404,15 +1472,13 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
     ninjamplugin::core::DebugLog("clap", "PluginActivate failed: Activate");
     return false;
   }
-  instance->plugin_active = true;
+  instance->plugin_active.store(true, std::memory_order_release);
   instance->runtime.MainThreadTick();
-  const bool keep_main_thread_pumping = ShouldKeepMainThreadPumping(instance);
-  instance->keep_main_thread_pumping.store(keep_main_thread_pumping);
+  RefreshHostMainThreadPump(instance);
   instance->audio_processing_heartbeat.Update(
       instance->runtime.GetConnectionState() ==
           ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
       true, MonotonicNowNs());
-  UpdateHostMainThreadTimer(instance, keep_main_thread_pumping);
   instance->pending_connection_state.store(instance->runtime.GetConnectionState(), std::memory_order_relaxed);
   instance->pending_connection_state_dirty.store(true, std::memory_order_release);
   instance->pending_actual_session_bpm.store(
@@ -1454,12 +1520,12 @@ void CLAP_ABI PluginDeactivate(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
+  instance->plugin_active.store(false, std::memory_order_release);
+  instance->keep_main_thread_pumping.store(false, std::memory_order_release);
+  instance->main_thread_callback_pending.store(false, std::memory_order_release);
   UnregisterHostMainThreadTimer(instance);
-  instance->plugin_active = false;
   instance->audio_processing_heartbeat.Update(false, false, MonotonicNowNs());
   instance->runtime.Deactivate();
-  instance->keep_main_thread_pumping.store(false);
-  instance->main_thread_callback_pending.store(false);
   UpdateEditorShellView(instance, false);
   ninjamplugin::core::DebugLog("clap", "PluginDeactivate");
 }
@@ -2053,6 +2119,11 @@ bool CLAP_ABI StateSave(const clap_plugin_t* plugin, const clap_ostream_t* strea
       instance->debug_log_instance_id);
 
   ninjamplugin::core::PersistedPluginState state{};
+  const auto connection_settings = instance->runtime.GetConnectionSettings();
+  state.has_instance_connection_settings = true;
+  state.connection_host = connection_settings.host;
+  state.connection_user = connection_settings.user;
+  state.recordings_path = connection_settings.recordings_path;
   state.gain = instance->params.GetGain();
   state.connect_requested = instance->pending_connect_requested_dirty.load(std::memory_order_acquire)
                                 ? instance->pending_connect_requested.load(std::memory_order_acquire)
@@ -2180,6 +2251,23 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   }
 
   instance->params.SetGain(ninjamplugin::core::ParameterModel::ClampGain(state.gain));
+  if (state.has_instance_connection_settings) {
+    auto restored_settings = instance->runtime.GetConnectionSettings();
+    const std::string restored_user =
+        state.connection_user.empty() ? "anonymous" : state.connection_user;
+    const std::string current_user =
+        restored_settings.user.empty() ? "anonymous" : restored_settings.user;
+    if (restored_settings.host != state.connection_host ||
+        current_user != restored_user) {
+      // A password loaded from application defaults belongs only to that
+      // endpoint and identity. Never carry it into another project instance.
+      restored_settings.pass.clear();
+    }
+    restored_settings.host = state.connection_host;
+    restored_settings.user = restored_user;
+    restored_settings.recordings_path = state.recordings_path;
+    instance->runtime.ApplyConnectionSettings(restored_settings);
+  }
   instance->runtime.SetConnectRequested(state.connect_requested);
   instance->runtime.SetSessionBpm(state.session_bpm);
   instance->runtime.SetSessionBpi(state.session_bpi);
@@ -2451,9 +2539,13 @@ void CLAP_ABI GuiDestroy(const clap_plugin_t* plugin) {
     instance->editor_controller->CaptureDraftSettings(
         instance->editor_shell->CollectConnectionSettingsDraft());
   }
+  if (instance->editor_shell != nullptr) {
+    instance->editor_shell->SetDelegate(nullptr);
+  }
   instance->editor_shell.reset();
   instance->editor_created = false;
   instance->editor_visible = false;
+  RefreshHostMainThreadPump(instance);
   ninjamplugin::core::DebugLog("clap", "GuiDestroy");
 }
 
@@ -2535,6 +2627,7 @@ bool CLAP_ABI GuiShow(const clap_plugin_t* plugin) {
       instance->debug_log_instance_id);
   UpdateEditorShellView(instance, true);
   instance->editor_visible = instance->editor_shell->Show();
+  RefreshHostMainThreadPump(instance);
   ninjamplugin::core::DebugLogf("clap", "GuiShow ok=%d", instance->editor_visible ? 1 : 0);
   return instance->editor_visible;
 }
@@ -2553,6 +2646,7 @@ bool CLAP_ABI GuiHide(const clap_plugin_t* plugin) {
   const bool ok = instance->editor_shell->Hide();
   if (ok) {
     instance->editor_visible = false;
+    RefreshHostMainThreadPump(instance);
   }
   ninjamplugin::core::DebugLogf("clap", "GuiHide ok=%d", ok ? 1 : 0);
   return ok;
@@ -2653,7 +2747,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
   instance->audio_processing_heartbeat.Update(
       current_state ==
           ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
-      instance->plugin_active, MonotonicNowNs());
+      instance->plugin_active.load(std::memory_order_acquire), MonotonicNowNs());
   if (current_state != instance->last_logged_connection_state) {
     instance->last_logged_connection_state = current_state;
     instance->pending_connection_state.store(current_state, std::memory_order_relaxed);
@@ -2697,13 +2791,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
     RequestHostParamsFlush(instance);
   }
   UpdateEditorShellView(instance, false);
-  const bool keep_main_thread_pumping = ShouldKeepMainThreadPumping(instance);
-  instance->keep_main_thread_pumping.store(keep_main_thread_pumping);
-  const bool timer_registered =
-      UpdateHostMainThreadTimer(instance, keep_main_thread_pumping);
-  if (keep_main_thread_pumping && !timer_registered) {
-    RequestHostMainThreadCallback(instance);
-  }
+  RefreshHostMainThreadPump(instance);
 }
 
 const clap_plugin_descriptor_t kPluginDescriptor = {
