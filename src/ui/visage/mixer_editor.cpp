@@ -2,6 +2,7 @@
 
 #include "embedded/ninjamplugin_visage_fonts.h"
 #include "ninjamplugin/ui/visage/layout_preferences.h"
+#include "ninjamplugin/ui/visage/peak_meter_ballistics.h"
 
 #include <visage_ui/scroll_bar.h>
 #include <visage_ui/popup_menu.h>
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <functional>
@@ -512,12 +514,10 @@ public:
     output_pair_index_ = state.output_pair_index;
     channel_mode_ = state.channel_mode;
     bitrate_ = state.bitrate;
-    meter_left_ = std::max(meter_left_, state.activity_left);
-    meter_right_ = std::max(meter_right_, state.activity_right);
-    monitor_meter_left_ =
-        std::max(monitor_meter_left_, state.monitor_activity_left);
-    monitor_meter_right_ =
-        std::max(monitor_meter_right_, state.monitor_activity_right);
+    meter_left_.Push(state.activity_left);
+    meter_right_.Push(state.activity_right);
+    monitor_meter_left_.Push(state.monitor_activity_left);
+    monitor_meter_right_.Push(state.monitor_activity_right);
     setVisible(available_);
     layout().setHeight(available_ ? 178_px : 0_px);
     layout().setMarginBottom(available_ ? 10_px : 0_px);
@@ -544,12 +544,10 @@ public:
     output_pair_index_ = state.output_pair_index;
     channel_mode_ = state.channel_mode;
     source_channel_count_ = state.channel_count;
-    meter_left_ = std::max(meter_left_, state.activity_left);
-    meter_right_ = std::max(meter_right_, state.activity_right);
-    monitor_meter_left_ =
-        std::max(monitor_meter_left_, state.monitor_activity_left);
-    monitor_meter_right_ =
-        std::max(monitor_meter_right_, state.monitor_activity_right);
+    meter_left_.Push(state.activity_left);
+    meter_right_.Push(state.activity_right);
+    monitor_meter_left_.Push(state.monitor_activity_left);
+    monitor_meter_right_.Push(state.monitor_activity_right);
     layout().setHeight(178_px);
     redraw();
   }
@@ -587,9 +585,10 @@ public:
     const float group_width = (available - lane_gap) * 0.5f;
     const float monitor_x = control_x + group_width + lane_gap;
     const float pulse = 0.58f + 0.28f * std::sin(activity_phase_);
-    const float meter_left = uses_live_meter_ ? meter_left_ : primary_level_ * pulse;
+    const float meter_left =
+        uses_live_meter_ ? meter_left_.level() : primary_level_ * pulse;
     const float meter_right = uses_live_meter_
-                                  ? meter_right_
+                                  ? meter_right_.level()
                                   : primary_level_ *
                                         (0.72f + 0.20f * std::sin(activity_phase_ + 1.3f));
     const float meter_height = 140.0f;
@@ -603,10 +602,10 @@ public:
       canvas.roundedRectangle(control_x - 27.0f, 8.0f, 16.0f, 7.0f, 2.0f);
     }
     const float monitor_meter_left =
-        uses_live_meter_ ? monitor_meter_left_ : monitor_level_ * pulse;
+        uses_live_meter_ ? monitor_meter_left_.level() : monitor_level_ * pulse;
     const float monitor_meter_right =
         uses_live_meter_
-            ? monitor_meter_right_
+            ? monitor_meter_right_.level()
             : monitor_level_ *
                   (0.72f + 0.20f * std::sin(activity_phase_ + 1.3f));
     if (source_channel_count_ == 1)
@@ -712,11 +711,10 @@ public:
     if (activity_phase_ > 6.2831853f)
       activity_phase_ -= 6.2831853f;
     if (uses_live_meter_) {
-      const float decay = std::pow(0.72f, seconds / 0.080f);
-      meter_left_ *= decay;
-      meter_right_ *= decay;
-      monitor_meter_left_ *= decay;
-      monitor_meter_right_ *= decay;
+      meter_left_.Advance(seconds);
+      meter_right_.Advance(seconds);
+      monitor_meter_left_.Advance(seconds);
+      monitor_meter_right_.Advance(seconds);
     }
     redraw();
   }
@@ -1336,10 +1334,10 @@ private:
   bool send_pan_drag_active_ = false;
   bool closing_readout_ = false;
   InlineEditorCoordinator* inline_editor_coordinator_ = nullptr;
-  float meter_left_ = 0.0f;
-  float meter_right_ = 0.0f;
-  float monitor_meter_left_ = 0.0f;
-  float monitor_meter_right_ = 0.0f;
+  PeakMeterBallistics meter_left_;
+  PeakMeterBallistics meter_right_;
+  PeakMeterBallistics monitor_meter_left_;
+  PeakMeterBallistics monitor_meter_right_;
   float activity_phase_ = 0.0f;
 };
 
@@ -1999,7 +1997,7 @@ public:
     positionLevelEditor();
   }
   void setActivity(float value) {
-    activity_ = std::max(activity_ * 0.72f, value);
+    activity_.Push(value);
     uses_live_meter_ = true;
     redraw();
   }
@@ -2033,7 +2031,8 @@ public:
                  SliderPositionForGain(level_, kMaximumFaderDb), kCyan,
                  SliderPositionForGain(1.0f, kMaximumFaderDb));
       const float pulse =
-          uses_live_meter_ ? activity_ : 0.44f + 0.30f * std::sin(phase_);
+          uses_live_meter_ ? activity_.level()
+                           : 0.44f + 0.30f * std::sin(phase_);
       DrawStereoMeter(canvas, monitor_controls_.meter_x, 13.0f,
                       monitor_controls_.meter_width, 20.0f,
                       pulse, pulse * 0.82f, false);
@@ -2104,7 +2103,7 @@ public:
     if (phase_ > 6.2831853f)
       phase_ -= 6.2831853f;
     if (uses_live_meter_)
-      activity_ *= std::pow(0.72f, seconds / 0.080f);
+      activity_.Advance(seconds);
     redraw();
   }
 
@@ -2179,7 +2178,7 @@ private:
   int channel_count_ = 0;
   bool collapsed_ = false;
   float phase_ = 0.4f;
-  float activity_ = 0.0f;
+  PeakMeterBallistics activity_;
   bool uses_live_meter_ = false;
   int user_index_ = -1;
   bool muted_ = false;
@@ -2253,8 +2252,7 @@ public:
                    kCyan, SliderPositionForGain(1.0f, kMaximumFaderDb));
         if (controls.show_meter) {
           DrawStereoMeter(canvas, controls.meter_x, 8.0f, controls.meter_width, 18.0f,
-                          static_cast<float>(master_activity_),
-                          static_cast<float>(master_activity_), false);
+                          master_activity_.level(), master_activity_.level(), false);
         }
       }
       if (title_ == "SEND")
@@ -2273,8 +2271,8 @@ public:
                    kCyan, SliderPositionForGain(1.0f, kMaximumFaderDb));
         if (controls.show_meter) {
           DrawStereoMeter(canvas, controls.meter_x, 8.0f, controls.meter_width,
-                          18.0f, static_cast<float>(input_activity_left_),
-                          static_cast<float>(input_activity_right_), false);
+                          18.0f, input_activity_left_.level(),
+                          input_activity_right_.level(), false);
         }
       }
       DrawButton(canvas, "M", controls.mute_x, 3.0f, controls.mute_width,
@@ -2573,14 +2571,14 @@ public:
   }
   void setMasterReturn(double value, double activity = 0.0) {
     master_return_ = std::clamp(value, 0.0, kMaximumFaderGain);
-    master_activity_ = std::clamp(activity, 0.0, 1.0);
+    master_activity_.Push(static_cast<float>(activity));
     title_bar_.redraw();
   }
   void setInputMaster(double value, double activity_left = 0.0,
                       double activity_right = 0.0) {
     input_master_ = std::clamp(value, 0.0, kMaximumFaderGain);
-    input_activity_left_ = std::clamp(activity_left, 0.0, 1.0);
-    input_activity_right_ = std::clamp(activity_right, 0.0, 1.0);
+    input_activity_left_.Push(static_cast<float>(activity_left));
+    input_activity_right_.Push(static_cast<float>(activity_right));
     title_bar_.redraw();
   }
   void setHeaderMuted(bool value) {
@@ -2846,7 +2844,10 @@ public:
   }
 
   void timerCallback() override {
-    constexpr float elapsed_seconds = 0.016f;
+    const auto now = std::chrono::steady_clock::now();
+    const float elapsed_seconds =
+        std::chrono::duration<float>(now - last_meter_advance_).count();
+    last_meter_advance_ = now;
     for (auto& row : rows_)
       row->advanceMeterAnimation(elapsed_seconds);
     const auto participant_controls = participantMonitorControlLayout();
@@ -2854,10 +2855,9 @@ public:
       group->header->setMonitorControlLayout(participant_controls);
       group->header->advanceMeterAnimation(elapsed_seconds);
     }
-    const double decay = std::pow(0.72, static_cast<double>(elapsed_seconds) / 0.080);
-    master_activity_ *= decay;
-    input_activity_left_ *= decay;
-    input_activity_right_ *= decay;
+    master_activity_.Advance(elapsed_seconds);
+    input_activity_left_.Advance(elapsed_seconds);
+    input_activity_right_.Advance(elapsed_seconds);
     title_bar_.redraw();
   }
 
@@ -2886,10 +2886,10 @@ private:
   std::unordered_map<std::string, ParticipantGroup*> remote_groups_by_name_;
   std::vector<std::string> remote_signature_;
   double master_return_ = 1.0;
-  double master_activity_ = 0.0;
+  PeakMeterBallistics master_activity_;
   double input_master_ = 1.0;
-  double input_activity_left_ = 0.0;
-  double input_activity_right_ = 0.0;
+  PeakMeterBallistics input_activity_left_;
+  PeakMeterBallistics input_activity_right_;
   int server_max_local_channels_ = 8;
   int active_daw_outputs_ = 4;
   bool collapsed_ = false;
@@ -2897,6 +2897,8 @@ private:
   bool header_slider_drag_active_ = false;
   bool closing_header_level_editor_ = false;
   InlineEditorCoordinator* inline_editor_coordinator_ = nullptr;
+  std::chrono::steady_clock::time_point last_meter_advance_ =
+      std::chrono::steady_clock::now();
 };
 
 class SessionPanel : public visage::Frame, public visage::EventTimer {

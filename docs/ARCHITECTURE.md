@@ -112,6 +112,9 @@ absolute installation path may also require a rescan or manual substitution.
   never detached and cannot outlive the bridge.
 - UI frames communicate through the shared controller and must not call the
   NINJAM runtime, recording services, or format adapter directly.
+- UI peak meters ingest runtime snapshots as maxima; only elapsed UI time can
+  reduce a displayed peak. This keeps the meter ballistics consistent when
+  hosts deliver main-thread callbacks at different or irregular cadences.
 
 The shared CLAP implementation records each valid, non-zero audio block with a
 lock-free counter. A main-thread heartbeat compares that counter against a
