@@ -19,6 +19,7 @@
 #include "ninjamplugin/core/plugin_state.h"
 #include "ninjamplugin/core/debug_log.h"
 #include "ninjamplugin/format/clap/audio_processing_heartbeat.h"
+#include "ninjamplugin/format/clap/main_thread_pump_policy.h"
 #include "ninjamplugin/format/clap/plugin_config.h"
 #include "ninjamplugin/ui/connection_editor_controller.h"
 #include "ninjamplugin/ui/editor_shell.h"
@@ -114,7 +115,7 @@ struct NinjamPluginInstance {
   std::unique_ptr<ninjamplugin::ui::ConnectionEditorController> editor_controller;
   bool editor_created = false;
   bool editor_visible = false;
-  bool plugin_active = false;
+  std::atomic_bool plugin_active{false};
   bool main_thread_timer_registered = false;
   clap_id main_thread_timer_id = CLAP_INVALID_ID;
   ninjamplugin::format::clap::AudioProcessingHeartbeat audio_processing_heartbeat;
@@ -418,14 +419,33 @@ bool ShouldKeepMainThreadPumping(const NinjamPluginInstance* instance) {
   if (instance == nullptr) {
     return false;
   }
-  return (instance->runtime.IsConnectRequested() &&
-          instance->runtime.IsRuntimeConnectionAvailable()) ||
-         instance->runtime.IsRecordingRequested() ||
-         instance->runtime.IsSessionCaptureActive() ||
-         instance->runtime.IsMultitrackCaptureActive() ||
-         instance->runtime.IsWavStemExportActive() ||
-         (instance->editor_controller != nullptr &&
-          instance->editor_controller->IsRawSessionExportActive());
+  return ninjamplugin::format::clap::NeedsMainThreadPump({
+      .plugin_active =
+          instance->plugin_active.load(std::memory_order_acquire),
+      .editor_visible = instance->editor_visible,
+      .connection_active = instance->runtime.IsConnectRequested() &&
+                           instance->runtime.IsRuntimeConnectionAvailable(),
+      .recording_requested = instance->runtime.IsRecordingRequested(),
+      .session_capture_active = instance->runtime.IsSessionCaptureActive(),
+      .multitrack_capture_active = instance->runtime.IsMultitrackCaptureActive(),
+      .wav_stem_export_active = instance->runtime.IsWavStemExportActive(),
+      .raw_session_export_active =
+          instance->editor_controller != nullptr &&
+          instance->editor_controller->IsRawSessionExportActive(),
+  });
+}
+
+void RefreshHostMainThreadPump(NinjamPluginInstance* instance) {
+  if (instance == nullptr) {
+    return;
+  }
+  const bool keep_pumping = ShouldKeepMainThreadPumping(instance);
+  instance->keep_main_thread_pumping.store(keep_pumping);
+  const bool timer_registered =
+      UpdateHostMainThreadTimer(instance, keep_pumping);
+  if (keep_pumping && !timer_registered) {
+    RequestHostMainThreadCallback(instance);
+  }
 }
 
 bool GetEffectiveConnectRequested(const NinjamPluginInstance* instance) {
@@ -1379,7 +1399,13 @@ void CLAP_ABI PluginDestroy(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   ninjamplugin::core::DebugLog("clap", "PluginDestroy");
+  instance->plugin_active.store(false, std::memory_order_release);
+  instance->keep_main_thread_pumping.store(false, std::memory_order_release);
+  instance->main_thread_callback_pending.store(false, std::memory_order_release);
   UnregisterHostMainThreadTimer(instance);
+  if (instance->editor_shell != nullptr) {
+    instance->editor_shell->SetDelegate(nullptr);
+  }
   instance->editor_shell.reset();
   delete instance;
 }
@@ -1404,15 +1430,13 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
     ninjamplugin::core::DebugLog("clap", "PluginActivate failed: Activate");
     return false;
   }
-  instance->plugin_active = true;
+  instance->plugin_active.store(true, std::memory_order_release);
   instance->runtime.MainThreadTick();
-  const bool keep_main_thread_pumping = ShouldKeepMainThreadPumping(instance);
-  instance->keep_main_thread_pumping.store(keep_main_thread_pumping);
+  RefreshHostMainThreadPump(instance);
   instance->audio_processing_heartbeat.Update(
       instance->runtime.GetConnectionState() ==
           ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
       true, MonotonicNowNs());
-  UpdateHostMainThreadTimer(instance, keep_main_thread_pumping);
   instance->pending_connection_state.store(instance->runtime.GetConnectionState(), std::memory_order_relaxed);
   instance->pending_connection_state_dirty.store(true, std::memory_order_release);
   instance->pending_actual_session_bpm.store(
@@ -1454,12 +1478,12 @@ void CLAP_ABI PluginDeactivate(const clap_plugin_t* plugin) {
   const ninjamplugin::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
+  instance->plugin_active.store(false, std::memory_order_release);
+  instance->keep_main_thread_pumping.store(false, std::memory_order_release);
+  instance->main_thread_callback_pending.store(false, std::memory_order_release);
   UnregisterHostMainThreadTimer(instance);
-  instance->plugin_active = false;
   instance->audio_processing_heartbeat.Update(false, false, MonotonicNowNs());
   instance->runtime.Deactivate();
-  instance->keep_main_thread_pumping.store(false);
-  instance->main_thread_callback_pending.store(false);
   UpdateEditorShellView(instance, false);
   ninjamplugin::core::DebugLog("clap", "PluginDeactivate");
 }
@@ -2451,9 +2475,13 @@ void CLAP_ABI GuiDestroy(const clap_plugin_t* plugin) {
     instance->editor_controller->CaptureDraftSettings(
         instance->editor_shell->CollectConnectionSettingsDraft());
   }
+  if (instance->editor_shell != nullptr) {
+    instance->editor_shell->SetDelegate(nullptr);
+  }
   instance->editor_shell.reset();
   instance->editor_created = false;
   instance->editor_visible = false;
+  RefreshHostMainThreadPump(instance);
   ninjamplugin::core::DebugLog("clap", "GuiDestroy");
 }
 
@@ -2535,6 +2563,7 @@ bool CLAP_ABI GuiShow(const clap_plugin_t* plugin) {
       instance->debug_log_instance_id);
   UpdateEditorShellView(instance, true);
   instance->editor_visible = instance->editor_shell->Show();
+  RefreshHostMainThreadPump(instance);
   ninjamplugin::core::DebugLogf("clap", "GuiShow ok=%d", instance->editor_visible ? 1 : 0);
   return instance->editor_visible;
 }
@@ -2553,6 +2582,7 @@ bool CLAP_ABI GuiHide(const clap_plugin_t* plugin) {
   const bool ok = instance->editor_shell->Hide();
   if (ok) {
     instance->editor_visible = false;
+    RefreshHostMainThreadPump(instance);
   }
   ninjamplugin::core::DebugLogf("clap", "GuiHide ok=%d", ok ? 1 : 0);
   return ok;
@@ -2653,7 +2683,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
   instance->audio_processing_heartbeat.Update(
       current_state ==
           ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
-      instance->plugin_active, MonotonicNowNs());
+      instance->plugin_active.load(std::memory_order_acquire), MonotonicNowNs());
   if (current_state != instance->last_logged_connection_state) {
     instance->last_logged_connection_state = current_state;
     instance->pending_connection_state.store(current_state, std::memory_order_relaxed);
@@ -2697,13 +2727,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
     RequestHostParamsFlush(instance);
   }
   UpdateEditorShellView(instance, false);
-  const bool keep_main_thread_pumping = ShouldKeepMainThreadPumping(instance);
-  instance->keep_main_thread_pumping.store(keep_main_thread_pumping);
-  const bool timer_registered =
-      UpdateHostMainThreadTimer(instance, keep_main_thread_pumping);
-  if (keep_main_thread_pumping && !timer_registered) {
-    RequestHostMainThreadCallback(instance);
-  }
+  RefreshHostMainThreadPump(instance);
 }
 
 const clap_plugin_descriptor_t kPluginDescriptor = {

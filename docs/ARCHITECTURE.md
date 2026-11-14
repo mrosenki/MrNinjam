@@ -44,7 +44,7 @@ absolute installation path may also require a rescan or manual substitution.
 | Plugin state and controls | `src/core/plugin_state.cpp`, `parameter_model.cpp` | Versioned project state and parameter model |
 | NINJAM runtime bridge | `src/core/ninjam_bridge.cpp`, `njclient_extended.cpp` | Session lifecycle, routing, audio exchange, remote state |
 | Connection settings | `src/core/connection_config.cpp` | Application settings and credential boundary |
-| Session recording | `src/core/session_capture_recorder.cpp` | Buffered capture, finalization, and recovery |
+| Session recording | `src/core/session_capture_recorder.cpp` | Bounded asynchronous Session Mix and local-input stem capture, finalization, and recovery |
 | Stem export | `src/core/remix_stem_exporter.cpp` | Non-destructive RAW-session decoding and WAV export |
 | Shared editor controller | `src/ui/connection_editor_controller.cpp` | UI-independent view state and commands |
 | Production editor | `src/ui/editor_shell_visage.cpp`, `src/ui/visage/` | Visage-backed rendering, layout, input, and UI preferences |
@@ -154,6 +154,12 @@ zero. Routing publication is the completed Issue #6 design.
 
 Channel topology changes are distinct from live gain/pan changes. Mixer changes
 must not unnecessarily delete and recreate NINJAM channels.
+
+Session Mix WAV and local-input WAV stems consume the post-SEND route signal
+and therefore remain available without a server connection. Connected remote
+stems are added through the NINJAM multitrack source/export path. Native RAW
+session material remains connection-dependent because it requires server
+interval and participant data.
 
 ## Persistence boundaries
 

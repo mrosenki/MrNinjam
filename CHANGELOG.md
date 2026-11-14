@@ -6,13 +6,20 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
-## 0.2.2 - In development
+## 0.2.3 - In development
 
 - Add a verified per-user development installer for CLAP and VST3 on macOS,
   Windows, and Linux, with transactional rollback and symbolic-link/path
   safeguards.
 - Add a privacy-safe REAPER and Bitwig smoke-test baseline for locally built
   development versions.
+- Harden the host-independent CLAP timer and editor lifecycle, including
+  teardown ordering and offline editor updates.
+- Keep local input metering active before connecting to a NINJAM server.
+- Allow Session Mix WAV and per-route WAV stem recording while offline, while
+  retaining server-dependent native NINJAM RAW capture.
+- Give DAW test builds a distinct host-visible version for reliable issue and
+  screenshot identification.
 - Preserve the permanent plug-in identifiers, parameter IDs, and V1--V20
   saved-state decoding established in `0.2.1`.
 

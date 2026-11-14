@@ -14,6 +14,7 @@
 #include <fstream>
 #include <limits>
 #include <map>
+#include <new>
 #include <string>
 
 namespace ninjamplugin::core {
@@ -155,8 +156,11 @@ bool WriteWavHeader(std::FILE* file,
   return SeekFile(file, 0, SEEK_END);
 }
 
-std::string BuildRecordingFileName(const std::string& host_name, const std::string& user_name) {
-  return "session-capture-" + BuildTimestampToken() + "-" +
+std::string BuildRecordingFileName(const std::string& host_name,
+                                   const std::string& user_name,
+                                   const std::string& file_name_prefix) {
+  return SanitizeFileToken(file_name_prefix, "session-capture") + "-" +
+         BuildTimestampToken() + "-" +
          SanitizeFileToken(user_name, "anonymous") + "-" +
          SanitizeFileToken(host_name, "session") + ".wav";
 }
@@ -321,9 +325,7 @@ std::string GetDefaultSessionCaptureDirectory() {
   return (fs::temp_directory_path() / "MrNinjam" / "recordings").string();
 }
 
-SessionCaptureRecorder::SessionCaptureRecorder()
-    : ring_buffer_(kRingCapacityFrames * kChannelCount, 0.0f),
-      drain_buffer_(kDrainFramesPerPass * kChannelCount, 0.0f) {}
+SessionCaptureRecorder::SessionCaptureRecorder() = default;
 
 SessionCaptureRecorder::~SessionCaptureRecorder() {
   Stop();
@@ -333,15 +335,25 @@ bool SessionCaptureRecorder::Start(const double sample_rate,
                                    const std::string& directory,
                                    const std::string& host_name,
                                    const std::string& user_name,
-                                   const int bits_per_sample) {
+                                   const int bits_per_sample,
+                                   const std::string& file_name_prefix) {
   Stop();
   if (!(sample_rate > 0.0)) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     status_text_ = "Recording unavailable: invalid sample rate.";
     return false;
   }
+  try {
+    ring_buffer_.assign(kRingCapacityFrames * kChannelCount, 0.0f);
+    drain_buffer_.assign(kDrainFramesPerPass * kChannelCount, 0.0f);
+  } catch (const std::bad_alloc&) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    status_text_ = "Recording unavailable: cannot allocate capture buffer.";
+    return false;
+  }
   bits_per_sample_ = bits_per_sample == 16 || bits_per_sample == 24 ? bits_per_sample : 32;
-  if (!OpenOutputFile(sample_rate, directory, host_name, user_name)) {
+  if (!OpenOutputFile(sample_rate, directory, host_name, user_name,
+                      file_name_prefix)) {
     return false;
   }
 
@@ -508,7 +520,8 @@ void SessionCaptureRecorder::WriterThreadLoop() {
 bool SessionCaptureRecorder::OpenOutputFile(double sample_rate,
                                             const std::string& directory,
                                             const std::string& host_name,
-                                            const std::string& user_name) {
+                                            const std::string& user_name,
+                                            const std::string& file_name_prefix) {
   namespace fs = std::filesystem;
   const fs::path output_directory =
       directory.empty() ? fs::path(GetDefaultSessionCaptureDirectory()) : fs::path(directory);
@@ -525,7 +538,8 @@ bool SessionCaptureRecorder::OpenOutputFile(double sample_rate,
   const fs::path final_path = BuildUniqueOutputPath(
       output_directory,
       BuildRecordingFileName(host_name.empty() ? "session" : host_name,
-                             user_name.empty() ? "anonymous" : user_name));
+                             user_name.empty() ? "anonymous" : user_name,
+                             file_name_prefix));
   const fs::path partial_path(final_path.string() + ".partial");
   const fs::path metadata_path(partial_path.string() + ".info");
   std::FILE* file = std::fopen(partial_path.string().c_str(), "w+b");
