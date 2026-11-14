@@ -6,7 +6,7 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
-## 0.2.3 - In development
+## 0.2.4 - DAW test build
 
 - Harden the host-independent CLAP timer and editor lifecycle, including
   teardown ordering and offline editor updates.
@@ -25,6 +25,13 @@ independently of the package version.
   while unavailable; keep offline WAV recording available.
 - Remove the unused duplicate connection drawer and require every editor
   delegate command to have an explicit implementation.
+- Add a verified per-user development installer for CLAP and VST3 on macOS,
+  Windows, and Linux, with transactional rollback and symbolic-link/path
+  safeguards.
+- Add a privacy-safe REAPER and Bitwig smoke-test baseline for locally built
+  development versions.
+- Preserve the permanent plug-in identifiers, parameter IDs, and V1--V21
+  saved-state decoding established through the current development line.
 
 ## 0.2.1 - Development baseline
 
