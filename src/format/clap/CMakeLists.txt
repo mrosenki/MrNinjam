@@ -56,6 +56,24 @@ if(NINJAMPLUGIN_ENABLE_TESTS)
     COMMAND ninjamplugin_plugin_identity_smoke_test
   )
 
+  add_executable(ninjamplugin_clap_instance_state_smoke_test
+    ../../tests/clap_instance_state_smoke_test.cpp
+  )
+  target_link_libraries(ninjamplugin_clap_instance_state_smoke_test PRIVATE
+    ninjamplugin_clap_impl
+  )
+  target_include_directories(ninjamplugin_clap_instance_state_smoke_test PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
+    "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
+  )
+  target_compile_features(
+    ninjamplugin_clap_instance_state_smoke_test PRIVATE cxx_std_20
+  )
+  ninjamplugin_apply_warnings(ninjamplugin_clap_instance_state_smoke_test)
+  add_test(NAME ninjamplugin_clap_instance_state_smoke_test
+    COMMAND ninjamplugin_clap_instance_state_smoke_test
+  )
+
   add_executable(ninjamplugin_clap_gui_lifecycle_stress_test
     ../../tests/clap_gui_lifecycle_stress_test.cpp
   )

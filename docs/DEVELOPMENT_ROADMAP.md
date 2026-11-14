@@ -24,12 +24,12 @@ official binary release.
 
 ## Current baseline
 
-Version `0.2.1` is the current development baseline, not a frozen release.
+Version `0.2.3` is the current development baseline, not a frozen release.
 
 Implemented and automated:
 
 - permanent CLAP and VST3 identities, one Visage production editor, and
-  V1--V20 saved-state decoding;
+  V1--V21 saved-state decoding;
 - connection, reconnect, routing, chat, session timing, capture, recovery, RAW
   import, and WAV export foundations;
 - bounded audio lifecycle work, preallocated steady-state processing,
@@ -43,8 +43,8 @@ Still requiring hands-on DAW evidence:
 - representative connection, reconnect, routing, timing, chat, and
   interoperability behaviour;
 - recording eligibility, failure reporting, recovery, and exported content;
-- runtime filesystem locations and coexistence with the retired development
-  bundle names; and
+- runtime filesystem locations and removal of retired pre-release bundle names;
+  and
 - compact mixer usability with realistic participant and channel counts.
 
 ## Development sequence
@@ -79,26 +79,40 @@ Acceptance criteria:
 - CI remains required and stable enough that intermittent failures are not
   dismissed by reruns.
 
-### `0.2.3` — Session control correctness
+### `0.2.3` — DAW feedback and session control correctness
 
-Objective: make controlled NINJAM session testing trustworthy and respectful of
-server terms.
+Objective: correct issues exposed by hands-on DAW testing, then make controlled
+NINJAM session testing trustworthy and respectful of server terms.
 
 Work, in order:
 
-1. [#9](https://github.com/mrosenki/MrNinjam/issues/9) fixes initial BPM/BPI
+1. [#38](https://github.com/mrosenki/MrNinjam/issues/38) moves operational
+   configuration into host-persisted instance state while keeping secrets out
+   of projects and presets.
+2. [#39](https://github.com/mrosenki/MrNinjam/issues/39) gives aggregate meters
+   host-independent peak ingestion and time-based decay.
+3. [#33](https://github.com/mrosenki/MrNinjam/issues/33) makes disconnected and
+   connection-dependent actions truthful and capability-driven.
+4. [#9](https://github.com/mrosenki/MrNinjam/issues/9) fixes initial BPM/BPI
    proposal submission and distinguishes transmission from server/UI response;
    [#27](https://github.com/mrosenki/MrNinjam/issues/27) is handled alongside
    it so accepted server timing changes update BPM, BPI, and interval progress.
-2. [#23](https://github.com/mrosenki/MrNinjam/issues/23) replaces automatic
+5. [#23](https://github.com/mrosenki/MrNinjam/issues/23) replaces automatic
    server-licence acceptance with an explicit, bounded, non-real-time consent
    flow.
-3. Start the controlled portion of
+6. [#40](https://github.com/mrosenki/MrNinjam/issues/40) removes the retired
+   `NinjamPlugin` compatibility surface and completes active-code naming under
+   the architectural review in
+   [#31](https://github.com/mrosenki/MrNinjam/issues/31).
+7. Start the controlled portion of
    [#24](https://github.com/mrosenki/MrNinjam/issues/24) across both hosts and
    formats.
 
 Acceptance criteria:
 
+- simultaneous instances retain independent connection, routing, and recording
+  locations across save/reload and duplication without persisting passwords;
+- meter ballistics remain stable across hosts and callback cadences;
 - unchanged and edited BPM/BPI proposals send the displayed values;
 - no supplied server agreement is accepted without an explicit user action;
 - connect, disconnect, reconnect, transport stop/start, timing, chat, and
@@ -176,6 +190,9 @@ testing unless it exposes a direct safety or compatibility problem.
 ## Issue hygiene and change safeguards
 
 - Keep one focused issue and PR per unrelated change.
+- Use [#31](https://github.com/mrosenki/MrNinjam/issues/31) as the continuing
+  architecture and code-quality review track; observed symptoms still receive
+  focused issues and regression tests rather than accumulating local patches.
 - Record whether evidence is automated, controlled-fixture, or hands-on DAW
   testing.
 - Turn reproducible DAW/session findings into focused issues; do not commit

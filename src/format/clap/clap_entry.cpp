@@ -736,25 +736,8 @@ void SyncEditorDraftSettingsFromRuntime(NinjamPluginInstance* instance, const bo
   if (instance == nullptr || instance->editor_controller == nullptr) {
     return;
   }
-  auto settings = instance->runtime.GetConnectionSettings();
-  ninjamplugin::core::ConnectionSettings persisted_settings;
-  if (ninjamplugin::core::LoadPersistedConnectionSettings(&persisted_settings)) {
-    if (settings.host.empty()) {
-      settings.host = persisted_settings.host;
-    }
-    if (settings.user.empty() || settings.user == "anonymous") {
-      settings.user = persisted_settings.user.empty() ? settings.user : persisted_settings.user;
-    }
-    if (settings.pass.empty() && persisted_settings.persist_password) {
-      settings.pass = persisted_settings.pass;
-    }
-    const char* recordings_path_override = std::getenv("NINJAMPLUGIN_RECORDINGS_PATH");
-    if ((recordings_path_override == nullptr || recordings_path_override[0] == '\0') &&
-        !persisted_settings.recordings_path.empty()) {
-      settings.recordings_path = persisted_settings.recordings_path;
-    }
-  }
-  instance->editor_controller->SyncDraftSettingsFromRuntime(settings, force);
+  instance->editor_controller->SyncDraftSettingsFromRuntime(
+      instance->runtime.GetConnectionSettings(), force);
 }
 
 class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditorControllerHost {
@@ -2077,6 +2060,11 @@ bool CLAP_ABI StateSave(const clap_plugin_t* plugin, const clap_ostream_t* strea
       instance->debug_log_instance_id);
 
   ninjamplugin::core::PersistedPluginState state{};
+  const auto connection_settings = instance->runtime.GetConnectionSettings();
+  state.has_instance_connection_settings = true;
+  state.connection_host = connection_settings.host;
+  state.connection_user = connection_settings.user;
+  state.recordings_path = connection_settings.recordings_path;
   state.gain = instance->params.GetGain();
   state.connect_requested = instance->pending_connect_requested_dirty.load(std::memory_order_acquire)
                                 ? instance->pending_connect_requested.load(std::memory_order_acquire)
@@ -2204,6 +2192,24 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   }
 
   instance->params.SetGain(ninjamplugin::core::ParameterModel::ClampGain(state.gain));
+  if (state.has_instance_connection_settings) {
+    auto restored_settings = instance->runtime.GetConnectionSettings();
+    const std::string restored_user =
+        state.connection_user.empty() ? "anonymous" : state.connection_user;
+    const std::string current_user =
+        restored_settings.user.empty() ? "anonymous" : restored_settings.user;
+    if (restored_settings.host != state.connection_host ||
+        current_user != restored_user) {
+      // A password loaded from application defaults belongs only to that
+      // endpoint and identity. Never carry it into another project instance.
+      restored_settings.pass.clear();
+      restored_settings.persist_password = false;
+    }
+    restored_settings.host = state.connection_host;
+    restored_settings.user = restored_user;
+    restored_settings.recordings_path = state.recordings_path;
+    instance->runtime.ApplyConnectionSettings(restored_settings);
+  }
   instance->runtime.SetConnectRequested(state.connect_requested);
   instance->runtime.SetSessionBpm(state.session_bpm);
   instance->runtime.SetSessionBpi(state.session_bpi);

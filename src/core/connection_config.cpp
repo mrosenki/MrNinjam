@@ -280,11 +280,12 @@ std::string GetConnectionConfigDirectory() {
   return std::filesystem::path(config_path).parent_path().string();
 }
 
-ConnectionSettingsValidationResult ValidateConnectionSettings(const ConnectionSettings& settings) {
-  if (Trim(settings.host).empty()) {
+ConnectionSettingsValidationResult ValidateConnectionSettings(
+    const ConnectionSettings& settings, const bool require_host) {
+  if (require_host && Trim(settings.host).empty()) {
     return {.ok = false, .message = "Server host is required."};
   }
-  if (ContainsWhitespace(settings.host)) {
+  if (!Trim(settings.host).empty() && ContainsWhitespace(settings.host)) {
     return {.ok = false, .message = "Server host must not contain whitespace."};
   }
   if (ContainsWhitespace(settings.user)) {

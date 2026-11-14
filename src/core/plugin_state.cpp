@@ -32,6 +32,7 @@ constexpr std::string_view kStateHeaderV17 = "NINJAMPLUGIN_STATE_V17";
 constexpr std::string_view kStateHeaderV18 = "NINJAMPLUGIN_STATE_V18";
 constexpr std::string_view kStateHeaderV19 = "NINJAMPLUGIN_STATE_V19";
 constexpr std::string_view kStateHeaderV20 = "NINJAMPLUGIN_STATE_V20";
+constexpr std::string_view kStateHeaderV21 = "NINJAMPLUGIN_STATE_V21";
 
 std::string HexEncode(const std::string& text) {
   static constexpr char kHex[] = "0123456789ABCDEF";
@@ -128,8 +129,11 @@ bool ParseIntStrict(const std::string_view text, int* out_value) {
 
 std::string PluginStateCodec::Serialize(const PersistedPluginState& state) {
   std::ostringstream output;
-  output << kStateHeaderV20 << '\n';
+  output << kStateHeaderV21 << '\n';
   output << std::setprecision(std::numeric_limits<double>::max_digits10);
+  output << "connection_host_hex=" << HexEncode(state.connection_host) << '\n';
+  output << "connection_user_hex=" << HexEncode(state.connection_user) << '\n';
+  output << "recordings_path_hex=" << HexEncode(state.recordings_path) << '\n';
   output << "gain=" << state.gain << '\n';
   output << "connect_requested=" << (state.connect_requested ? 1 : 0) << '\n';
   output << "session_bpm=" << state.session_bpm << '\n';
@@ -197,6 +201,9 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
   bool wav_stem_export_enabled_seen = false;
   bool multitrack_capture_enabled_seen = false;
   bool multitrack_wav_clips_enabled_seen = false;
+  bool connection_host_seen = false;
+  bool connection_user_seen = false;
+  bool recordings_path_seen = false;
   bool is_v1 = false;
   bool is_v2 = false;
   bool is_v3 = false;
@@ -217,6 +224,7 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
   bool is_v18 = false;
   bool is_v19 = false;
   bool is_v20 = false;
+  bool is_v21 = false;
   std::array<bool, 8> local_input_route_enabled_seen{};
   std::array<bool, 8> local_input_route_source_pair_seen{};
   std::array<bool, 8> local_input_route_send_level_seen{};
@@ -264,6 +272,7 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
       is_v18 = line == kStateHeaderV18;
       is_v19 = line == kStateHeaderV19;
       is_v20 = line == kStateHeaderV20;
+      is_v21 = line == kStateHeaderV21;
       is_v8 = line == kStateHeaderV8;
       is_v9 = line == kStateHeaderV9;
       is_v10 = line == kStateHeaderV10;
@@ -275,7 +284,7 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
       header_seen =
           is_v1 || is_v2 || is_v3 || is_v4 || is_v5 || is_v6 || is_v7 || is_v8 || is_v9 ||
           is_v10 || is_v11 || is_v12 || is_v13 || is_v14 || is_v15 || is_v16 || is_v17 ||
-          is_v18 || is_v19 || is_v20;
+          is_v18 || is_v19 || is_v20 || is_v21;
       if (!header_seen) {
         return false;
       }
@@ -293,6 +302,30 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
 
     const std::string_view key = line.substr(0, separator);
     const std::string_view value = line.substr(separator + 1);
+
+    if (key == "connection_host_hex") {
+      if (connection_host_seen || !HexDecode(value, &parsed.connection_host)) {
+        return false;
+      }
+      connection_host_seen = true;
+      continue;
+    }
+
+    if (key == "connection_user_hex") {
+      if (connection_user_seen || !HexDecode(value, &parsed.connection_user)) {
+        return false;
+      }
+      connection_user_seen = true;
+      continue;
+    }
+
+    if (key == "recordings_path_hex") {
+      if (recordings_path_seen || !HexDecode(value, &parsed.recordings_path)) {
+        return false;
+      }
+      recordings_path_seen = true;
+      continue;
+    }
 
     if (key == "gain") {
       if (gain_seen || !ParseDoubleStrict(value, &parsed.gain)) {
@@ -748,7 +781,7 @@ parsed_route_key:
       return false;
     }
     const std::size_t required_routes = (is_v13 || is_v14 || is_v15 || is_v16 || is_v17 ||
-                                         is_v18 || is_v19 || is_v20)
+                                         is_v18 || is_v19 || is_v20 || is_v21)
                                             ? parsed.local_input_routes.size() : 2U;
     for (std::size_t route_index = 0; route_index < required_routes; ++route_index) {
       if (!local_input_route_enabled_seen[route_index] ||
@@ -758,41 +791,44 @@ parsed_route_key:
           !local_input_route_output_pair_seen[route_index]) {
         return false;
       }
-      if ((is_v16 || is_v17 || is_v18 || is_v19 || is_v20) &&
+      if ((is_v16 || is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
           (!local_input_route_source_channel_seen[route_index] ||
                      !local_input_route_source_count_seen[route_index] ||
                      !local_input_route_name_seen[route_index])) return false;
-      if ((is_v17 || is_v18 || is_v19 || is_v20) &&
+      if ((is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
           (!local_input_route_monitor_pan_seen[route_index] ||
                      !local_input_route_monitor_muted_seen[route_index] ||
                      !local_input_route_monitor_solo_seen[route_index] ||
                      !local_input_route_channel_mode_seen[route_index] ||
                      !local_input_route_bitrate_seen[route_index])) return false;
-      if (is_v20 && (!local_input_route_send_pan_seen[route_index] ||
+      if ((is_v20 || is_v21) && (!local_input_route_send_pan_seen[route_index] ||
                      !local_input_route_send_muted_seen[route_index] ||
                      !local_input_route_send_solo_seen[route_index])) return false;
     }
-    if ((is_v14 || is_v15 || is_v16 || is_v17 || is_v18 || is_v19 || is_v20) &&
+    if ((is_v14 || is_v15 || is_v16 || is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
         (!session_capture_bits_per_sample_seen ||
                    (parsed.session_capture_bits_per_sample != 16 &&
                     parsed.session_capture_bits_per_sample != 24 &&
                     parsed.session_capture_bits_per_sample != 32)))
       return false;
-    if ((is_v15 || is_v16 || is_v17 || is_v18 || is_v19 || is_v20) &&
+    if ((is_v15 || is_v16 || is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
         (!local_monitor_master_seen || parsed.local_monitor_master < 0.0 ||
                    parsed.local_monitor_master > 1.9952623149688795))
       return false;
-    if ((is_v16 || is_v17 || is_v18 || is_v19 || is_v20) &&
+    if ((is_v16 || is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
         (!active_daw_input_channels_seen ||
                    parsed.active_daw_input_channel_count < 2 ||
                    parsed.active_daw_input_channel_count > 16)) return false;
-    if ((is_v18 || is_v19 || is_v20) && (!active_daw_output_channels_seen ||
+    if ((is_v18 || is_v19 || is_v20 || is_v21) && (!active_daw_output_channels_seen ||
                    parsed.active_daw_output_channel_count < 2 ||
                    parsed.active_daw_output_channel_count > 16)) return false;
-    if ((is_v19 || is_v20) && !metronome_enabled_seen) return false;
+    if ((is_v19 || is_v20 || is_v21) && !metronome_enabled_seen) return false;
+    if (is_v21 && (!connection_host_seen || !connection_user_seen || !recordings_path_seen)) {
+      return false;
+    }
   }
 
-  if (!is_v16 && !is_v17 && !is_v18 && !is_v19 && !is_v20) {
+  if (!is_v16 && !is_v17 && !is_v18 && !is_v19 && !is_v20 && !is_v21) {
     parsed.active_daw_input_channel_count = 2;
     for (auto& route : parsed.local_input_routes) {
       route.source_channel_index = route.source_pair_index < 0 ? -1 : route.source_pair_index * 2;
@@ -803,7 +839,7 @@ parsed_route_key:
     }
     parsed.active_daw_input_channel_count = std::clamp(parsed.active_daw_input_channel_count, 2, 16);
   }
-  if (!is_v17 && !is_v18 && !is_v19 && !is_v20) {
+  if (!is_v17 && !is_v18 && !is_v19 && !is_v20 && !is_v21) {
     for (auto& route : parsed.local_input_routes) {
       route.monitor_pan = 0.0;
       route.monitor_muted = false;
@@ -812,7 +848,7 @@ parsed_route_key:
       route.bitrate = parsed.transmit_bitrate;
     }
   }
-  if (!is_v18 && !is_v19 && !is_v20) {
+  if (!is_v18 && !is_v19 && !is_v20 && !is_v21) {
     // Earlier CLAP builds always declared 16 inputs and four outputs. Preserve
     // that host-visible layout while migrating legacy route identifiers.
     parsed.active_daw_input_channel_count = 16;
@@ -822,13 +858,15 @@ parsed_route_key:
         route.output_pair_index = 8 + (route.output_pair_index - 2);
     }
   }
-  if (!is_v20) {
+  if (!is_v20 && !is_v21) {
     for (auto& route : parsed.local_input_routes) {
       route.send_pan = 0.0;
       route.send_muted = false;
       route.send_solo = false;
     }
   }
+
+  parsed.has_instance_connection_settings = is_v21;
 
   *out_state = parsed;
   return true;

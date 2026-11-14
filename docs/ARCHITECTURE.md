@@ -163,10 +163,17 @@ interval and participant data.
 
 ## Persistence boundaries
 
-- DAW project state stores plugin controls and versioned routing state.
-- Connection credentials are not stored in DAW project state.
-- Connection settings, recording location, and UI preferences use platform
-  application-data locations.
+- DAW project state is instance-owned. It stores plug-in controls, versioned
+  routing, connection endpoint and username, and recording location so copies,
+  presets, projects, and simultaneous hosts do not share mutable operational
+  configuration.
+- Passwords and other connection secrets are not stored in DAW project state.
+  A credential already loaded from application defaults is reused only when
+  the restored endpoint and username match it.
+- Application-data settings are explicit defaults, not live shared instance
+  state. Saving or loading a default copies values to or from one instance.
+- Diagnostics and optional UI appearance defaults remain user-global because
+  they do not alter session audio, routing, connection, or recording output.
 - Environment variables may override selected paths and connection settings for
   development or diagnostics.
 - Recordings and exports go to a user-selected location or a platform-owned
@@ -174,6 +181,7 @@ interval and participant data.
 
 New settings, UI preferences, diagnostics, logs, and fallback recording paths
 use `MrNinjam` in their platform-owned directory or filename. On first access,
+Until issue #40 removes the retired pre-release compatibility surface,
 connection settings are copied from the former
 `NinjamPlugin/ninjamplugin_settings.cfg` path when the new settings file does
 not exist. Existing diagnostic and layout preferences are read from their

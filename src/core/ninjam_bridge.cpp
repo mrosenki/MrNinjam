@@ -1571,7 +1571,8 @@ ConnectionSettings NinjamBridge::GetConnectionSettings() const {
 }
 
 void NinjamBridge::ApplyConnectionSettings(const ConnectionSettings& settings) {
-  const ConnectionSettingsValidationResult validation = ValidateConnectionSettings(settings);
+  const ConnectionSettingsValidationResult validation =
+      ValidateConnectionSettings(settings, false);
   if (!validation.ok) {
     connection_host_.clear();
     connection_user_ = "anonymous";

@@ -1715,9 +1715,9 @@ public:
     DrawButton(canvas, can_disconnect ? (connected ? "DISCONNECT" : "CANCEL") : "CONNECT", 22.0f,
                height() - 58.0f, button_width, 38.0f, true,
                can_disconnect ? kRed : kGreen);
-    DrawButton(canvas, "SAVE", 22.0f + button_width + gap, height() - 58.0f,
+    DrawButton(canvas, "SAVE DEFAULT", 22.0f + button_width + gap, height() - 58.0f,
                button_width, 38.0f, false);
-    DrawButton(canvas, "RELOAD", 22.0f + 2.0f * (button_width + gap),
+    DrawButton(canvas, "LOAD DEFAULT", 22.0f + 2.0f * (button_width + gap),
                height() - 58.0f, button_width, 38.0f, false);
   }
 
@@ -3143,10 +3143,10 @@ public:
                518.0f, width() - 36.0f, 34.0f, true,
                can_disconnect ? kRed : kGreen);
     const float utility_width = (width() - 44.0f) * 0.5f;
-    DrawButton(canvas, save_feedback_ticks_ > 0 ? "SAVED" : "SAVE",
+    DrawButton(canvas, save_feedback_ticks_ > 0 ? "DEFAULT SAVED" : "SAVE DEFAULT",
                18.0f, 560.0f, utility_width, 30.0f,
                save_feedback_ticks_ > 0, kCyan);
-    DrawButton(canvas, reload_feedback_ticks_ > 0 ? "RELOADED" : "RELOAD",
+    DrawButton(canvas, reload_feedback_ticks_ > 0 ? "DEFAULT LOADED" : "LOAD DEFAULT",
                26.0f + utility_width, 560.0f,
                width() - 44.0f - utility_width, 30.0f,
                reload_feedback_ticks_ > 0, kCyan);

@@ -15,6 +15,9 @@ independently of the package version.
   retaining server-dependent native NINJAM RAW capture.
 - Give DAW test builds a distinct host-visible version for reliable issue and
   screenshot identification.
+- Store connection identity and recording location in V21 host state so
+  multiple plug-in instances remain independent; passwords remain outside DAW
+  projects and presets.
 
 ## 0.2.1 - Development baseline
 

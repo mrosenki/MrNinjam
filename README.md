@@ -31,8 +31,8 @@ publication history and the separate official-binary gates.
 - Session-mix and native NINJAM multitrack capture, interrupted-recording
   recovery, RAW session import, and WAV stem export.
 - A Visage editor shared by the CLAP implementation and VST3 wrapper.
-- Versioned DAW project state; credentials remain outside project state in
-  application settings.
+- Versioned per-instance DAW project state, including connection identity and
+  recording location; passwords remain outside project state.
 
 The product is a plugin, not a standalone client. Video, mastering, automatic
 loudness processing, and additional plugin formats are outside the current

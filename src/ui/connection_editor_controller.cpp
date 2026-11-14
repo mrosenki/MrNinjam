@@ -617,7 +617,7 @@ void ConnectionEditorController::SaveRequested(
 
   draft_settings_ = settings;
   draft_settings_initialized_ = true;
-  notice_text_ = "Settings saved.";
+  notice_text_ = "Defaults saved.";
   host_->ApplyConnectionSettings(settings);
   host_->RequestHostParamsFlush();
   host_->RequestViewRefresh(true);
@@ -637,7 +637,7 @@ void ConnectionEditorController::ReloadRequested() {
 
   draft_settings_ = settings;
   draft_settings_initialized_ = true;
-  notice_text_ = "Settings reloaded.";
+  notice_text_ = "Defaults loaded into this instance.";
   host_->ApplyConnectionSettings(settings);
   host_->RequestHostParamsFlush();
   host_->RequestViewRefresh(true);
@@ -1121,24 +1121,7 @@ void ConnectionEditorController::RecordingsPathChanged(const std::string& value)
   auto runtime_settings = host_->GetRuntimeConnectionSettings();
   runtime_settings.recordings_path = value;
   host_->ApplyConnectionSettings(runtime_settings);
-
-  ninjamplugin::core::ConnectionSettings persisted_settings;
-  if (!ninjamplugin::core::LoadPersistedConnectionSettings(&persisted_settings)) {
-    persisted_settings = runtime_settings;
-  }
-  persisted_settings.recordings_path = value;
-  if (persisted_settings.user.empty()) {
-    persisted_settings.user = "anonymous";
-  }
-
-  const auto validation = ninjamplugin::core::ValidateConnectionSettings(persisted_settings);
-  if (!validation.ok || !ninjamplugin::core::SaveConnectionSettings(persisted_settings)) {
-    notice_text_ = "Recordings folder applied for this session.";
-    host_->RequestViewRefresh(true);
-    return;
-  }
-
-  notice_text_ = "Recordings folder saved.";
+  notice_text_ = "Recordings folder applied to this instance.";
   host_->RequestHostParamsFlush();
   host_->RequestViewRefresh(true);
 }
