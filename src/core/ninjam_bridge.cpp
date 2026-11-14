@@ -1565,7 +1565,6 @@ ConnectionSettings NinjamBridge::GetConnectionSettings() const {
   settings.user = connection_user_.empty() ? "anonymous" : connection_user_;
   settings.pass = connection_pass_;
   settings.recordings_path = session_capture_directory_;
-  settings.persist_password = true;
   settings.source = GetConnectionConfigPath();
   return settings;
 }

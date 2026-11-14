@@ -195,7 +195,6 @@ struct ConnectionUiDraft {
   std::string host;
   std::string user;
   std::string password;
-  bool persist_password = true;
 
   bool operator==(const ConnectionUiDraft&) const = default;
 };
