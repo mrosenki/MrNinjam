@@ -583,7 +583,6 @@ private:
     settings.host = draft.host;
     settings.user = draft.user;
     settings.pass = draft.password;
-    settings.persist_password = draft.persist_password;
     return settings;
   }
 

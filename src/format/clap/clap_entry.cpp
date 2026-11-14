@@ -2203,7 +2203,6 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
       // A password loaded from application defaults belongs only to that
       // endpoint and identity. Never carry it into another project instance.
       restored_settings.pass.clear();
-      restored_settings.persist_password = false;
     }
     restored_settings.host = state.connection_host;
     restored_settings.user = restored_user;

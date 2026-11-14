@@ -1659,7 +1659,6 @@ public:
         .host = host_editor_.text().toUtf8(),
         .user = user_editor_.text().toUtf8(),
         .password = password_editor_.text().toUtf8(),
-        .persist_password = true,
     };
   }
 
@@ -3005,7 +3004,6 @@ public:
         .host = host_editor_.text().toUtf8(),
         .user = user_editor_.text().toUtf8(),
         .password = password_editor_.text().toUtf8(),
-        .persist_password = true,
     };
   }
 

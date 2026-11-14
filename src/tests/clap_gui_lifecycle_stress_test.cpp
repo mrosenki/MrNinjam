@@ -63,7 +63,6 @@ class ScopedConnectionSettings final {
     ninjamplugin::core::ConnectionSettings settings;
     settings.host = "127.0.0.1:1";
     settings.user = "lifecycle-test";
-    settings.persist_password = false;
     ready_ = ninjamplugin::core::SaveConnectionSettings(settings);
   }
 
