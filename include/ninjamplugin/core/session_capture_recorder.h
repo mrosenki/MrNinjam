@@ -59,7 +59,8 @@ class SessionCaptureRecorder {
              const std::string& directory,
              const std::string& host_name,
              const std::string& user_name,
-             int bits_per_sample = 32);
+             int bits_per_sample = 32,
+             const std::string& file_name_prefix = "session-capture");
   // Bounded, lock-free stop handoff for real-time callers. New audio is
   // rejected immediately; the writer thread drains already queued audio and
   // finalizes the capture asynchronously. Call Stop() from a non-real-time
@@ -82,7 +83,8 @@ class SessionCaptureRecorder {
   bool OpenOutputFile(double sample_rate,
                       const std::string& directory,
                       const std::string& host_name,
-                      const std::string& user_name);
+                      const std::string& user_name,
+                      const std::string& file_name_prefix);
   bool CheckpointOutputFile();
   void FinalizeOutputFile();
   bool WriteCaptureMetadata() const;
