@@ -1227,17 +1227,25 @@ void NinjamBridge::MainThreadTick() {
     last_failure_reason_ = kLastFailureCantConnect;
   }
 
+  bool active_timing_matches_server = false;
   if (connected_) {
     double observed_bpm = 0.0;
+    int pending_bpm = 0;
+    int pending_bpi = 0;
     {
       std::lock_guard<std::mutex> lock(client_mutex_);
       if (client_ != nullptr) {
         observed_bpm = static_cast<double>(client_->GetActualBPM());
         actual_session_bpi_ = client_->GetBPI();
+        pending_bpm = client_->GetPendingBPM();
+        pending_bpi = client_->GetPendingBPI();
       }
     }
     actual_session_bpm_ =
         std::isfinite(observed_bpm) && observed_bpm > 0.0 ? observed_bpm : session_bpm_;
+    active_timing_matches_server =
+        RoundedSessionBpm(actual_session_bpm_) == pending_bpm &&
+        actual_session_bpi_ == pending_bpi;
   } else {
     actual_session_bpm_ = session_bpm_;
     actual_session_bpi_ = session_bpi_;
@@ -1247,10 +1255,12 @@ void NinjamBridge::MainThreadTick() {
     DebugLog("bridge", "Connected transition observed");
   }
   if (connected_ && interval_position_valid_.load(std::memory_order_acquire) &&
+      active_timing_matches_server &&
       !session_proposal_synced_for_connection_) {
-    // NJClient reports OK before the replacement audio path has activated its
-    // first server interval. Initialise proposals only from that authoritative
-    // boundary, never from the pre-connect 120/32 placeholder.
+    // NJClient reports OK and the replacement audio path starts an initial
+    // placeholder interval before the first server configuration becomes
+    // active. Wait until the active interval agrees with the server control
+    // snapshot so the placeholder can never become the proposal baseline.
     session_bpm_ = actual_session_bpm_;
     session_bpi_ = actual_session_bpi_;
     last_sent_session_bpm_ = RoundedSessionBpm(session_bpm_);
@@ -1826,13 +1836,17 @@ void NinjamBridge::SubmitTimingVote(const double bpm, const int bpi) {
   session_bpm_ = ClampSessionBpm(bpm);
   session_bpi_ = ClampSessionBpi(bpi);
   const std::uint64_t now_ms = MonotonicNowMs();
-  session_bpm_last_changed_ms_ = now_ms;
-  session_bpi_last_changed_ms_ = now_ms;
   session_proposal_synced_for_connection_ = connected_;
-  session_bpm_sync_pending_ = connected_;
-  session_bpi_sync_pending_ = connected_;
-  DebugLogf("bridge", "SubmitTimingVote=%.2f BPM / %d BPI",
-            session_bpm_, session_bpi_);
+  session_bpm_sync_pending_ =
+      connected_ && RoundedSessionBpm(session_bpm_) != last_sent_session_bpm_;
+  session_bpi_sync_pending_ =
+      connected_ && RoundedSessionBpi(session_bpi_) != last_sent_session_bpi_;
+  if (session_bpm_sync_pending_) session_bpm_last_changed_ms_ = now_ms;
+  if (session_bpi_sync_pending_) session_bpi_last_changed_ms_ = now_ms;
+  DebugLogf("bridge",
+            "SubmitTimingVote=%.2f BPM / %d BPI pending_bpm=%d pending_bpi=%d",
+            session_bpm_, session_bpi_, session_bpm_sync_pending_ ? 1 : 0,
+            session_bpi_sync_pending_ ? 1 : 0);
 }
 
 double NinjamBridge::GetSessionBpm() const {
@@ -1853,6 +1867,10 @@ double NinjamBridge::GetSessionIntervalProgress() const {
 
 bool NinjamBridge::HasSessionIntervalPosition() const {
   return interval_position_valid_.load(std::memory_order_acquire) && IsConnected();
+}
+
+bool NinjamBridge::HasSessionProposalSyncedForConnection() const {
+  return connected_ && session_proposal_synced_for_connection_;
 }
 
 void NinjamBridge::SetSessionBpi(const int value) {

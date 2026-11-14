@@ -220,6 +220,7 @@ class NinjamBridge {
   double GetActualSessionBpm() const;
   double GetSessionIntervalProgress() const;
   bool HasSessionIntervalPosition() const;
+  bool HasSessionProposalSyncedForConnection() const;
   static double ClampSessionBpm(double value);
   void SetSessionBpi(int value);
   int GetSessionBpi() const;

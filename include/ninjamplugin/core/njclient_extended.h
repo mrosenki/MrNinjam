@@ -34,6 +34,8 @@ class NinjamPluginNJClient final : public NJClient {
   // published timing must hide NJClient's legacy AudioProc-owned getters too.
   float GetActualBPM() const;
   int GetBPI() const;
+  int GetPendingBPM() const;
+  int GetPendingBPI() const;
 
   void DeleteLocalChannel(int channel);
   void SetLocalChannelInfo(int channel, const char* name, bool set_source,

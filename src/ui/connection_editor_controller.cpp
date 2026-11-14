@@ -447,6 +447,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   state.server_max_local_channels = snapshot.server_max_local_channels;
   state.session_interval_progress = snapshot.session_interval_progress;
   state.session_interval_progress_valid = snapshot.session_interval_progress_valid;
+  state.session_proposal_synced = snapshot.session_proposal_synced;
   state.transmit_mode_value = snapshot.transmit_mode_value;
   state.transmit_bitrate_index = snapshot.transmit_bitrate_index;
   state.session_identity_text =

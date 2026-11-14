@@ -64,6 +64,7 @@ struct ConnectionEditorRuntimeSnapshot {
   bool connect_requested = false;
   bool audio_processing_paused = false;
   bool session_interval_progress_valid = false;
+  bool session_proposal_synced = false;
   std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_route_configured{true, true};
   std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>

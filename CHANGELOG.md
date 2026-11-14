@@ -6,13 +6,23 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.8 - DAW test build
+
+- Wait for the first active interval that matches the server control timing
+  before replacing the editable proposal, rather than accepting the audio
+  engine's temporary 120/32 startup placeholder.
+- Publish proposal synchronization explicitly through the controller/UI state
+  so the editor updates exactly once per connection without overwriting later
+  user edits.
+- Submit only BPM or BPI values that differ from the connected-session proposal
+  baseline while capturing both editor values in one main-thread command.
+
 ## 0.2.7 - DAW test build
 
-- Submit BPM and BPI as one complete timing proposal, including when either
-  field has not emitted an edit event.
-- Initialise proposal fields from the server-authoritative timing on each
-  successful connection while keeping later server changes separate from an
-  in-progress user proposal.
+- Attempt to capture both timing fields in one main-thread vote request and
+  initialise proposals from connected-session timing.
+- Known DAW-test defect: the proposal could latch the temporary 120/32 startup
+  interval and every vote emitted both fields. Superseded by `0.2.8`.
 
 ## 0.2.6 - DAW test build
 

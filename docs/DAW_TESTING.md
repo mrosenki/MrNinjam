@@ -89,7 +89,7 @@ Run the non-network checks in all four host/format combinations:
 ## Controlled session boundary
 
 Use synthetic identities and a controlled server for initial connection tests.
-The current `0.2.7` DAW test build still auto-accepts a server-provided licence
+The current `0.2.8` DAW test build still auto-accepts a server-provided licence
 agreement; public or third-party server testing that supplies an agreement is
 deferred until [issue #23](https://github.com/mrosenki/MrNinjam/issues/23)
 implements explicit consent.

@@ -609,7 +609,8 @@ int main() {
   report_phase("audio-complete");
   const double updated_actual_bpm = bridge.GetActualSessionBpm();
   const int updated_actual_bpi = bridge.GetActualSessionBpi();
-  if (std::fabs(bridge.GetSessionBpm() - 120.0) > 0.1 ||
+  if (!bridge.HasSessionProposalSyncedForConnection() ||
+      std::fabs(bridge.GetSessionBpm() - 120.0) > 0.1 ||
       bridge.GetSessionBpi() != 1) {
     std::cerr << "proposal did not initialise from the joined session bpm="
               << bridge.GetSessionBpm() << " bpi=" << bridge.GetSessionBpi() << '\n';
@@ -624,6 +625,33 @@ int main() {
   });
   if (!complete_vote_sent) {
     std::cerr << "transactional timing vote omitted a displayed value bpm_votes="
+              << server.bpm_votes() << " bpi_votes=" << server.bpi_votes() << '\n';
+    return 5;
+  }
+  const int bpm_votes_after_complete = server.bpm_votes();
+  const int bpi_votes_after_complete = server.bpi_votes();
+  bridge.SubmitTimingVote(updated_actual_bpm, updated_actual_bpi + 1);
+  const bool bpi_only_vote_sent = WaitFor(std::chrono::seconds(2), [&] {
+    return server.bpi_votes() == bpi_votes_after_complete + 1;
+  }, [&] {
+    bridge.MainThreadTick();
+    secondary_bridge.MainThreadTick();
+  });
+  if (!bpi_only_vote_sent || server.bpm_votes() != bpm_votes_after_complete) {
+    std::cerr << "BPI-only edit also submitted BPM bpm_votes="
+              << server.bpm_votes() << " bpi_votes=" << server.bpi_votes() << '\n';
+    return 5;
+  }
+  const int bpi_votes_after_bpi_only = server.bpi_votes();
+  bridge.SubmitTimingVote(updated_actual_bpm + 1.0, updated_actual_bpi + 1);
+  const bool bpm_only_vote_sent = WaitFor(std::chrono::seconds(2), [&] {
+    return server.bpm_votes() == bpm_votes_after_complete + 1;
+  }, [&] {
+    bridge.MainThreadTick();
+    secondary_bridge.MainThreadTick();
+  });
+  if (!bpm_only_vote_sent || server.bpi_votes() != bpi_votes_after_bpi_only) {
+    std::cerr << "BPM-only edit also submitted BPI bpm_votes="
               << server.bpm_votes() << " bpi_votes=" << server.bpi_votes() << '\n';
     return 5;
   }

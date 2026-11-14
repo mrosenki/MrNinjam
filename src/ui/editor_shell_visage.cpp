@@ -145,6 +145,7 @@ ninjamplugin::ui::mixer::SessionUiState BuildSessionUiState(
   session.metronome_level = state.metronome_level_value;
   session.metronome_enabled = state.metronome_enabled;
   session.interval_progress_valid = state.session_interval_progress_valid;
+  session.timing_proposal_synced = state.session_proposal_synced;
   session.connect_enabled = state.connect_enabled;
   session.disconnect_enabled = state.disconnect_enabled;
   session.save_enabled = state.save_enabled;

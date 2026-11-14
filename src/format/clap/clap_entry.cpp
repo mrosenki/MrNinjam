@@ -658,6 +658,8 @@ ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSn
   snapshot.project_sample_rate = instance->runtime.GetSampleRate();
   snapshot.session_interval_progress = instance->runtime.GetSessionIntervalProgress();
   snapshot.session_interval_progress_valid = instance->runtime.HasSessionIntervalPosition();
+  snapshot.session_proposal_synced =
+      instance->runtime.HasSessionProposalSyncedForConnection();
   snapshot.metronome_level_value =
       instance->pending_metronome_level_dirty.load(std::memory_order_acquire)
           ? instance->pending_metronome_level.load(std::memory_order_acquire)

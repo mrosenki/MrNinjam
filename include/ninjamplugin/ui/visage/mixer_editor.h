@@ -154,6 +154,7 @@ struct SessionUiState {
   double metronome_level = 1.16;
   bool metronome_enabled = true;
   bool interval_progress_valid = false;
+  bool timing_proposal_synced = false;
   bool connect_enabled = false;
   bool disconnect_enabled = true;
   bool save_enabled = true;

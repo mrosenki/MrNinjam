@@ -181,6 +181,7 @@ struct ConnectionEditorViewState {
   bool reload_enabled = true;
   bool replace_form_fields = false;
   bool session_interval_progress_valid = false;
+  bool session_proposal_synced = false;
   std::vector<ninjamplugin::core::IncompleteSessionCaptureInfo>
       incomplete_session_captures;
   ninjamplugin::core::RemixSessionPreflight raw_session_preflight;

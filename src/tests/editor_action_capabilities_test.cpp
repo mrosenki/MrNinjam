@@ -107,6 +107,7 @@ int main() {
   snapshot.actual_session_bpi_text = "4";
   snapshot.session_interval_progress = 0.625;
   snapshot.session_interval_progress_valid = true;
+  snapshot.session_proposal_synced = true;
   view = controller.BuildViewState(snapshot, false);
   ok &= Expect(view.record_button_enabled && view.recording_requested &&
                    view.capabilities.raw_session_capture.available,
@@ -119,6 +120,8 @@ int main() {
   ok &= Expect(view.session_interval_progress_valid &&
                    view.session_interval_progress == 0.625,
                "authoritative interval progress was not published to the view");
+  ok &= Expect(view.session_proposal_synced,
+               "proposal synchronization state was not published to the view");
 
   return ok ? 0 : 1;
 }

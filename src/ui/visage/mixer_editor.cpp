@@ -2727,16 +2727,17 @@ public:
     if (!connected)
       timing_synced_for_connection_ = false;
     if (!timing_initialized_ || state.replace_form_fields ||
-        (connected && !timing_synced_for_connection_)) {
-      const bool use_session_timing = connected && state.interval_progress_valid;
-      const double bpm = use_session_timing ? state.actual_bpm : state.target_bpm;
-      const int bpi = use_session_timing ? state.actual_bpi : state.target_bpi;
+        (connected && state.timing_proposal_synced &&
+         !timing_synced_for_connection_)) {
+      const bool use_synced_proposal = connected && state.timing_proposal_synced;
+      const double bpm = state.target_bpm;
+      const int bpi = state.target_bpi;
       std::ostringstream text;
       text << std::fixed << std::setprecision(1) << bpm;
       bpm_editor_.setText(text.str());
       bpi_editor_.setText(std::to_string(bpi));
       timing_initialized_ = true;
-      if (use_session_timing)
+      if (use_synced_proposal)
         timing_synced_for_connection_ = true;
     }
     if (!connection_editors_initialized_ || first_live_state || state.replace_form_fields) {

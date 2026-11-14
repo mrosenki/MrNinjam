@@ -24,7 +24,7 @@ official binary release.
 
 ## Current baseline
 
-Version `0.2.7` is the current DAW-test candidate, not a frozen or officially
+Version `0.2.8` is the current DAW-test candidate, not a frozen or officially
 distributed release. It is carried by the open integration stack ending at
 PR #45; `main` intentionally remains behind that stack until the focused
 timing-vote test and consolidated integration review are complete.
@@ -48,10 +48,10 @@ Implemented, automated, and already DAW validated in the integration line:
 
 Immediate integration gate:
 
-1. Install `0.2.7` after its completed cross-platform CI run.
-2. Validate complete BPM/BPI proposal submission and server-authoritative UI
-   refresh in REAPER and Bitwig, covering unchanged, one-field, both-field, and
-   reconnect cases for #9 and #27.
+1. Install `0.2.8` after its completed cross-platform CI run.
+2. Validate server-initialized BPM/BPI proposals, changed-field-only vote
+   submission, and server-authoritative UI refresh in REAPER and Bitwig,
+   covering BPM-only, BPI-only, both-field, and reconnect cases for #9 and #27.
 3. Record the privacy-safe result on the issues and close only the criteria
    demonstrated by the test.
 4. Review one consolidated integration diff against `main`, including saved
@@ -88,7 +88,7 @@ Completed and recorded:
 
 Open at this boundary:
 
-- #9 and #27 require the focused `0.2.7` controlled-server test described in
+- #9 and #27 require the focused `0.2.8` controlled-server test described in
   the immediate integration gate;
 - #28 retains the unresolved distinction between a corrected plug-in lifecycle
   risk and a host-side stale timer, despite positive sanitizer, regression, and

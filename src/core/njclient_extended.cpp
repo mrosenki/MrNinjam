@@ -506,6 +506,14 @@ int NinjamPluginNJClient::GetBPI() const {
   return realtime_->published_active_bpi.load(std::memory_order_acquire);
 }
 
+int NinjamPluginNJClient::GetPendingBPM() const {
+  return realtime_->pending_bpm.load(std::memory_order_acquire);
+}
+
+int NinjamPluginNJClient::GetPendingBPI() const {
+  return realtime_->pending_bpi.load(std::memory_order_acquire);
+}
+
 void NinjamPluginNJClient::AudioProc(
     float** input, int input_channels, float** output, int output_channels,
     int frames, int sample_rate, bool just_monitor, bool playing, bool seeked,
