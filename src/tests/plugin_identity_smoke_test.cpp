@@ -28,7 +28,7 @@ static_assert(std::string_view(ninjamplugin::format::clap::kPluginVendor) ==
 static_assert(std::string_view(ninjamplugin::format::clap::kPluginUrl) ==
               "https://github.com/mrosenki/MrNinjam");
 static_assert(std::string_view(ninjamplugin::format::clap::kPluginVersion) ==
-              "0.2.4");
+              "0.2.5");
 
 const void* CLAP_ABI HostGetExtension(const clap_host_t* /*host*/,
                                       const char* /*extension_id*/) {
