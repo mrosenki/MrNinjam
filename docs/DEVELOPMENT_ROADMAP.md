@@ -48,16 +48,16 @@ Implemented, automated, and already DAW validated in the integration line:
 
 Immediate integration gate:
 
-1. Run cross-platform CI for `0.2.10`, then install it only after CI completes.
-2. Validate first-connection server-initialized BPM/BPI proposals in REAPER
-   and Bitwig. Changed-field-only submission, accepted-vote refresh, and
-   reconnect initialization already passed the `0.2.8`/`0.2.9` DAW checks.
-3. Record the privacy-safe result on the issues and close only the criteria
-   demonstrated by the test.
-4. Review one consolidated integration diff against `main`, including saved
+1. **Completed:** `0.2.10` passed Linux, Windows, and macOS CI and the focused
+   first-connection REAPER VST3 test. Server proposal initialization plus
+   BPM-only, BPI-only, and combined voting passed; #9 is closed.
+2. Reconcile the remaining breadth claimed by #27 with the accumulated REAPER,
+   Bitwig, CLAP, and VST3 evidence, closing it only if every material criterion
+   is demonstrated or explicitly moved to #24.
+3. Review one consolidated integration diff against `main`, including saved
    state/identity invariants, version metadata, public-repository cleanliness,
    and the accumulated DAW evidence.
-5. Merge the consolidated integration PR only after explicit approval and
+4. Merge the consolidated integration PR only after explicit approval and
    successful CI, then close superseded stacked PRs with links to the merge.
 
 Still requiring product work or broader hands-on evidence:
@@ -88,8 +88,8 @@ Completed and recorded:
 
 Open at this boundary:
 
-- #9 and #27 require the focused `0.2.10` first-connection test described in
-  the immediate integration gate;
+- #9 is complete and closed after the focused `0.2.10` first-connection test;
+  #27 remains open only for reconciliation of its broader host/format criteria;
 - #28 retains the unresolved distinction between a corrected plug-in lifecycle
   risk and a host-side stale timer, despite positive sanitizer, regression, and
   DAW evidence; close it only when its bounded investigation criteria are
