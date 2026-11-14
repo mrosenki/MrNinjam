@@ -75,6 +75,38 @@ Acceptance criteria:
 - CI remains required and stable enough that intermittent failures are not
   dismissed by reruns.
 
+### Architecture and implementation quality review
+
+Before the codebase grows substantially beyond the installable DAW baseline,
+[#31](https://github.com/mrosenki/MrNinjam/issues/31) performs an evidence-based
+review of the public code and its architecture. The REAPER timer investigation
+is one motivating example, not the limit of the review: a local workaround must
+not replace understanding the relevant lifecycle, protocol, threading, or host
+contract.
+
+Review areas:
+
+- component boundaries and dependency direction across the core, NINJAM
+  protocol/runtime, format adapters, UI, persistence, and platform layers;
+- object ownership, callback and instance lifetimes, shutdown ordering,
+  concurrency, and real-time-thread rules;
+- state machines, error propagation, capability negotiation, and recovery
+  behaviour, including name- or platform-based special cases;
+- duplicated logic, oversized translation units or classes, implicit coupling,
+  avoidable global state, and abstractions that make behaviour hard to test;
+- portability, dependency isolation, resource ownership, and consistency of
+  CLAP/VST3 behaviour where the format contracts permit it; and
+- whether tests verify public contracts and failure boundaries rather than
+  merely reproducing the implementation.
+
+The review produces a concise inventory whose findings are classified as
+justified, unverified, or needing remediation, then turns substantiated risks
+into focused, prioritised issues. It must distinguish elegance concerns from
+correctness or safety risks, preserve plug-in IDs and saved-state compatibility,
+and avoid a big-bang rewrite. High-risk lifecycle, data-loss, real-time, or
+cross-host findings are addressed before adding avoidable architectural debt;
+lower-risk refactoring is scheduled alongside the product area it improves.
+
 ### `0.2.3` — Session control correctness
 
 Objective: make controlled NINJAM session testing trustworthy and respectful of
