@@ -372,9 +372,25 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
   }
   if (instance->pending_connect_requested_dirty.exchange(false, std::memory_order_acq_rel)) {
     const bool requested = instance->pending_connect_requested.load(std::memory_order_acquire);
+    const int connection_state = instance->runtime.GetConnectionState();
+    const bool retrying_terminal_failure =
+        requested && instance->runtime.IsConnectRequested() &&
+        (connection_state ==
+             ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth ||
+         connection_state ==
+             ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect);
+    if (retrying_terminal_failure) {
+      // SetConnectRequested(true) is intentionally idempotent during a live
+      // attempt. A terminal failure needs an explicit false -> true edge so
+      // the NJClient attempt counters, timeout state and transport are reset.
+      instance->runtime.SetConnectRequested(false);
+    }
     instance->runtime.SetConnectRequested(requested);
     ninjamplugin::core::DebugLogf(
-        "clap", "ApplyPending ConnectRequest=%d", requested ? 1 : 0);
+        "clap",
+        "ApplyPending ConnectRequest=%d retry=%d",
+        requested ? 1 : 0,
+        retrying_terminal_failure ? 1 : 0);
   }
   if (instance->pending_target_session_bpm_dirty.exchange(false, std::memory_order_acq_rel)) {
     const double bpm = instance->pending_target_session_bpm.load(std::memory_order_acquire);

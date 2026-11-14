@@ -83,6 +83,19 @@ int main() {
                "offline WAV stem recording was not available");
 
   snapshot.wav_stem_export_enabled = false;
+  snapshot.connection_state = NinjamBridge::kConnectionStateInvalidAuth;
+  snapshot.connection_state_text = "InvalidAuth";
+  snapshot.connect_requested = true;
+  view = controller.BuildViewState(snapshot, false);
+  ok &= Expect(view.connect_enabled && !view.disconnect_enabled,
+               "invalid credentials did not expose an immediate retry action");
+
+  snapshot.connection_state = NinjamBridge::kConnectionStateCantConnect;
+  snapshot.connection_state_text = "CantConnect";
+  view = controller.BuildViewState(snapshot, false);
+  ok &= Expect(view.connect_enabled && !view.disconnect_enabled,
+               "failed connection did not expose an immediate retry action");
+
   snapshot.connection_state = NinjamBridge::kConnectionStateConnected;
   snapshot.connection_state_text = "Connected";
   snapshot.connect_requested = true;

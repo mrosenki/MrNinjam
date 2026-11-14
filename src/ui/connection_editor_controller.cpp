@@ -627,8 +627,16 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   state.detail_text =
       draft_settings_.user.empty() ? "Profile: anonymous" : "Profile: " + draft_settings_.user;
   state.notice_text = notice_text_;
-  state.connect_enabled = !snapshot.connect_requested;
-  state.disconnect_enabled = snapshot.connect_requested;
+  const bool terminal_connection_failure =
+      snapshot.connection_state ==
+          ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth ||
+      snapshot.connection_state ==
+          ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect;
+  // A failed attempt is no longer an active connection operation. Keep the
+  // failure visible, but let the user correct the settings and retry without
+  // first performing a fictitious disconnect.
+  state.connect_enabled = !snapshot.connect_requested || terminal_connection_failure;
+  state.disconnect_enabled = snapshot.connect_requested && !terminal_connection_failure;
   state.save_enabled = true;
   state.reload_enabled = true;
   state.replace_form_fields = replace_form_fields;
