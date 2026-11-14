@@ -137,6 +137,11 @@ class FixtureServer {
   int latest_voice_upload_block() const {
     return latest_voice_upload_block_.load(std::memory_order_acquire);
   }
+  void SetTiming(const int bpm, const int bpi) {
+    requested_bpm_.store(bpm, std::memory_order_relaxed);
+    requested_bpi_.store(bpi, std::memory_order_relaxed);
+    timing_revision_.fetch_add(1U, std::memory_order_release);
+  }
 
  private:
   static void Send(Net_Connection* connection, Net_Message* message) {
@@ -250,6 +255,7 @@ class FixtureServer {
     bool participant_left = false;
     bool participant_rejoined = false;
     bool channel_changed = false;
+    std::uint64_t applied_timing_revision = 0U;
     while (!stop_.load(std::memory_order_acquire)) {
       int wants_sleep = 1;
       Net_Message* raw = connection.Run(&wants_sleep);
@@ -318,6 +324,15 @@ class FixtureServer {
         raw->releaseRef();
       }
       const int audio_block = current_audio_block_.load(std::memory_order_acquire);
+      const std::uint64_t timing_revision =
+          timing_revision_.load(std::memory_order_acquire);
+      if (room_published && timing_revision != applied_timing_revision) {
+        mpb_server_config_change_notify config;
+        config.beats_minute = requested_bpm_.load(std::memory_order_relaxed);
+        config.beats_interval = requested_bpi_.load(std::memory_order_relaxed);
+        Send(&connection, config.build());
+        applied_timing_revision = timing_revision;
+      }
       if (room_published && !participant_left && audio_block >= 2200) {
         PublishPresence(&connection, false, "Normal");
         participant_left = true;
@@ -356,6 +371,9 @@ class FixtureServer {
   std::atomic<int> current_audio_block_{-1};
   std::atomic<int> first_voice_upload_block_{-1};
   std::atomic<int> latest_voice_upload_block_{-1};
+  std::atomic<int> requested_bpm_{120};
+  std::atomic<int> requested_bpi_{1};
+  std::atomic<std::uint64_t> timing_revision_{0U};
 };
 
 }  // namespace
@@ -515,6 +533,9 @@ int main() {
   constexpr std::array<int, 6> kVariableFrames = {1, 64, 127, 128, 257, 512};
   report_phase("audio-start");
   for (int block = 0; block < 2500; ++block) {
+    if (block == 200) {
+      server.SetTiming(160, 4);
+    }
     if (block == 1000) {
       bridge.SetRealtimeWorkerPausedForTesting(true);
       report_phase("worker-saturation-start");
@@ -575,6 +596,8 @@ int main() {
     CooperativeSchedule(block);
   }
   report_phase("audio-complete");
+  const double updated_actual_bpm = bridge.GetActualSessionBpm();
+  const int updated_actual_bpi = bridge.GetActualSessionBpi();
   const auto before_drain = bridge.GetRealtimePipelineDiagnostics();
   const auto drain_target =
       before_drain.local_submitted_frames + before_drain.local_overflow_frames;
@@ -711,6 +734,8 @@ int main() {
   report_phase("reconnect-audio-complete");
   const bool interval_valid = bridge.HasSessionIntervalPosition();
   const double interval_progress = bridge.GetSessionIntervalProgress();
+  const double actual_bpm = bridge.GetActualSessionBpm();
+  const int actual_bpi = bridge.GetActualSessionBpi();
   const auto realtime = bridge.GetRealtimePipelineDiagnostics();
   const int voice_schedule_blocks = first_voice_block >= 0 &&
           voice_source_block_at_first_output >= 0
@@ -781,6 +806,16 @@ int main() {
               << " submitted=" << realtime.local_submitted_frames
               << " processed=" << realtime.local_processed_frames
               << " overflow=" << realtime.local_overflow_frames << '\n';
+    return 6;
+  }
+  if (std::fabs(updated_actual_bpm - 160.0) > 0.1 || updated_actual_bpi != 4) {
+    std::cerr << "server timing did not reach the bridge snapshot bpm="
+              << updated_actual_bpm << " bpi=" << updated_actual_bpi << '\n';
+    return 6;
+  }
+  if (std::fabs(actual_bpm - 120.0) > 0.1 || actual_bpi != 1) {
+    std::cerr << "reconnected session retained stale timing bpm="
+              << actual_bpm << " bpi=" << actual_bpi << '\n';
     return 6;
   }
   if (normal_peak <= 0.0 || voice_peak <= 0.0 || second_voice_peak <= 0.0 ||

@@ -99,10 +99,26 @@ int main() {
   snapshot.connection_state = NinjamBridge::kConnectionStateConnected;
   snapshot.connection_state_text = "Connected";
   snapshot.connect_requested = true;
+  snapshot.target_session_bpm_value = 120.0;
+  snapshot.target_session_bpi_value = 32;
+  snapshot.target_session_bpm_text = "120.0";
+  snapshot.target_session_bpi_text = "32";
+  snapshot.actual_session_bpm_text = "160.0";
+  snapshot.actual_session_bpi_text = "4";
+  snapshot.session_interval_progress = 0.625;
+  snapshot.session_interval_progress_valid = true;
   view = controller.BuildViewState(snapshot, false);
   ok &= Expect(view.record_button_enabled && view.recording_requested &&
                    view.capabilities.raw_session_capture.available,
                "connected RAW recording was not available");
+  ok &= Expect(view.actual_session_bpm_text == "160.0" &&
+                   view.actual_session_bpi_text == "4" &&
+                   view.target_session_bpm_value == 120.0 &&
+                   view.target_session_bpi_value == 32,
+               "server timing was conflated with the editable proposal");
+  ok &= Expect(view.session_interval_progress_valid &&
+                   view.session_interval_progress == 0.625,
+               "authoritative interval progress was not published to the view");
 
   return ok ? 0 : 1;
 }

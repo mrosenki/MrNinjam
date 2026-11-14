@@ -30,6 +30,10 @@ class NinjamPluginNJClient final : public NJClient {
                  int srate, bool justmonitor = false, bool isPlaying = true,
                  bool isSeek = false, double cursessionpos = -1.0);
   void GetPosition(int* pos, int* length);
+  // The replacement audio path owns interval activation, so its atomically
+  // published timing must hide NJClient's legacy AudioProc-owned getters too.
+  float GetActualBPM() const;
+  int GetBPI() const;
 
   void DeleteLocalChannel(int channel);
   void SetLocalChannelInfo(int channel, const char* name, bool set_source,
