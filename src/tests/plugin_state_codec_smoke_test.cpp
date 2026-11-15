@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-#include "ninjamplugin/core/plugin_state.h"
+#include "mrninjam/core/plugin_state.h"
 
 namespace {
 
@@ -14,7 +14,7 @@ bool NearlyEqual(const double lhs, const double rhs, const double epsilon = 1.0e
 }  // namespace
 
 int main() {
-  ninjamplugin::core::PersistedPluginState source{};
+  mrninjam::core::PersistedPluginState source{};
   source.has_instance_connection_settings = true;
   source.connection_host = "session.example.test:2049";
   source.connection_user = "instance-user";
@@ -49,14 +49,14 @@ int main() {
       .channel_mode = 2, .bitrate = 300,
       .send_pan = -0.6, .send_muted = false, .send_solo = true};
 
-  const std::string blob = ninjamplugin::core::PluginStateCodec::Serialize(source);
+  const std::string blob = mrninjam::core::PluginStateCodec::Serialize(source);
   if (blob.empty()) {
     std::cerr << "Serialized blob is empty\n";
     return EXIT_FAILURE;
   }
 
-  ninjamplugin::core::PersistedPluginState parsed{};
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(blob, &parsed)) {
+  mrninjam::core::PersistedPluginState parsed{};
+  if (!mrninjam::core::PluginStateCodec::Deserialize(blob, &parsed)) {
     std::cerr << "Failed to deserialize valid blob\n";
     return EXIT_FAILURE;
   }
@@ -92,262 +92,30 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  if (ninjamplugin::core::PluginStateCodec::Deserialize("", &parsed)) {
+  if (mrninjam::core::PluginStateCodec::Deserialize("", &parsed)) {
     std::cerr << "Empty state should fail\n";
     return EXIT_FAILURE;
   }
-  if (ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_BAD\ngain=1\nconnect_requested=0\nsession_bpm=120\n", &parsed)) {
+  if (mrninjam::core::PluginStateCodec::Deserialize(
+          "MRNINJAM_STATE_BAD\ngain=1\nconnect_requested=0\nsession_bpm=120\n", &parsed)) {
     std::cerr << "Wrong header should fail\n";
     return EXIT_FAILURE;
   }
-  if (ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V1\ngain=1\nconnect_requested=0\n", &parsed)) {
-    std::cerr << "Missing field should fail\n";
+  if (mrninjam::core::PluginStateCodec::Deserialize(
+          "MRNINJAM_STATE_V20\ngain=1\n", &parsed)) {
+    std::cerr << "Pre-release state versions should be rejected\n";
     return EXIT_FAILURE;
   }
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V1\ngain=1\nconnect_requested=0\nsession_bpm=120\n", &parsed)) {
-    std::cerr << "Back-compat payload should parse\n";
+
+  std::string truncated = blob;
+  const std::size_t last_field = truncated.rfind("local_input_route_8_bitrate=");
+  if (last_field == std::string::npos) {
+    std::cerr << "Serialized blob did not contain the final required field\n";
     return EXIT_FAILURE;
   }
-  if (!NearlyEqual(parsed.monitor_mix, 0.0)) {
-    std::cerr << "Back-compat payload should default monitor mix\n";
-    return EXIT_FAILURE;
-  }
-  if (!NearlyEqual(parsed.metronome_level, 0.0)) {
-    std::cerr << "Back-compat payload should default metronome level\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.transmit_mode != 1 || parsed.transmit_bitrate != 128) {
-    std::cerr << "Back-compat payload should default transmit settings\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_capture_enabled) {
-    std::cerr << "Back-compat payload should default session capture off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_capture_enabled) {
-    std::cerr << "Back-compat payload should default multitrack capture off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.wav_stem_export_enabled) {
-    std::cerr << "Back-compat payload should default WAV stems off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_wav_clips_enabled) {
-    std::cerr << "Back-compat payload should default multitrack wav clips off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_bpi != 8) {
-    std::cerr << "Back-compat payload should default session BPI\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.local_input_routes[0].enabled || parsed.local_input_routes[1].enabled) {
-    std::cerr << "Back-compat payload should default local input pairs\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.local_input_routes[0].source_pair_index != 0 ||
-      parsed.local_input_routes[1].source_pair_index != 1) {
-    std::cerr << "Back-compat payload should default local input sources\n";
-    return EXIT_FAILURE;
-  }
-  if (!NearlyEqual(parsed.local_input_routes[0].send_level, 1.0) ||
-      !NearlyEqual(parsed.local_input_routes[1].send_level, 1.0)) {
-    std::cerr << "Back-compat payload should default local input send levels\n";
-    return EXIT_FAILURE;
-  }
-  if (!NearlyEqual(parsed.local_input_routes[0].monitor_level, 1.0) ||
-      !NearlyEqual(parsed.local_input_routes[1].monitor_level, 1.0)) {
-    std::cerr << "Back-compat payload should default local input monitor levels\n";
-    return EXIT_FAILURE;
-  }
-  if (!NearlyEqual(parsed.local_input_routes[0].send_pan, 0.0) ||
-      parsed.local_input_routes[0].send_muted ||
-      parsed.local_input_routes[0].send_solo) {
-    std::cerr << "Back-compat payload should default Send pan/mute/solo\n";
-    return EXIT_FAILURE;
-  }
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V2\ngain=1\nconnect_requested=1\nsession_bpm=123\nmonitor_mix=0.5\ntransmit_mode=0\ntransmit_bitrate=160\n",
-          &parsed)) {
-    std::cerr << "V2 payload should parse\n";
-    return EXIT_FAILURE;
-  }
-  if (!NearlyEqual(parsed.monitor_mix, 0.5) || !NearlyEqual(parsed.metronome_level, 0.5)) {
-    std::cerr << "V2 monitor mix should map to both return paths\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.transmit_mode != 0 || parsed.transmit_bitrate != 160) {
-    std::cerr << "V2 transmit settings mismatch\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_capture_enabled) {
-    std::cerr << "V2 payload should default session capture off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_capture_enabled) {
-    std::cerr << "V2 payload should default multitrack capture off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.wav_stem_export_enabled) {
-    std::cerr << "V2 payload should default WAV stems off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_wav_clips_enabled) {
-    std::cerr << "V2 payload should default multitrack wav clips off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_bpi != 8) {
-    std::cerr << "V2 payload should default session BPI\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.local_input_routes[0].enabled || parsed.local_input_routes[1].enabled) {
-    std::cerr << "V2 payload should default local input pairs\n";
-    return EXIT_FAILURE;
-  }
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V3\ngain=1\nconnect_requested=1\nsession_bpm=123\nmonitor_mix=0.5\nmetronome_level=0.2\ntransmit_mode=0\ntransmit_bitrate=160\n",
-          &parsed)) {
-    std::cerr << "V3 payload should parse\n";
-    return EXIT_FAILURE;
-  }
-  if (!NearlyEqual(parsed.monitor_mix, 0.5) || !NearlyEqual(parsed.metronome_level, 0.2)) {
-    std::cerr << "V3 return settings mismatch\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_capture_enabled) {
-    std::cerr << "V3 payload should default session capture off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_capture_enabled) {
-    std::cerr << "V3 payload should default multitrack capture off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.wav_stem_export_enabled) {
-    std::cerr << "V3 payload should default WAV stems off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_wav_clips_enabled) {
-    std::cerr << "V3 payload should default multitrack wav clips off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_bpi != 8) {
-    std::cerr << "V3 payload should default session BPI\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.local_input_routes[0].enabled || parsed.local_input_routes[1].enabled) {
-    std::cerr << "V3 payload should default local input pairs\n";
-    return EXIT_FAILURE;
-  }
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V4\ngain=1\nconnect_requested=1\nsession_bpm=123\nmonitor_mix=0.5\nmetronome_level=0.2\ntransmit_mode=0\ntransmit_bitrate=160\nsession_capture_enabled=1\n",
-          &parsed)) {
-    std::cerr << "V4 payload should parse\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.session_capture_enabled) {
-    std::cerr << "V4 session capture flag mismatch\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_capture_enabled) {
-    std::cerr << "V4 payload should default multitrack capture off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.wav_stem_export_enabled) {
-    std::cerr << "V4 payload should default WAV stems off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_wav_clips_enabled) {
-    std::cerr << "V4 payload should default multitrack wav clips off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_bpi != 8) {
-    std::cerr << "V4 payload should default session BPI\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.local_input_routes[0].enabled || parsed.local_input_routes[1].enabled) {
-    std::cerr << "V4 payload should default local input pairs\n";
-    return EXIT_FAILURE;
-  }
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V5\ngain=1\nconnect_requested=1\nsession_bpm=123\nmonitor_mix=0.5\nmetronome_level=0.2\ntransmit_mode=0\ntransmit_bitrate=160\nsession_capture_enabled=1\nmultitrack_capture_enabled=1\n",
-          &parsed)) {
-    std::cerr << "V5 payload should parse\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.session_capture_enabled || !parsed.multitrack_capture_enabled) {
-    std::cerr << "V5 capture flags mismatch\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.wav_stem_export_enabled) {
-    std::cerr << "V5 payload should default WAV stems off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.multitrack_wav_clips_enabled) {
-    std::cerr << "V5 payload should default multitrack wav clips off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_bpi != 8) {
-    std::cerr << "V5 payload should default session BPI\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.local_input_routes[0].enabled || parsed.local_input_routes[1].enabled) {
-    std::cerr << "V5 payload should default local input pairs\n";
-    return EXIT_FAILURE;
-  }
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V6\ngain=1\nconnect_requested=1\nsession_bpm=123\nmonitor_mix=0.5\nmetronome_level=0.2\ntransmit_mode=0\ntransmit_bitrate=160\nsession_capture_enabled=1\nmultitrack_capture_enabled=1\nmultitrack_wav_clips_enabled=1\n",
-          &parsed)) {
-    std::cerr << "V6 payload should parse\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.session_capture_enabled || !parsed.multitrack_capture_enabled ||
-      !parsed.multitrack_wav_clips_enabled) {
-    std::cerr << "V6 capture flags mismatch\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.wav_stem_export_enabled) {
-    std::cerr << "V6 payload should default WAV stems off\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_bpi != 8) {
-    std::cerr << "V6 payload should default session BPI\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.local_input_routes[0].enabled || parsed.local_input_routes[1].enabled) {
-    std::cerr << "V6 payload should default local input pairs\n";
-    return EXIT_FAILURE;
-  }
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V7\ngain=1\nconnect_requested=1\nsession_bpm=123\nmonitor_mix=0.5\nmetronome_level=0.2\ntransmit_mode=0\ntransmit_bitrate=160\nsession_capture_enabled=1\nwav_stem_export_enabled=1\nmultitrack_capture_enabled=1\nmultitrack_wav_clips_enabled=0\n",
-          &parsed)) {
-    std::cerr << "V7 payload should parse\n";
-    return EXIT_FAILURE;
-  }
-  if (!parsed.session_capture_enabled || !parsed.wav_stem_export_enabled ||
-      !parsed.multitrack_capture_enabled || parsed.multitrack_wav_clips_enabled) {
-    std::cerr << "V7 capture flags mismatch\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_bpi != 8) {
-    std::cerr << "V7 payload should default session BPI\n";
-    return EXIT_FAILURE;
-  }
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V8\ngain=1\nconnect_requested=1\nsession_bpm=123\nsession_bpi=12\nmonitor_mix=0.5\nmetronome_level=0.2\ntransmit_mode=0\ntransmit_bitrate=160\nsession_capture_enabled=1\nwav_stem_export_enabled=1\nmultitrack_capture_enabled=1\nmultitrack_wav_clips_enabled=0\n",
-          &parsed)) {
-    std::cerr << "V8 payload should parse\n";
-    return EXIT_FAILURE;
-  }
-  if (parsed.session_bpi != 12) {
-    std::cerr << "V8 session BPI mismatch\n";
-    return EXIT_FAILURE;
-  }
-  if (ninjamplugin::core::PluginStateCodec::Deserialize(
-          "NINJAMPLUGIN_STATE_V1\ngain=nope\nconnect_requested=0\nsession_bpm=120\n",
-          &parsed)) {
-    std::cerr << "Invalid numeric field should fail\n";
+  truncated.resize(last_field);
+  if (mrninjam::core::PluginStateCodec::Deserialize(truncated, &parsed)) {
+    std::cerr << "Missing required field should fail\n";
     return EXIT_FAILURE;
   }
 

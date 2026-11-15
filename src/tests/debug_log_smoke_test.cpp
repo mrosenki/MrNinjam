@@ -1,4 +1,4 @@
-#include "ninjamplugin/core/debug_log.h"
+#include "mrninjam/core/debug_log.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -49,7 +49,7 @@ bool Require(bool condition, const char* message) {
 
 int main() {
   const auto root = std::filesystem::temp_directory_path() /
-                    ("ninjamplugin-debug-log-test-" + std::to_string(ProcessId()));
+                    ("mrninjam-debug-log-test-" + std::to_string(ProcessId()));
   std::error_code error;
   std::filesystem::remove_all(root, error);
   std::filesystem::create_directories(root, error);
@@ -65,28 +65,28 @@ int main() {
   SetEnvironment("XDG_CONFIG_HOME", (root / "config").string());
   SetEnvironment("XDG_STATE_HOME", (root / "state").string());
 #endif
-  ClearEnvironment("NINJAMPLUGIN_DEBUG_LOG");
-  ClearEnvironment("NINJAMPLUGIN_DEBUG_LOG_PATH");
+  ClearEnvironment("MRNINJAM_DEBUG_LOG");
+  ClearEnvironment("MRNINJAM_DEBUG_LOG_PATH");
 
   bool ok = true;
-  ok &= Require(!ninjamplugin::core::IsDebugLogEnabled(),
+  ok &= Require(!mrninjam::core::IsDebugLogEnabled(),
                 "diagnostic logging must default to disabled");
   const std::filesystem::path initially_planned_log_directory(
-      ninjamplugin::core::GetDebugLogDirectory());
+      mrninjam::core::GetDebugLogDirectory());
   ok &= Require(initially_planned_log_directory.string().find("MrNinjam") !=
                     std::string::npos,
                 "default log directory does not use the MrNinjam brand");
   ok &= Require(!std::filesystem::exists(initially_planned_log_directory),
                 "disabled diagnostics created a log directory");
-  ok &= Require(ninjamplugin::core::SetDebugLogEnabled(true),
+  ok &= Require(mrninjam::core::SetDebugLogEnabled(true),
                 "could not persist enabled state");
-  ok &= Require(ninjamplugin::core::IsDebugLogEnabled(),
+  ok &= Require(mrninjam::core::IsDebugLogEnabled(),
                 "enabled state was not applied");
 
-  ninjamplugin::core::ConfigureDebugLogHostSession("Test DAW", "1.2.3");
-  const std::filesystem::path log_path(ninjamplugin::core::GetDebugLogPath());
+  mrninjam::core::ConfigureDebugLogHostSession("Test DAW", "1.2.3");
+  const std::filesystem::path log_path(mrninjam::core::GetDebugLogPath());
   const std::filesystem::path log_directory(
-      ninjamplugin::core::GetDebugLogDirectory());
+      mrninjam::core::GetDebugLogDirectory());
   ok &= Require(log_path.parent_path() == log_directory,
                 "log path and log directory disagree");
   ok &= Require(log_path.string().find(root.string()) == 0,
@@ -99,35 +99,35 @@ int main() {
   ok &= Require(log_path.filename().string().find("-session") != std::string::npos,
                 "session filename does not distinguish loaded plugin modules");
 
-  const auto first = ninjamplugin::core::AllocateDebugLogInstanceId();
-  const auto second = ninjamplugin::core::AllocateDebugLogInstanceId();
+  const auto first = mrninjam::core::AllocateDebugLogInstanceId();
+  const auto second = mrninjam::core::AllocateDebugLogInstanceId();
   {
-    const ninjamplugin::core::DebugLogInstanceScope scope(first);
-    ninjamplugin::core::DebugLog("test", "first instance");
+    const mrninjam::core::DebugLogInstanceScope scope(first);
+    mrninjam::core::DebugLog("test", "first instance");
   }
   {
-    const ninjamplugin::core::DebugLogInstanceScope scope(second);
-    ninjamplugin::core::DebugLog("test", "second instance");
+    const mrninjam::core::DebugLogInstanceScope scope(second);
+    mrninjam::core::DebugLog("test", "second instance");
   }
-  ninjamplugin::core::DebugLog("test", "process event");
-  ninjamplugin::core::DebugLog(
+  mrninjam::core::DebugLog("test", "process event");
+  mrninjam::core::DebugLog(
       "test", ("private path " + root.string() + "/recording.wav").c_str());
 
   const auto size_before_realtime_scope = std::filesystem::file_size(log_path, error);
-  ninjamplugin::core::ResetRealtimeDebugLogViolationCount();
+  mrninjam::core::ResetRealtimeDebugLogViolationCount();
   {
-    const ninjamplugin::core::RealtimeDebugLogScope realtime_scope;
-    ninjamplugin::core::DebugLog("test", "must be rejected on the audio thread");
-    ninjamplugin::core::DebugLogf("test", "formatted value=%d", 7);
-    ok &= Require(!ninjamplugin::core::IsDebugLogEnabled(),
+    const mrninjam::core::RealtimeDebugLogScope realtime_scope;
+    mrninjam::core::DebugLog("test", "must be rejected on the audio thread");
+    mrninjam::core::DebugLogf("test", "formatted value=%d", 7);
+    ok &= Require(!mrninjam::core::IsDebugLogEnabled(),
                   "real-time scope inspected diagnostic enablement");
-    ok &= Require(std::string(ninjamplugin::core::GetDebugLogPath()).empty(),
+    ok &= Require(std::string(mrninjam::core::GetDebugLogPath()).empty(),
                   "real-time scope exposed an allocation/lock-capable path query");
   }
   const auto size_after_realtime_scope = std::filesystem::file_size(log_path, error);
   ok &= Require(size_before_realtime_scope == size_after_realtime_scope,
                 "a real-time diagnostic call reached the log file");
-  ok &= Require(ninjamplugin::core::GetRealtimeDebugLogViolationCount() == 4U,
+  ok &= Require(mrninjam::core::GetRealtimeDebugLogViolationCount() == 4U,
                 "real-time diagnostic attempts were not reported to the regression");
 
   std::ifstream input(log_path);
@@ -145,9 +145,9 @@ int main() {
                 "redacted home-directory marker is missing");
 
   const auto size_before_disable = std::filesystem::file_size(log_path, error);
-  ok &= Require(ninjamplugin::core::SetDebugLogEnabled(false),
+  ok &= Require(mrninjam::core::SetDebugLogEnabled(false),
                 "could not persist disabled state");
-  ninjamplugin::core::DebugLog("test", "must not be written");
+  mrninjam::core::DebugLog("test", "must not be written");
   const auto size_after_disable = std::filesystem::file_size(log_path, error);
   ok &= Require(size_before_disable == size_after_disable,
                 "a log line was written while diagnostics were disabled");

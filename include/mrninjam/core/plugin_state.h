@@ -4,7 +4,7 @@
 #include <string_view>
 #include <array>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 struct PersistedLocalInputRouteState {
   bool enabled = false;
@@ -63,4 +63,4 @@ class PluginStateCodec {
   static bool Deserialize(std::string_view payload, PersistedPluginState* out_state);
 };
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

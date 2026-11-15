@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ninjamplugin/core/server_license_consent.h"
+#include "mrninjam/core/server_license_consent.h"
 
 #include <visage/app.h>
 
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace ninjamplugin::ui::mixer {
+namespace mrninjam::ui::mixer {
 
 struct LocalInputState {
   struct SourceChoice {
@@ -140,7 +140,7 @@ struct SessionUiState {
   std::string user = "anonymous";
   std::string password;
   std::string notice_text;
-  ninjamplugin::core::ServerLicenseAgreement server_license_agreement;
+  mrninjam::core::ServerLicenseAgreement server_license_agreement;
   std::string failure_text;
   std::string actual_bpm_text = "120.0";
   std::string actual_bpi_text = "8";
@@ -312,4 +312,4 @@ private:
   std::unique_ptr<Content> content_;
 };
 
-}  // namespace ninjamplugin::ui::mixer
+}  // namespace mrninjam::ui::mixer

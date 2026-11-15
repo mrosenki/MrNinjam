@@ -1,8 +1,8 @@
-#include "ninjamplugin/core/server_license_consent.h"
+#include "mrninjam/core/server_license_consent.h"
 
 #include <string_view>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 namespace {
 
 std::size_t BoundedLength(const char* text, const std::size_t maximum) {
@@ -65,4 +65,4 @@ void ServerLicenseConsent::ClearForServerChange() {
   accepted_text_.clear();
 }
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

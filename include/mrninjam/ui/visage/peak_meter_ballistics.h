@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace ninjamplugin::ui::mixer {
+namespace mrninjam::ui::mixer {
 
 // Keeps meter rendering independent of host/runtime snapshot cadence. New
 // samples can only raise the displayed peak; elapsed UI time owns the decay.
@@ -34,4 +34,4 @@ private:
   float level_ = 0.0f;
 };
 
-}  // namespace ninjamplugin::ui::mixer
+}  // namespace mrninjam::ui::mixer

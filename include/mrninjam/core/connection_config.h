@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 struct ConnectionSettings {
   std::string host;
@@ -31,4 +31,4 @@ bool SaveConnectionSettings(const ConnectionSettings& settings, const std::strin
 // Compatibility wrapper for the Phase 47 config-backed runtime path.
 bool LoadConnectionConfig(ConnectionConfig* out_config);
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

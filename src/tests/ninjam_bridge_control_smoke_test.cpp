@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 namespace {
 
@@ -13,7 +13,7 @@ bool NearlyEqual(const double lhs, const double rhs, const double epsilon = 1.0e
 }  // namespace
 
 int main() {
-  const ninjamplugin::core::LocalInputRouteConfig reference_route{
+  const mrninjam::core::LocalInputRouteConfig reference_route{
       true, true, true, 0, 1.0, 1.0, 0};
   auto live_gain_route = reference_route;
   live_gain_route.send_level = 1.5;
@@ -48,7 +48,7 @@ int main() {
     return EXIT_FAILURE;
   }
   auto voice_route = reference_route;
-  voice_route.channel_mode = ninjamplugin::core::NinjamBridge::kChannelModeVoiceChat;
+  voice_route.channel_mode = mrninjam::core::NinjamBridge::kChannelModeVoiceChat;
   if (reference_route.HasSameTransmitTopology(voice_route)) {
     std::cerr << "Channel mode change did not change transmit topology\n";
     return EXIT_FAILURE;
@@ -60,15 +60,15 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  ninjamplugin::core::NinjamBridge bridge;
+  mrninjam::core::NinjamBridge bridge;
 
   if (!bridge.Initialize(48000.0)) {
     std::cerr << "Initialize failed\n";
     return EXIT_FAILURE;
   }
   if (!std::isfinite(bridge.GetActualSessionBpm()) ||
-      bridge.GetActualSessionBpm() < ninjamplugin::core::NinjamBridge::kSessionBpmMin ||
-      bridge.GetActualSessionBpm() > ninjamplugin::core::NinjamBridge::kSessionBpmMax) {
+      bridge.GetActualSessionBpm() < mrninjam::core::NinjamBridge::kSessionBpmMin ||
+      bridge.GetActualSessionBpm() > mrninjam::core::NinjamBridge::kSessionBpmMax) {
     std::cerr << "Initial actual session BPM out of expected range\n";
     return EXIT_FAILURE;
   }
@@ -79,11 +79,11 @@ int main() {
   }
   if (!bridge.IsRuntimeConnectionAvailable() &&
       bridge.GetConnectionState() !=
-          ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable) {
+          mrninjam::core::NinjamBridge::kConnectionStateUnavailable) {
     std::cerr << "Connection state should be unavailable without runtime configuration\n";
     return EXIT_FAILURE;
   }
-  if (bridge.GetLastFailureReason() != ninjamplugin::core::NinjamBridge::kLastFailureNone) {
+  if (bridge.GetLastFailureReason() != mrninjam::core::NinjamBridge::kLastFailureNone) {
     std::cerr << "Last failure should default to None\n";
     return EXIT_FAILURE;
   }
@@ -113,7 +113,7 @@ int main() {
   }
   if (!bridge.IsRuntimeConnectionAvailable() &&
       bridge.GetConnectionState() !=
-          ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable) {
+          mrninjam::core::NinjamBridge::kConnectionStateUnavailable) {
     std::cerr << "Connection state should remain unavailable without runtime configuration\n";
     return EXIT_FAILURE;
   }
@@ -134,11 +134,11 @@ int main() {
   }
   if (bridge.IsRuntimeConnectionAvailable() &&
       bridge.GetConnectionState() !=
-          ninjamplugin::core::NinjamBridge::kConnectionStateDisconnected) {
+          mrninjam::core::NinjamBridge::kConnectionStateDisconnected) {
     std::cerr << "Connection state did not return to disconnected on disconnect request\n";
     return EXIT_FAILURE;
   }
-  if (bridge.GetLastFailureReason() != ninjamplugin::core::NinjamBridge::kLastFailureNone) {
+  if (bridge.GetLastFailureReason() != mrninjam::core::NinjamBridge::kLastFailureNone) {
     std::cerr << "Last failure should clear when connect request turns off\n";
     return EXIT_FAILURE;
   }
@@ -151,13 +151,13 @@ int main() {
   bridge.MainThreadTick();
 
   bridge.SetSessionBpm(999.0);
-  if (!NearlyEqual(bridge.GetSessionBpm(), ninjamplugin::core::NinjamBridge::kSessionBpmMax)) {
+  if (!NearlyEqual(bridge.GetSessionBpm(), mrninjam::core::NinjamBridge::kSessionBpmMax)) {
     std::cerr << "Session BPM upper clamp failed\n";
     return EXIT_FAILURE;
   }
 
   bridge.SetSessionBpm(-1.0);
-  if (!NearlyEqual(bridge.GetSessionBpm(), ninjamplugin::core::NinjamBridge::kSessionBpmMin)) {
+  if (!NearlyEqual(bridge.GetSessionBpm(), mrninjam::core::NinjamBridge::kSessionBpmMin)) {
     std::cerr << "Session BPM lower clamp failed\n";
     return EXIT_FAILURE;
   }
@@ -169,13 +169,13 @@ int main() {
   }
 
   bridge.SetMonitorMix(9.0);
-  if (!NearlyEqual(bridge.GetMonitorMix(), ninjamplugin::core::NinjamBridge::kMonitorMixMax)) {
+  if (!NearlyEqual(bridge.GetMonitorMix(), mrninjam::core::NinjamBridge::kMonitorMixMax)) {
     std::cerr << "Monitor mix upper clamp failed\n";
     return EXIT_FAILURE;
   }
 
   bridge.SetMonitorMix(-2.0);
-  if (!NearlyEqual(bridge.GetMonitorMix(), ninjamplugin::core::NinjamBridge::kMonitorMixMin)) {
+  if (!NearlyEqual(bridge.GetMonitorMix(), mrninjam::core::NinjamBridge::kMonitorMixMin)) {
     std::cerr << "Monitor mix lower clamp failed\n";
     return EXIT_FAILURE;
   }
@@ -188,14 +188,14 @@ int main() {
 
   bridge.SetMetronomeLevel(9.0);
   if (!NearlyEqual(bridge.GetMetronomeLevel(),
-                   ninjamplugin::core::NinjamBridge::kMetronomeLevelMax)) {
+                   mrninjam::core::NinjamBridge::kMetronomeLevelMax)) {
     std::cerr << "Metronome level upper clamp failed\n";
     return EXIT_FAILURE;
   }
 
   bridge.SetMetronomeLevel(-2.0);
   if (!NearlyEqual(bridge.GetMetronomeLevel(),
-                   ninjamplugin::core::NinjamBridge::kMetronomeLevelMin)) {
+                   mrninjam::core::NinjamBridge::kMetronomeLevelMin)) {
     std::cerr << "Metronome level lower clamp failed\n";
     return EXIT_FAILURE;
   }
@@ -221,25 +221,25 @@ int main() {
   }
 
   bridge.SetTransmitMode(-1);
-  if (bridge.GetTransmitMode() != ninjamplugin::core::NinjamBridge::kTransmitModeMono) {
+  if (bridge.GetTransmitMode() != mrninjam::core::NinjamBridge::kTransmitModeMono) {
     std::cerr << "Transmit mode lower clamp failed\n";
     return EXIT_FAILURE;
   }
 
   bridge.SetTransmitMode(99);
-  if (bridge.GetTransmitMode() != ninjamplugin::core::NinjamBridge::kTransmitModeStereo) {
+  if (bridge.GetTransmitMode() != mrninjam::core::NinjamBridge::kTransmitModeStereo) {
     std::cerr << "Transmit mode upper clamp failed\n";
     return EXIT_FAILURE;
   }
 
   bridge.SetTransmitBitrate(-10);
-  if (bridge.GetTransmitBitrate() != ninjamplugin::core::NinjamBridge::kTransmitBitrateMin) {
+  if (bridge.GetTransmitBitrate() != mrninjam::core::NinjamBridge::kTransmitBitrateMin) {
     std::cerr << "Transmit bitrate lower clamp failed\n";
     return EXIT_FAILURE;
   }
 
   bridge.SetTransmitBitrate(999);
-  if (bridge.GetTransmitBitrate() != ninjamplugin::core::NinjamBridge::kTransmitBitrateMax) {
+  if (bridge.GetTransmitBitrate() != mrninjam::core::NinjamBridge::kTransmitBitrateMax) {
     std::cerr << "Transmit bitrate upper clamp failed\n";
     return EXIT_FAILURE;
   }
@@ -277,7 +277,7 @@ int main() {
   }
 
   for (int route_index = 0;
-       route_index < ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+       route_index < mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
        ++route_index) {
     const auto route = bridge.GetLocalInputRouteConfig(route_index);
     if (route.configured && !bridge.RemoveLocalInputRoute(route_index)) {
@@ -316,20 +316,20 @@ int main() {
   bridge.SetLocalInputRouteMonitorSolo(rebuilt_route, true);
   bridge.SetLocalInputRouteOutputPair(rebuilt_route, 1);
   bridge.SetLocalInputRouteChannelMode(
-      rebuilt_route, ninjamplugin::core::NinjamBridge::kChannelModeVoiceChat);
+      rebuilt_route, mrninjam::core::NinjamBridge::kChannelModeVoiceChat);
   bridge.SetLocalInputRouteBitrate(rebuilt_route, 64);
   const auto configured_route = bridge.GetLocalInputRouteConfig(rebuilt_route);
   if (!NearlyEqual(configured_route.monitor_pan, 0.4) ||
       !configured_route.monitor_muted || !configured_route.monitor_solo ||
       configured_route.output_pair_index != 1 ||
-      configured_route.channel_mode != ninjamplugin::core::NinjamBridge::kChannelModeVoiceChat ||
+      configured_route.channel_mode != mrninjam::core::NinjamBridge::kChannelModeVoiceChat ||
       configured_route.bitrate != 64) {
     std::cerr << "Per-send monitor, mode, quality, or output controls were not retained\n";
     return EXIT_FAILURE;
   }
 
-  std::array<ninjamplugin::core::LocalInputRouteConfig,
-             ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs>
+  std::array<mrninjam::core::LocalInputRouteConfig,
+             mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs>
       restored_routes{};
   restored_routes[1] = {true, false, true, 3, 4.0, -1.0, 99};
   restored_routes[5] = {true, true, true, 0, 0.75, 0.5, 1};
@@ -341,11 +341,11 @@ int main() {
       !restored_one.configured || restored_one.enabled ||
       restored_one.source_pair_index != 3 ||
       !NearlyEqual(restored_one.send_level,
-                   ninjamplugin::core::NinjamBridge::kLocalInputSendLevelMax) ||
+                   mrninjam::core::NinjamBridge::kLocalInputSendLevelMax) ||
       !NearlyEqual(restored_one.monitor_level,
-                   ninjamplugin::core::NinjamBridge::kLocalInputMonitorLevelMin) ||
+                   mrninjam::core::NinjamBridge::kLocalInputMonitorLevelMin) ||
       restored_one.output_pair_index !=
-          ninjamplugin::core::NinjamBridge::kMaximumOutputRoute ||
+          mrninjam::core::NinjamBridge::kMaximumOutputRoute ||
       !restored_five.configured || !restored_five.enabled ||
       restored_five.source_pair_index != 0 ||
       !NearlyEqual(restored_five.send_level, 0.75) ||

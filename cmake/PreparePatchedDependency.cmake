@@ -1,4 +1,4 @@
-function(ninjamplugin_prepare_patched_dependency output_variable dependency_name source_directory patch_file)
+function(mrninjam_prepare_patched_dependency output_variable dependency_name source_directory patch_file)
   if(NOT IS_DIRECTORY "${source_directory}")
     message(FATAL_ERROR
       "${dependency_name} sources are missing at ${source_directory}. "

@@ -1,5 +1,5 @@
-#include "ninjamplugin/ui/visage/mixer_editor.h"
-#include "ninjamplugin/ui/visage/layout_preferences.h"
+#include "mrninjam/ui/visage/mixer_editor.h"
+#include "mrninjam/ui/visage/layout_preferences.h"
 
 #include <filesystem>
 #include <cmath>
@@ -40,13 +40,13 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
   int failures = 0;
 
   const auto preferences_path = output_directory / "layout-preferences-test.conf";
-  const ninjamplugin::ui::mixer::LayoutPreferences expected_preferences{
+  const mrninjam::ui::mixer::LayoutPreferences expected_preferences{
       .show_session_panel = false,
       .show_recording_panel = true,
       .chat_font_size = 2,
   };
-  if (!ninjamplugin::ui::mixer::SaveLayoutPreferences(preferences_path, expected_preferences) ||
-      ninjamplugin::ui::mixer::LoadLayoutPreferences(preferences_path) != expected_preferences) {
+  if (!mrninjam::ui::mixer::SaveLayoutPreferences(preferences_path, expected_preferences) ||
+      mrninjam::ui::mixer::LoadLayoutPreferences(preferences_path) != expected_preferences) {
     std::cerr << "layout preferences did not persist and reload correctly\n";
     ++failures;
   }
@@ -54,10 +54,10 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
   std::filesystem::remove(preferences_path, remove_error);
 
   {
-    ninjamplugin::ui::mixer::MixerEditor editor(
-        ninjamplugin::ui::mixer::MakeMixerScenario("live-state-adapter", 2, 1, 2), false);
+    mrninjam::ui::mixer::MixerEditor editor(
+        mrninjam::ui::mixer::MakeMixerScenario("live-state-adapter", 2, 1, 2), false);
     editor.setWindowless(1024, 680);
-    ninjamplugin::ui::mixer::SessionUiState state;
+    mrninjam::ui::mixer::SessionUiState state;
     state.uses_live_backend = true;
     state.connection_state_text = "Connecting";
     state.session_identity_text = "example.test:2049 / adapter-test";
@@ -204,7 +204,7 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
   }
 
   for (const auto& test : kVerificationCases) {
-    ninjamplugin::ui::mixer::MixerEditor editor(ninjamplugin::ui::mixer::MakeMixerScenario(
+    mrninjam::ui::mixer::MixerEditor editor(mrninjam::ui::mixer::MakeMixerScenario(
         test.name, test.local_inputs, test.participants, test.channels_per_participant),
         false);
     editor.setWindowless(test.width, test.height);
@@ -212,7 +212,7 @@ int VerifyLayouts(const std::filesystem::path& output_directory) {
     if (test.rows_collapsed)
       editor.setRowsCollapsed(true, true, true);
     if (test.width == 720 || test.width == 835) {
-      ninjamplugin::ui::mixer::SessionUiState warning_state;
+      mrninjam::ui::mixer::SessionUiState warning_state;
       warning_state.connection_state_text = "Connected";
       warning_state.audio_processing_paused = true;
       editor.updateSessionUiState(warning_state);
@@ -276,8 +276,8 @@ int main(int argc, char** argv) {
   if (verify)
     return VerifyLayouts(output_directory);
 
-  ninjamplugin::ui::mixer::MixerEditor editor(
-      ninjamplugin::ui::mixer::MakeMixerScenario("interactive / 4 inputs / 8 remote", 4, 4, 2));
+  mrninjam::ui::mixer::MixerEditor editor(
+      mrninjam::ui::mixer::MakeMixerScenario("interactive / 4 inputs / 8 remote", 4, 4, 2));
   editor.show(1280, 800);
   editor.runEventLoop();
   return 0;

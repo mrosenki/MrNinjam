@@ -9,10 +9,10 @@ GPL-3.0-or-later. This statement excludes all third-party code and assets.
 
 | Area | Paths | Migration treatment |
 | --- | --- | --- |
-| Core and state | `include/ninjamplugin/core/`, `src/core/` | Exported from the reviewed `0.1.132` baseline |
-| Plug-in adapter | `include/ninjamplugin/format/`, `src/format/clap/` | Exported unchanged except configurable dependency paths |
-| UI/controller | `include/ninjamplugin/ui/`, `src/ui/` | Exported from the baseline |
-| Production editor | `include/ninjamplugin/ui/visage/`, `src/ui/visage/`, `src/ui/editor_shell_visage.cpp` | Exported from the prototype tree, renamed, and made the sole production UI |
+| Core and state | `include/mrninjam/core/`, `src/core/` | Exported from the reviewed `0.1.132` baseline |
+| Plug-in adapter | `include/mrninjam/format/`, `src/format/clap/` | Exported unchanged except configurable dependency paths |
+| UI/controller | `include/mrninjam/ui/`, `src/ui/` | Exported from the baseline |
+| Production editor | `include/mrninjam/ui/visage/`, `src/ui/visage/`, `src/ui/editor_shell_visage.cpp` | Exported from the prototype tree, renamed, and made the sole production UI |
 | Standalone UI harness | `tools/ui_harness/` | Retained as optional development and layout-validation tooling |
 | Tests | `src/tests/` | Exported from the baseline |
 | Build/tooling | `CMakeLists.txt`, `cmake/`, `scripts/`, workflow files | Exported then revised for locked independent dependency preparation |
@@ -28,8 +28,8 @@ the integration patches.
 - NINJAM `njclient` is GPL-2.0-or-later. The project patch changes
   `njclient.cpp` and `njclient.h` and records the modification and date.
 - The same patch changes `WDL/rng.cpp` to serialize the process-global RNG
-  state for concurrent plug-in instances and records the NinjamPlugin
-  modification date, 2026-11-09. WDL/JNetLib files retain their permissive
+  state for concurrent plug-in instances and records the MrNinjam modification
+  date, 2026-11-09. WDL/JNetLib files retain their permissive
   source notices.
 - The Visage patch changes styling constants in
   `visage_widgets/text_editor.cpp`; the upstream Vital Audio notice remains.

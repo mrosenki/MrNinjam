@@ -1,11 +1,11 @@
-#include "ninjamplugin/core/server_license_consent.h"
+#include "mrninjam/core/server_license_consent.h"
 
 #include <iostream>
 #include <string>
 
 int main() {
-  using ninjamplugin::core::ServerLicenseAgreement;
-  using ninjamplugin::core::ServerLicenseConsent;
+  using mrninjam::core::ServerLicenseAgreement;
+  using mrninjam::core::ServerLicenseConsent;
 
   ServerLicenseConsent consent;
   if (!consent.Observe("server.test:2049", nullptr) ||

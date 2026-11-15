@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <string>
 
-namespace ninjamplugin::ui {
+namespace mrninjam::ui {
 
 struct AudioLevelBarState {
   double normalized_value = 0.0;
@@ -15,4 +15,4 @@ inline double ClampAudioLevelBarValue(const double value) {
   return std::clamp(value, 0.0, 1.0);
 }
 
-}  // namespace ninjamplugin::ui
+}  // namespace mrninjam::ui

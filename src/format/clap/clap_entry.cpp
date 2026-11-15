@@ -15,15 +15,15 @@
 #include <string>
 #include <vector>
 
-#include "ninjamplugin/core/ninjam_bridge.h"
-#include "ninjamplugin/core/parameter_model.h"
-#include "ninjamplugin/core/plugin_state.h"
-#include "ninjamplugin/core/debug_log.h"
-#include "ninjamplugin/format/clap/audio_processing_heartbeat.h"
-#include "ninjamplugin/format/clap/main_thread_pump_policy.h"
-#include "ninjamplugin/format/clap/plugin_config.h"
-#include "ninjamplugin/ui/connection_editor_controller.h"
-#include "ninjamplugin/ui/editor_shell.h"
+#include "mrninjam/core/ninjam_bridge.h"
+#include "mrninjam/core/parameter_model.h"
+#include "mrninjam/core/plugin_state.h"
+#include "mrninjam/core/debug_log.h"
+#include "mrninjam/format/clap/audio_processing_heartbeat.h"
+#include "mrninjam/format/clap/main_thread_pump_policy.h"
+#include "mrninjam/format/clap/plugin_config.h"
+#include "mrninjam/ui/connection_editor_controller.h"
+#include "mrninjam/ui/editor_shell.h"
 
 #include <clap/clap.h>
 #include <clap/ext/audio-ports.h>
@@ -99,70 +99,70 @@ std::string BuildEditorRecordingStatusText(const bool session_mix_selected,
 
 class ClapConnectionEditorHost;
 
-struct NinjamPluginInstance {
+struct MrNinjamInstance {
   clap_plugin plugin{};
   std::uint64_t debug_log_instance_id =
-      ninjamplugin::core::AllocateDebugLogInstanceId();
+      mrninjam::core::AllocateDebugLogInstanceId();
   const clap_host_t* host = nullptr;
   const clap_host_params_t* host_params = nullptr;
   const clap_host_gui_t* host_gui = nullptr;
   const clap_host_audio_ports_t* host_audio_ports = nullptr;
   const clap_host_timer_support_t* host_timer_support = nullptr;
   bool is_reaper_host = false;
-  ninjamplugin::core::ParameterModel params;
-  ninjamplugin::core::NinjamBridge runtime;
-  std::unique_ptr<ninjamplugin::ui::EditorShell> editor_shell;
+  mrninjam::core::ParameterModel params;
+  mrninjam::core::NinjamBridge runtime;
+  std::unique_ptr<mrninjam::ui::EditorShell> editor_shell;
   std::unique_ptr<ClapConnectionEditorHost> editor_controller_host;
-  std::unique_ptr<ninjamplugin::ui::ConnectionEditorController> editor_controller;
+  std::unique_ptr<mrninjam::ui::ConnectionEditorController> editor_controller;
   bool editor_created = false;
   bool editor_visible = false;
   std::atomic_bool plugin_active{false};
   bool main_thread_timer_registered = false;
   clap_id main_thread_timer_id = CLAP_INVALID_ID;
-  ninjamplugin::format::clap::AudioProcessingHeartbeat audio_processing_heartbeat;
+  mrninjam::format::clap::AudioProcessingHeartbeat audio_processing_heartbeat;
   std::atomic_bool keep_main_thread_pumping{false};
   std::atomic_bool main_thread_callback_pending{false};
   std::mutex pending_connection_settings_mutex;
-  ninjamplugin::core::ConnectionSettings pending_connection_settings;
+  mrninjam::core::ConnectionSettings pending_connection_settings;
   std::atomic_bool pending_connection_settings_dirty{false};
   std::atomic_bool pending_connect_requested_dirty{false};
   std::atomic_bool pending_connect_requested{false};
   std::atomic_bool pending_target_session_bpm_dirty{false};
   std::atomic<double> pending_target_session_bpm{
-      ninjamplugin::core::NinjamBridge::kSessionBpmDefault};
+      mrninjam::core::NinjamBridge::kSessionBpmDefault};
   std::atomic_bool pending_target_session_bpi_dirty{false};
   std::atomic<int> pending_target_session_bpi{
-      ninjamplugin::core::NinjamBridge::kSessionBpiDefault};
+      mrninjam::core::NinjamBridge::kSessionBpiDefault};
   std::atomic_bool pending_timing_vote_dirty{false};
   std::atomic<double> pending_timing_vote_bpm{
-      ninjamplugin::core::NinjamBridge::kSessionBpmDefault};
+      mrninjam::core::NinjamBridge::kSessionBpmDefault};
   std::atomic<int> pending_timing_vote_bpi{
-      ninjamplugin::core::NinjamBridge::kSessionBpiDefault};
+      mrninjam::core::NinjamBridge::kSessionBpiDefault};
   std::atomic_bool pending_monitor_mix_dirty{false};
   std::atomic<double> pending_monitor_mix{
-      ninjamplugin::core::NinjamBridge::kMonitorMixDefault};
+      mrninjam::core::NinjamBridge::kMonitorMixDefault};
   std::atomic_bool pending_metronome_level_dirty{false};
   std::atomic<double> pending_metronome_level{
-      ninjamplugin::core::NinjamBridge::kMetronomeLevelDefault};
+      mrninjam::core::NinjamBridge::kMetronomeLevelDefault};
   std::atomic_bool pending_metronome_enabled_dirty{false};
   std::atomic_bool pending_metronome_enabled{true};
   std::atomic_bool pending_transmit_mode_dirty{false};
   std::atomic<int> pending_transmit_mode{
-      ninjamplugin::core::NinjamBridge::kTransmitModeStereo};
+      mrninjam::core::NinjamBridge::kTransmitModeStereo};
   std::atomic_bool pending_transmit_bitrate_dirty{false};
   std::atomic<int> pending_transmit_bitrate{
-      ninjamplugin::core::NinjamBridge::kTransmitBitrateDefault};
+      mrninjam::core::NinjamBridge::kTransmitBitrateDefault};
   std::atomic_bool pending_connection_state_dirty{false};
   std::atomic<int> pending_connection_state{
-      ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable};
+      mrninjam::core::NinjamBridge::kConnectionStateUnavailable};
   std::atomic_bool pending_actual_session_bpm_dirty{false};
   std::atomic<double> pending_actual_session_bpm{
-      ninjamplugin::core::NinjamBridge::kSessionBpmDefault};
+      mrninjam::core::NinjamBridge::kSessionBpmDefault};
   std::atomic_bool pending_connect_attempt_count_dirty{false};
   std::atomic<int> pending_connect_attempt_count{0};
   std::atomic_bool pending_last_failure_reason_dirty{false};
   std::atomic<int> pending_last_failure_reason{
-      ninjamplugin::core::NinjamBridge::kLastFailureNone};
+      mrninjam::core::NinjamBridge::kLastFailureNone};
   std::atomic<uint64_t> last_callback_request_ns{0};
   int last_logged_connection_state = std::numeric_limits<int>::min();
   bool last_logged_connect_requested = false;
@@ -174,9 +174,9 @@ struct NinjamPluginInstance {
   double expected_transport_seconds = 0.0;
 };
 
-NinjamPluginInstance* ToInstance(const clap_plugin_t* plugin) {
+MrNinjamInstance* ToInstance(const clap_plugin_t* plugin) {
   return plugin == nullptr ? nullptr
-                           : static_cast<NinjamPluginInstance*>(plugin->plugin_data);
+                           : static_cast<MrNinjamInstance*>(plugin->plugin_data);
 }
 
 uint64_t MonotonicNowNs() {
@@ -186,7 +186,7 @@ uint64_t MonotonicNowNs() {
           .count());
 }
 
-bool ShouldScheduleMainThreadCallback(NinjamPluginInstance* instance, const bool force) {
+bool ShouldScheduleMainThreadCallback(MrNinjamInstance* instance, const bool force) {
   if (instance == nullptr) {
     return false;
   }
@@ -207,7 +207,7 @@ bool ShouldScheduleMainThreadCallback(NinjamPluginInstance* instance, const bool
   }
 }
 
-void RequestHostMainThreadCallback(NinjamPluginInstance* instance, const bool force = false) {
+void RequestHostMainThreadCallback(MrNinjamInstance* instance, const bool force = false) {
   if (instance == nullptr || instance->host == nullptr ||
       instance->host->request_callback == nullptr) {
     return;
@@ -222,7 +222,7 @@ void RequestHostMainThreadCallback(NinjamPluginInstance* instance, const bool fo
   instance->host->request_callback(instance->host);
 }
 
-void UnregisterHostMainThreadTimer(NinjamPluginInstance* instance) {
+void UnregisterHostMainThreadTimer(MrNinjamInstance* instance) {
   if (instance == nullptr || !instance->main_thread_timer_registered) {
     return;
   }
@@ -235,7 +235,7 @@ void UnregisterHostMainThreadTimer(NinjamPluginInstance* instance) {
   instance->main_thread_timer_id = CLAP_INVALID_ID;
 }
 
-bool UpdateHostMainThreadTimer(NinjamPluginInstance* instance,
+bool UpdateHostMainThreadTimer(MrNinjamInstance* instance,
                                const bool should_run) {
   if (instance == nullptr) {
     return false;
@@ -262,38 +262,38 @@ bool UpdateHostMainThreadTimer(NinjamPluginInstance* instance,
   return true;
 }
 
-void RequestHostParamsFlush(NinjamPluginInstance* instance) {
+void RequestHostParamsFlush(MrNinjamInstance* instance) {
   if (instance == nullptr || instance->host == nullptr || instance->host_params == nullptr ||
       instance->host_params->request_flush == nullptr) {
     return;
   }
-  ninjamplugin::core::DebugLog("clap", "request_flush -> host_params");
+  mrninjam::core::DebugLog("clap", "request_flush -> host_params");
   instance->host_params->request_flush(instance->host);
 }
 
-void RequestHostParamsRescanValues(NinjamPluginInstance* instance) {
+void RequestHostParamsRescanValues(MrNinjamInstance* instance) {
   if (instance == nullptr || instance->host == nullptr || instance->host_params == nullptr ||
       instance->host_params->rescan == nullptr) {
     return;
   }
-  ninjamplugin::core::DebugLog("clap", "rescan(values) -> host_params");
+  mrninjam::core::DebugLog("clap", "rescan(values) -> host_params");
   instance->host_params->rescan(instance->host, CLAP_PARAM_RESCAN_VALUES);
 }
 
-void RequestHostAudioPortsRescan(NinjamPluginInstance* instance) {
+void RequestHostAudioPortsRescan(MrNinjamInstance* instance) {
   if (instance == nullptr || instance->host == nullptr || instance->host_audio_ports == nullptr ||
       instance->host_audio_ports->rescan == nullptr) return;
-  ninjamplugin::core::DebugLog("clap", "rescan(channel-count) -> host_audio_ports");
+  mrninjam::core::DebugLog("clap", "rescan(channel-count) -> host_audio_ports");
   instance->host_audio_ports->rescan(instance->host, CLAP_AUDIO_PORTS_RESCAN_CHANNEL_COUNT);
 }
 
-void RequestHostEditorControlSync(NinjamPluginInstance* instance) {
+void RequestHostEditorControlSync(MrNinjamInstance* instance) {
   RequestHostParamsFlush(instance);
   RequestHostParamsRescanValues(instance);
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueConnectRequestedOnMainThread(NinjamPluginInstance* instance, const bool value) {
+void QueueConnectRequestedOnMainThread(MrNinjamInstance* instance, const bool value) {
   if (instance == nullptr) {
     return;
   }
@@ -303,8 +303,8 @@ void QueueConnectRequestedOnMainThread(NinjamPluginInstance* instance, const boo
 }
 
 void QueueConnectionSettingsOnMainThread(
-    NinjamPluginInstance* instance,
-    const ninjamplugin::core::ConnectionSettings& settings) {
+    MrNinjamInstance* instance,
+    const mrninjam::core::ConnectionSettings& settings) {
   if (instance == nullptr) {
     return;
   }
@@ -316,61 +316,61 @@ void QueueConnectionSettingsOnMainThread(
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueTargetSessionBpmOnMainThread(NinjamPluginInstance* instance, const double value) {
+void QueueTargetSessionBpmOnMainThread(MrNinjamInstance* instance, const double value) {
   if (instance == nullptr) {
     return;
   }
   instance->pending_target_session_bpm.store(
-      ninjamplugin::core::NinjamBridge::ClampSessionBpm(value), std::memory_order_relaxed);
+      mrninjam::core::NinjamBridge::ClampSessionBpm(value), std::memory_order_relaxed);
   instance->pending_target_session_bpm_dirty.store(true, std::memory_order_release);
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueTargetSessionBpiOnMainThread(NinjamPluginInstance* instance, const int value) {
+void QueueTargetSessionBpiOnMainThread(MrNinjamInstance* instance, const int value) {
   if (instance == nullptr) {
     return;
   }
   instance->pending_target_session_bpi.store(
-      ninjamplugin::core::NinjamBridge::ClampSessionBpi(value), std::memory_order_relaxed);
+      mrninjam::core::NinjamBridge::ClampSessionBpi(value), std::memory_order_relaxed);
   instance->pending_target_session_bpi_dirty.store(true, std::memory_order_release);
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueTimingVoteOnMainThread(NinjamPluginInstance* instance,
+void QueueTimingVoteOnMainThread(MrNinjamInstance* instance,
                                  const double bpm,
                                  const int bpi) {
   if (instance == nullptr) return;
   instance->pending_timing_vote_bpm.store(
-      ninjamplugin::core::NinjamBridge::ClampSessionBpm(bpm),
+      mrninjam::core::NinjamBridge::ClampSessionBpm(bpm),
       std::memory_order_relaxed);
   instance->pending_timing_vote_bpi.store(
-      ninjamplugin::core::NinjamBridge::ClampSessionBpi(bpi),
+      mrninjam::core::NinjamBridge::ClampSessionBpi(bpi),
       std::memory_order_relaxed);
   instance->pending_timing_vote_dirty.store(true, std::memory_order_release);
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueMonitorMixOnMainThread(NinjamPluginInstance* instance, const double value) {
+void QueueMonitorMixOnMainThread(MrNinjamInstance* instance, const double value) {
   if (instance == nullptr) {
     return;
   }
   instance->pending_monitor_mix.store(
-      ninjamplugin::core::NinjamBridge::ClampMonitorMix(value), std::memory_order_relaxed);
+      mrninjam::core::NinjamBridge::ClampMonitorMix(value), std::memory_order_relaxed);
   instance->pending_monitor_mix_dirty.store(true, std::memory_order_release);
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueMetronomeLevelOnMainThread(NinjamPluginInstance* instance, const double value) {
+void QueueMetronomeLevelOnMainThread(MrNinjamInstance* instance, const double value) {
   if (instance == nullptr) {
     return;
   }
   instance->pending_metronome_level.store(
-      ninjamplugin::core::NinjamBridge::ClampMetronomeLevel(value), std::memory_order_relaxed);
+      mrninjam::core::NinjamBridge::ClampMetronomeLevel(value), std::memory_order_relaxed);
   instance->pending_metronome_level_dirty.store(true, std::memory_order_release);
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueMetronomeEnabledOnMainThread(NinjamPluginInstance* instance, const bool value) {
+void QueueMetronomeEnabledOnMainThread(MrNinjamInstance* instance, const bool value) {
   if (instance == nullptr) {
     return;
   }
@@ -379,31 +379,31 @@ void QueueMetronomeEnabledOnMainThread(NinjamPluginInstance* instance, const boo
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueTransmitModeOnMainThread(NinjamPluginInstance* instance, const double value) {
+void QueueTransmitModeOnMainThread(MrNinjamInstance* instance, const double value) {
   if (instance == nullptr || !std::isfinite(value)) {
     return;
   }
   instance->pending_transmit_mode.store(
-      ninjamplugin::core::NinjamBridge::ClampTransmitMode(static_cast<int>(std::lround(value))),
+      mrninjam::core::NinjamBridge::ClampTransmitMode(static_cast<int>(std::lround(value))),
       std::memory_order_relaxed);
   instance->pending_transmit_mode_dirty.store(true, std::memory_order_release);
   RequestHostMainThreadCallback(instance, true);
 }
 
-void QueueTransmitBitrateOnMainThread(NinjamPluginInstance* instance, const double value) {
+void QueueTransmitBitrateOnMainThread(MrNinjamInstance* instance, const double value) {
   if (instance == nullptr || !std::isfinite(value)) {
     return;
   }
   instance->pending_transmit_bitrate.store(
-      ninjamplugin::core::NinjamBridge::GetTransmitBitrateForIndex(
-          ninjamplugin::core::NinjamBridge::ClampTransmitBitrateIndex(
+      mrninjam::core::NinjamBridge::GetTransmitBitrateForIndex(
+          mrninjam::core::NinjamBridge::ClampTransmitBitrateIndex(
               static_cast<int>(std::lround(value)))),
       std::memory_order_relaxed);
   instance->pending_transmit_bitrate_dirty.store(true, std::memory_order_release);
   RequestHostMainThreadCallback(instance, true);
 }
 
-void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instance) {
+void ApplyPendingRuntimeControlUpdatesOnMainThread(MrNinjamInstance* instance) {
   if (instance == nullptr) {
     return;
   }
@@ -413,13 +413,13 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
   // an attempt with credentials from the previous draft.
   if (instance->pending_connection_settings_dirty.exchange(false,
                                                             std::memory_order_acq_rel)) {
-    ninjamplugin::core::ConnectionSettings settings;
+    mrninjam::core::ConnectionSettings settings;
     {
       const std::lock_guard<std::mutex> lock(instance->pending_connection_settings_mutex);
       settings = instance->pending_connection_settings;
     }
     instance->runtime.ApplyConnectionSettings(settings);
-    ninjamplugin::core::DebugLog("clap", "ApplyPending ConnectionSettings");
+    mrninjam::core::DebugLog("clap", "ApplyPending ConnectionSettings");
   }
   if (instance->pending_connect_requested_dirty.exchange(false, std::memory_order_acq_rel)) {
     const bool requested = instance->pending_connect_requested.load(std::memory_order_acquire);
@@ -427,9 +427,9 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
     const bool retrying_terminal_failure =
         requested && instance->runtime.IsConnectRequested() &&
         (connection_state ==
-             ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth ||
+             mrninjam::core::NinjamBridge::kConnectionStateInvalidAuth ||
          connection_state ==
-             ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect);
+             mrninjam::core::NinjamBridge::kConnectionStateCantConnect);
     if (retrying_terminal_failure) {
       // SetConnectRequested(true) is intentionally idempotent during a live
       // attempt. A terminal failure needs an explicit false -> true edge so
@@ -437,7 +437,7 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
       instance->runtime.SetConnectRequested(false);
     }
     instance->runtime.SetConnectRequested(requested);
-    ninjamplugin::core::DebugLogf(
+    mrninjam::core::DebugLogf(
         "clap",
         "ApplyPending ConnectRequest=%d retry=%d",
         requested ? 1 : 0,
@@ -446,12 +446,12 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
   if (instance->pending_target_session_bpm_dirty.exchange(false, std::memory_order_acq_rel)) {
     const double bpm = instance->pending_target_session_bpm.load(std::memory_order_acquire);
     instance->runtime.SetSessionBpm(bpm);
-    ninjamplugin::core::DebugLogf("clap", "ApplyPending TargetSessionBpm=%.3f", bpm);
+    mrninjam::core::DebugLogf("clap", "ApplyPending TargetSessionBpm=%.3f", bpm);
   }
   if (instance->pending_target_session_bpi_dirty.exchange(false, std::memory_order_acq_rel)) {
     const int bpi = instance->pending_target_session_bpi.load(std::memory_order_acquire);
     instance->runtime.SetSessionBpi(bpi);
-    ninjamplugin::core::DebugLogf("clap", "ApplyPending TargetSessionBpi=%d", bpi);
+    mrninjam::core::DebugLogf("clap", "ApplyPending TargetSessionBpi=%d", bpi);
   }
   if (instance->pending_timing_vote_dirty.exchange(false, std::memory_order_acq_rel)) {
     const double bpm = instance->pending_timing_vote_bpm.load(std::memory_order_acquire);
@@ -462,43 +462,43 @@ void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instanc
     instance->pending_target_session_bpm_dirty.store(false, std::memory_order_release);
     instance->pending_target_session_bpi.store(bpi, std::memory_order_relaxed);
     instance->pending_target_session_bpi_dirty.store(false, std::memory_order_release);
-    ninjamplugin::core::DebugLogf(
+    mrninjam::core::DebugLogf(
         "clap", "ApplyPending TimingVote=%.2f BPM / %d BPI", bpm, bpi);
   }
   if (instance->pending_monitor_mix_dirty.exchange(false, std::memory_order_acq_rel)) {
     const double mix = instance->pending_monitor_mix.load(std::memory_order_acquire);
     instance->runtime.SetMonitorMix(mix);
-    ninjamplugin::core::DebugLogf("clap", "ApplyPending RemoteReturn=%.3f", mix);
+    mrninjam::core::DebugLogf("clap", "ApplyPending RemoteReturn=%.3f", mix);
   }
   if (instance->pending_metronome_level_dirty.exchange(false, std::memory_order_acq_rel)) {
     const double level = instance->pending_metronome_level.load(std::memory_order_acquire);
     instance->runtime.SetMetronomeLevel(level);
-    ninjamplugin::core::DebugLogf("clap", "ApplyPending MetronomeLevel=%.3f", level);
+    mrninjam::core::DebugLogf("clap", "ApplyPending MetronomeLevel=%.3f", level);
   }
   if (instance->pending_metronome_enabled_dirty.exchange(false, std::memory_order_acq_rel)) {
     const bool enabled =
         instance->pending_metronome_enabled.load(std::memory_order_acquire);
     instance->runtime.SetMetronomeEnabled(enabled);
-    ninjamplugin::core::DebugLogf(
+    mrninjam::core::DebugLogf(
         "clap", "ApplyPending MetronomeEnabled=%d", enabled ? 1 : 0);
   }
   if (instance->pending_transmit_mode_dirty.exchange(false, std::memory_order_acq_rel)) {
     const int mode = instance->pending_transmit_mode.load(std::memory_order_acquire);
     instance->runtime.SetTransmitMode(mode);
-    ninjamplugin::core::DebugLogf("clap", "ApplyPending TransmitMode=%d", mode);
+    mrninjam::core::DebugLogf("clap", "ApplyPending TransmitMode=%d", mode);
   }
   if (instance->pending_transmit_bitrate_dirty.exchange(false, std::memory_order_acq_rel)) {
     const int bitrate = instance->pending_transmit_bitrate.load(std::memory_order_acquire);
     instance->runtime.SetTransmitBitrate(bitrate);
-    ninjamplugin::core::DebugLogf("clap", "ApplyPending TransmitBitrate=%d", bitrate);
+    mrninjam::core::DebugLogf("clap", "ApplyPending TransmitBitrate=%d", bitrate);
   }
 }
 
-bool ShouldKeepMainThreadPumping(const NinjamPluginInstance* instance) {
+bool ShouldKeepMainThreadPumping(const MrNinjamInstance* instance) {
   if (instance == nullptr) {
     return false;
   }
-  return ninjamplugin::format::clap::NeedsMainThreadPump({
+  return mrninjam::format::clap::NeedsMainThreadPump({
       .plugin_active =
           instance->plugin_active.load(std::memory_order_acquire),
       .editor_visible = instance->editor_visible,
@@ -514,7 +514,7 @@ bool ShouldKeepMainThreadPumping(const NinjamPluginInstance* instance) {
   });
 }
 
-void RefreshHostMainThreadPump(NinjamPluginInstance* instance) {
+void RefreshHostMainThreadPump(MrNinjamInstance* instance) {
   if (instance == nullptr) {
     return;
   }
@@ -527,7 +527,7 @@ void RefreshHostMainThreadPump(NinjamPluginInstance* instance) {
   }
 }
 
-bool GetEffectiveConnectRequested(const NinjamPluginInstance* instance) {
+bool GetEffectiveConnectRequested(const MrNinjamInstance* instance) {
   if (instance == nullptr) {
     return false;
   }
@@ -559,7 +559,7 @@ bool EmitParamValueEvent(const clap_output_events_t* out,
   return out->try_push(out, &event.header);
 }
 
-void EmitPendingStatusParamEvents(NinjamPluginInstance* instance, const clap_output_events_t* out) {
+void EmitPendingStatusParamEvents(MrNinjamInstance* instance, const clap_output_events_t* out) {
   if (instance == nullptr || out == nullptr) {
     return;
   }
@@ -622,17 +622,17 @@ bool ParseDoubleStrict(const char* text, double* out_value) {
 
 const char* ConnectionStateToText(const int state) {
   switch (state) {
-    case ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable:
+    case mrninjam::core::NinjamBridge::kConnectionStateUnavailable:
       return "Unavailable";
-    case ninjamplugin::core::NinjamBridge::kConnectionStateDisconnected:
+    case mrninjam::core::NinjamBridge::kConnectionStateDisconnected:
       return "Disconnected";
-    case ninjamplugin::core::NinjamBridge::kConnectionStateConnecting:
+    case mrninjam::core::NinjamBridge::kConnectionStateConnecting:
       return "Connecting";
-    case ninjamplugin::core::NinjamBridge::kConnectionStateConnected:
+    case mrninjam::core::NinjamBridge::kConnectionStateConnected:
       return "Connected";
-    case ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth:
+    case mrninjam::core::NinjamBridge::kConnectionStateInvalidAuth:
       return "InvalidAuth";
-    case ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect:
+    case mrninjam::core::NinjamBridge::kConnectionStateCantConnect:
       return "CantConnect";
     default:
       return "Unknown";
@@ -641,11 +641,11 @@ const char* ConnectionStateToText(const int state) {
 
 const char* LastFailureReasonToText(const int reason) {
   switch (reason) {
-    case ninjamplugin::core::NinjamBridge::kLastFailureNone:
+    case mrninjam::core::NinjamBridge::kLastFailureNone:
       return "None";
-    case ninjamplugin::core::NinjamBridge::kLastFailureInvalidAuth:
+    case mrninjam::core::NinjamBridge::kLastFailureInvalidAuth:
       return "InvalidAuth";
-    case ninjamplugin::core::NinjamBridge::kLastFailureCantConnect:
+    case mrninjam::core::NinjamBridge::kLastFailureCantConnect:
       return "CantConnect";
     default:
       return "Unknown";
@@ -653,18 +653,18 @@ const char* LastFailureReasonToText(const int reason) {
 }
 
 const char* TransmitModeToText(const int mode) {
-  return mode == ninjamplugin::core::NinjamBridge::kTransmitModeMono ? "Mono" : "Stereo";
+  return mode == mrninjam::core::NinjamBridge::kTransmitModeMono ? "Mono" : "Stereo";
 }
 
-ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSnapshot(
-    NinjamPluginInstance* instance) {
-  ninjamplugin::ui::ConnectionEditorRuntimeSnapshot snapshot;
+mrninjam::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSnapshot(
+    MrNinjamInstance* instance) {
+  mrninjam::ui::ConnectionEditorRuntimeSnapshot snapshot;
   if (instance == nullptr) {
     return snapshot;
   }
 
   snapshot.overview = instance->runtime.GetSessionOverview();
-  snapshot.config_path = ninjamplugin::core::GetConnectionConfigPath();
+  snapshot.config_path = mrninjam::core::GetConnectionConfigPath();
   snapshot.connection_state = instance->runtime.GetConnectionState();
   snapshot.connection_state_text = ConnectionStateToText(snapshot.connection_state);
   snapshot.last_failure_text = LastFailureReasonToText(instance->runtime.GetLastFailureReason());
@@ -712,7 +712,7 @@ ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSn
           ? instance->pending_transmit_bitrate.load(std::memory_order_acquire)
           : instance->runtime.GetTransmitBitrate();
   snapshot.transmit_bitrate_index =
-      static_cast<int>(ninjamplugin::core::NinjamBridge::GetTransmitBitrateIndex(transmit_bitrate));
+      static_cast<int>(mrninjam::core::NinjamBridge::GetTransmitBitrateIndex(transmit_bitrate));
   snapshot.transmit_mode_text = TransmitModeToText(snapshot.transmit_mode_value);
   snapshot.session_capture_enabled = instance->runtime.IsSessionCaptureEnabled();
   snapshot.session_capture_bits_per_sample = instance->runtime.GetSessionCaptureBitsPerSample();
@@ -729,7 +729,7 @@ ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSn
   snapshot.active_daw_output_channel_count = instance->runtime.GetActiveDawOutputChannelCount();
   snapshot.server_max_local_channels = instance->runtime.GetServerMaxLocalChannels();
   for (int route_index = 0;
-       route_index < ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+       route_index < mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
        ++route_index) {
     const std::size_t index = static_cast<std::size_t>(route_index);
     snapshot.local_input_pair_peak_left[index] =
@@ -746,7 +746,7 @@ ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSn
         instance->runtime.IsLocalInputRouteClipLatched(route_index);
   }
   for (int pair_index = 0;
-       pair_index < ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount;
+       pair_index < mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount;
        ++pair_index) {
     const auto route = instance->runtime.GetLocalInputRouteConfig(pair_index);
     snapshot.local_input_route_configured[static_cast<std::size_t>(pair_index)] = route.configured;
@@ -806,7 +806,7 @@ ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSn
   return snapshot;
 }
 
-void UpdateEditorShellView(NinjamPluginInstance* instance, const bool replace_form_fields) {
+void UpdateEditorShellView(MrNinjamInstance* instance, const bool replace_form_fields) {
   if (instance == nullptr || instance->editor_shell == nullptr || instance->editor_controller == nullptr) {
     return;
   }
@@ -815,7 +815,7 @@ void UpdateEditorShellView(NinjamPluginInstance* instance, const bool replace_fo
           BuildConnectionEditorRuntimeSnapshot(instance), replace_form_fields));
 }
 
-void SyncEditorDraftSettingsFromRuntime(NinjamPluginInstance* instance, const bool force = false) {
+void SyncEditorDraftSettingsFromRuntime(MrNinjamInstance* instance, const bool force = false) {
   if (instance == nullptr || instance->editor_controller == nullptr) {
     return;
   }
@@ -823,9 +823,9 @@ void SyncEditorDraftSettingsFromRuntime(NinjamPluginInstance* instance, const bo
       instance->runtime.GetConnectionSettings(), force);
 }
 
-class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditorControllerHost {
+class ClapConnectionEditorHost final : public mrninjam::ui::ConnectionEditorControllerHost {
  public:
-  explicit ClapConnectionEditorHost(NinjamPluginInstance* instance) : instance_(instance) {}
+  explicit ClapConnectionEditorHost(MrNinjamInstance* instance) : instance_(instance) {}
 
   void RequestViewRefresh(const bool replace_form_fields) override {
     UpdateEditorShellView(instance_, replace_form_fields);
@@ -858,18 +858,18 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
 
   int GetConnectionState() const override {
     return instance_ == nullptr
-               ? ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable
+               ? mrninjam::core::NinjamBridge::kConnectionStateUnavailable
                : instance_->runtime.GetConnectionState();
   }
 
-  ninjamplugin::core::ConnectionSettings GetRuntimeConnectionSettings() const override {
-    return instance_ == nullptr ? ninjamplugin::core::ConnectionSettings()
+  mrninjam::core::ConnectionSettings GetRuntimeConnectionSettings() const override {
+    return instance_ == nullptr ? mrninjam::core::ConnectionSettings()
                                 : instance_->runtime.GetConnectionSettings();
   }
 
-  ninjamplugin::core::ServerLicenseAgreement GetPendingServerLicenseAgreement() const override {
+  mrninjam::core::ServerLicenseAgreement GetPendingServerLicenseAgreement() const override {
     return instance_ == nullptr
-               ? ninjamplugin::core::ServerLicenseAgreement{}
+               ? mrninjam::core::ServerLicenseAgreement{}
                : instance_->runtime.GetPendingServerLicenseAgreement();
   }
 
@@ -885,12 +885,12 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
     if (instance_ != nullptr) instance_->runtime.DismissPendingServerLicenseAgreement();
   }
 
-  void ApplyConnectionSettings(const ninjamplugin::core::ConnectionSettings& settings) override {
+  void ApplyConnectionSettings(const mrninjam::core::ConnectionSettings& settings) override {
     ::QueueConnectionSettingsOnMainThread(instance_, settings);
   }
 
-  ninjamplugin::core::SessionOverview GetSessionOverview() const override {
-    return instance_ == nullptr ? ninjamplugin::core::SessionOverview()
+  mrninjam::core::SessionOverview GetSessionOverview() const override {
+    return instance_ == nullptr ? mrninjam::core::SessionOverview()
                                 : instance_->runtime.GetSessionOverview();
   }
 
@@ -1022,9 +1022,9 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
     }
   }
 
-  ninjamplugin::core::LocalInputRouteConfig GetLocalInputRouteConfig(
+  mrninjam::core::LocalInputRouteConfig GetLocalInputRouteConfig(
       const int index) const override {
-    return instance_ == nullptr ? ninjamplugin::core::LocalInputRouteConfig()
+    return instance_ == nullptr ? mrninjam::core::LocalInputRouteConfig()
                                 : instance_->runtime.GetLocalInputRouteConfig(index);
   }
 
@@ -1050,7 +1050,7 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
 
   double GetLocalInputRouteSendLevel(const int index) const override {
     return instance_ == nullptr
-               ? ninjamplugin::core::NinjamBridge::kLocalInputSendLevelDefault
+               ? mrninjam::core::NinjamBridge::kLocalInputSendLevelDefault
                : instance_->runtime.GetLocalInputRouteSendLevel(index);
   }
 
@@ -1074,7 +1074,7 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
 
   double GetLocalInputRouteMonitorLevel(const int index) const override {
     return instance_ == nullptr
-               ? ninjamplugin::core::NinjamBridge::kLocalInputMonitorLevelDefault
+               ? mrninjam::core::NinjamBridge::kLocalInputMonitorLevelDefault
                : instance_->runtime.GetLocalInputRouteMonitorLevel(index);
   }
 
@@ -1249,7 +1249,7 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
   }
 
  private:
-  NinjamPluginInstance* instance_ = nullptr;
+  MrNinjamInstance* instance_ = nullptr;
 };
 
 bool ParseConnectionStateText(const char* text, double* out_value) {
@@ -1257,27 +1257,27 @@ bool ParseConnectionStateText(const char* text, double* out_value) {
     return false;
   }
   if (std::strcmp(text, "Unavailable") == 0 || std::strcmp(text, "unavailable") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable;
+    *out_value = mrninjam::core::NinjamBridge::kConnectionStateUnavailable;
     return true;
   }
   if (std::strcmp(text, "Disconnected") == 0 || std::strcmp(text, "disconnected") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kConnectionStateDisconnected;
+    *out_value = mrninjam::core::NinjamBridge::kConnectionStateDisconnected;
     return true;
   }
   if (std::strcmp(text, "Connecting") == 0 || std::strcmp(text, "connecting") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kConnectionStateConnecting;
+    *out_value = mrninjam::core::NinjamBridge::kConnectionStateConnecting;
     return true;
   }
   if (std::strcmp(text, "Connected") == 0 || std::strcmp(text, "connected") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kConnectionStateConnected;
+    *out_value = mrninjam::core::NinjamBridge::kConnectionStateConnected;
     return true;
   }
   if (std::strcmp(text, "InvalidAuth") == 0 || std::strcmp(text, "invalidauth") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth;
+    *out_value = mrninjam::core::NinjamBridge::kConnectionStateInvalidAuth;
     return true;
   }
   if (std::strcmp(text, "CantConnect") == 0 || std::strcmp(text, "cantconnect") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect;
+    *out_value = mrninjam::core::NinjamBridge::kConnectionStateCantConnect;
     return true;
   }
 
@@ -1285,8 +1285,8 @@ bool ParseConnectionStateText(const char* text, double* out_value) {
   if (!ParseDoubleStrict(text, &parsed)) {
     return false;
   }
-  if (parsed < ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable ||
-      parsed > ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect) {
+  if (parsed < mrninjam::core::NinjamBridge::kConnectionStateUnavailable ||
+      parsed > mrninjam::core::NinjamBridge::kConnectionStateCantConnect) {
     return false;
   }
   *out_value = static_cast<double>(static_cast<int>(std::lround(parsed)));
@@ -1298,15 +1298,15 @@ bool ParseLastFailureReasonText(const char* text, double* out_value) {
     return false;
   }
   if (std::strcmp(text, "None") == 0 || std::strcmp(text, "none") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kLastFailureNone;
+    *out_value = mrninjam::core::NinjamBridge::kLastFailureNone;
     return true;
   }
   if (std::strcmp(text, "InvalidAuth") == 0 || std::strcmp(text, "invalidauth") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kLastFailureInvalidAuth;
+    *out_value = mrninjam::core::NinjamBridge::kLastFailureInvalidAuth;
     return true;
   }
   if (std::strcmp(text, "CantConnect") == 0 || std::strcmp(text, "cantconnect") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kLastFailureCantConnect;
+    *out_value = mrninjam::core::NinjamBridge::kLastFailureCantConnect;
     return true;
   }
 
@@ -1314,8 +1314,8 @@ bool ParseLastFailureReasonText(const char* text, double* out_value) {
   if (!ParseDoubleStrict(text, &parsed)) {
     return false;
   }
-  if (parsed < ninjamplugin::core::NinjamBridge::kLastFailureNone ||
-      parsed > ninjamplugin::core::NinjamBridge::kLastFailureCantConnect) {
+  if (parsed < mrninjam::core::NinjamBridge::kLastFailureNone ||
+      parsed > mrninjam::core::NinjamBridge::kLastFailureCantConnect) {
     return false;
   }
   *out_value = static_cast<double>(static_cast<int>(std::lround(parsed)));
@@ -1328,12 +1328,12 @@ bool ParseTransmitModeText(const char* text, double* out_value) {
   }
   if (std::strcmp(text, "Mono") == 0 || std::strcmp(text, "mono") == 0 ||
       std::strcmp(text, "0") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kTransmitModeMono;
+    *out_value = mrninjam::core::NinjamBridge::kTransmitModeMono;
     return true;
   }
   if (std::strcmp(text, "Stereo") == 0 || std::strcmp(text, "stereo") == 0 ||
       std::strcmp(text, "1") == 0) {
-    *out_value = ninjamplugin::core::NinjamBridge::kTransmitModeStereo;
+    *out_value = mrninjam::core::NinjamBridge::kTransmitModeStereo;
     return true;
   }
   return false;
@@ -1347,8 +1347,8 @@ bool ParseTransmitBitrateText(const char* text, double* out_value) {
   double parsed = 0.0;
   if (ParseDoubleStrict(text, &parsed)) {
     const int bitrate = static_cast<int>(std::lround(parsed));
-    *out_value = static_cast<double>(ninjamplugin::core::NinjamBridge::GetTransmitBitrateIndex(
-        ninjamplugin::core::NinjamBridge::ClampTransmitBitrate(bitrate)));
+    *out_value = static_cast<double>(mrninjam::core::NinjamBridge::GetTransmitBitrateIndex(
+        mrninjam::core::NinjamBridge::ClampTransmitBitrate(bitrate)));
     return true;
   }
 
@@ -1365,12 +1365,12 @@ bool ParseTransmitBitrateText(const char* text, double* out_value) {
       std::strcmp(end, "Kbps") != 0 && std::strcmp(end, "KBPS") != 0) {
     return false;
   }
-  *out_value = static_cast<double>(ninjamplugin::core::NinjamBridge::GetTransmitBitrateIndex(
-      ninjamplugin::core::NinjamBridge::ClampTransmitBitrate(static_cast<int>(parsed_long))));
+  *out_value = static_cast<double>(mrninjam::core::NinjamBridge::GetTransmitBitrateIndex(
+      mrninjam::core::NinjamBridge::ClampTransmitBitrate(static_cast<int>(parsed_long))));
   return true;
 }
 
-void ApplyParamEvent(NinjamPluginInstance* instance, const clap_event_header_t* event) {
+void ApplyParamEvent(MrNinjamInstance* instance, const clap_event_header_t* event) {
   if (instance == nullptr || event == nullptr || event->space_id != CLAP_CORE_EVENT_SPACE_ID) {
     return;
   }
@@ -1415,7 +1415,7 @@ void ApplyParamEvent(NinjamPluginInstance* instance, const clap_event_header_t* 
   }
 }
 
-void ApplyInputEvents(NinjamPluginInstance* instance,
+void ApplyInputEvents(MrNinjamInstance* instance,
                       const clap_input_events_t* in_events,
                       const uint32_t start_index,
                       const uint32_t end_index) {
@@ -1433,7 +1433,7 @@ bool CLAP_ABI PluginInit(const clap_plugin_t* plugin) {
   if (instance == nullptr) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   const char* host_name =
       (instance->host != nullptr && instance->host->name != nullptr && instance->host->name[0] != '\0')
@@ -1448,7 +1448,7 @@ bool CLAP_ABI PluginInit(const clap_plugin_t* plugin) {
        instance->host->version[0] != '\0')
           ? instance->host->version
           : "unknown-version";
-  ninjamplugin::core::ConfigureDebugLogHostSession(host_name, host_version);
+  mrninjam::core::ConfigureDebugLogHostSession(host_name, host_version);
   const std::string host_name_text(host_name);
   instance->is_reaper_host = host_name_text.find("REAPER") != std::string::npos ||
                              host_name_text.find("Reaper") != std::string::npos ||
@@ -1465,20 +1465,20 @@ bool CLAP_ABI PluginInit(const clap_plugin_t* plugin) {
   }
   const bool ok = instance->runtime.Initialize(48000.0);
   SyncEditorDraftSettingsFromRuntime(instance);
-  ninjamplugin::core::DebugLogf("clap",
+  mrninjam::core::DebugLogf("clap",
                                 "HostInfo name=%s vendor=%s version=%s",
                                 host_name,
                                 host_vendor,
                                 host_version);
-  ninjamplugin::core::DebugLogf(
+  mrninjam::core::DebugLogf(
       "clap",
       "PluginInit ok=%d log_path=%s host_params=%d reaper_host=%d",
       ok ? 1 : 0,
-      ninjamplugin::core::GetDebugLogPath(),
+      mrninjam::core::GetDebugLogPath(),
       instance->host_params != nullptr ? 1 : 0,
       instance->is_reaper_host ? 1 : 0);
-  ninjamplugin::core::DebugLogf("clap", "PluginInit host_gui=%d", instance->host_gui != nullptr ? 1 : 0);
-  ninjamplugin::core::DebugLogf(
+  mrninjam::core::DebugLogf("clap", "PluginInit host_gui=%d", instance->host_gui != nullptr ? 1 : 0);
+  mrninjam::core::DebugLogf(
       "clap", "PluginInit host_timer_support=%d",
       instance->host_timer_support != nullptr ? 1 : 0);
   return ok;
@@ -1488,9 +1488,9 @@ void CLAP_ABI PluginDestroy(const clap_plugin_t* plugin) {
   auto* instance = ToInstance(plugin);
   if (instance == nullptr)
     return;
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
-  ninjamplugin::core::DebugLog("clap", "PluginDestroy");
+  mrninjam::core::DebugLog("clap", "PluginDestroy");
   instance->plugin_active.store(false, std::memory_order_release);
   instance->keep_main_thread_pumping.store(false, std::memory_order_release);
   instance->main_thread_callback_pending.store(false, std::memory_order_release);
@@ -1510,16 +1510,16 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
   if (instance == nullptr) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
   if (!instance->runtime.Initialize(sample_rate)) {
-    ninjamplugin::core::DebugLog("clap", "PluginActivate failed: Initialize");
+    mrninjam::core::DebugLog("clap", "PluginActivate failed: Initialize");
     return false;
   }
   SyncEditorDraftSettingsFromRuntime(instance);
   if (!instance->runtime.Activate(max_frames_count)) {
-    ninjamplugin::core::DebugLog("clap", "PluginActivate failed: Activate");
+    mrninjam::core::DebugLog("clap", "PluginActivate failed: Activate");
     return false;
   }
   instance->plugin_active.store(true, std::memory_order_release);
@@ -1527,7 +1527,7 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
   RefreshHostMainThreadPump(instance);
   instance->audio_processing_heartbeat.Update(
       instance->runtime.GetConnectionState() ==
-          ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
+          mrninjam::core::NinjamBridge::kConnectionStateConnected,
       true, MonotonicNowNs());
   instance->pending_connection_state.store(instance->runtime.GetConnectionState(), std::memory_order_relaxed);
   instance->pending_connection_state_dirty.store(true, std::memory_order_release);
@@ -1556,7 +1556,7 @@ bool CLAP_ABI PluginActivate(const clap_plugin_t* plugin,
   RequestHostParamsFlush(instance);
   RequestHostMainThreadCallback(instance, true);
   UpdateEditorShellView(instance, true);
-  ninjamplugin::core::DebugLogf(
+  mrninjam::core::DebugLogf(
       "clap", "PluginActivate sample_rate=%.1f max_frames=%u", sample_rate,
       max_frames_count);
   return true;
@@ -1567,7 +1567,7 @@ void CLAP_ABI PluginDeactivate(const clap_plugin_t* plugin) {
   if (instance == nullptr) {
     return;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
   instance->plugin_active.store(false, std::memory_order_release);
@@ -1577,7 +1577,7 @@ void CLAP_ABI PluginDeactivate(const clap_plugin_t* plugin) {
   instance->audio_processing_heartbeat.Update(false, false, MonotonicNowNs());
   instance->runtime.Deactivate();
   UpdateEditorShellView(instance, false);
-  ninjamplugin::core::DebugLog("clap", "PluginDeactivate");
+  mrninjam::core::DebugLog("clap", "PluginDeactivate");
 }
 
 bool CLAP_ABI PluginStartProcessing(const clap_plugin_t* plugin) {
@@ -1585,7 +1585,7 @@ bool CLAP_ABI PluginStartProcessing(const clap_plugin_t* plugin) {
   if (instance == nullptr) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
   const bool started = instance->runtime.StartProcessing();
@@ -1598,7 +1598,7 @@ void CLAP_ABI PluginStopProcessing(const clap_plugin_t* plugin) {
   if (instance == nullptr) {
     return;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
   instance->runtime.StopProcessing();
@@ -1610,7 +1610,7 @@ void CLAP_ABI PluginReset(const clap_plugin_t* plugin) {
   if (instance == nullptr) {
     return;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   instance->runtime.Reset();
   instance->transport_position_valid = false;
@@ -1620,12 +1620,12 @@ void CLAP_ABI PluginReset(const clap_plugin_t* plugin) {
 
 clap_process_status CLAP_ABI PluginProcess(const clap_plugin_t* plugin,
                                            const clap_process_t* process) {
-  const ninjamplugin::core::RealtimeDebugLogScope realtime_debug_log_scope;
+  const mrninjam::core::RealtimeDebugLogScope realtime_debug_log_scope;
   auto* instance = ToInstance(plugin);
   if (instance == nullptr || process == nullptr) {
     return CLAP_PROCESS_ERROR;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
   const uint32_t event_count =
@@ -1658,7 +1658,7 @@ clap_process_status CLAP_ABI PluginProcess(const clap_plugin_t* plugin,
     }
   }
 
-  std::array<const float*, ninjamplugin::core::NinjamBridge::kMaxSupportedAudioChannels>
+  std::array<const float*, mrninjam::core::NinjamBridge::kMaxSupportedAudioChannels>
       runtime_inputs = {
       input.data32[0],
       input.data32[1],
@@ -1674,7 +1674,7 @@ clap_process_status CLAP_ABI PluginProcess(const clap_plugin_t* plugin,
   }
   instance->runtime.SetObservedInputChannelCount(static_cast<int>(runtime_input_count));
 
-  ninjamplugin::core::HostTransportState host_transport;
+  mrninjam::core::HostTransportState host_transport;
   if (process->transport != nullptr &&
       (process->transport->flags & CLAP_TRANSPORT_HAS_SECONDS_TIMELINE) != 0) {
     host_transport.playing =
@@ -1785,9 +1785,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     param_info->id = kGainParamId;
     std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Gain");
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Main");
-    param_info->min_value = ninjamplugin::core::ParameterModel::kGainMin;
-    param_info->max_value = ninjamplugin::core::ParameterModel::kGainMax;
-    param_info->default_value = ninjamplugin::core::ParameterModel::kGainDefault;
+    param_info->min_value = mrninjam::core::ParameterModel::kGainMin;
+    param_info->max_value = mrninjam::core::ParameterModel::kGainMax;
+    param_info->default_value = mrninjam::core::ParameterModel::kGainDefault;
     return true;
   }
   if (param_index == 1) {
@@ -1806,9 +1806,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     param_info->id = kSessionBpmParamId;
     std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Target Session BPM");
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Session");
-    param_info->min_value = ninjamplugin::core::NinjamBridge::kSessionBpmMin;
-    param_info->max_value = ninjamplugin::core::NinjamBridge::kSessionBpmMax;
-    param_info->default_value = ninjamplugin::core::NinjamBridge::kSessionBpmDefault;
+    param_info->min_value = mrninjam::core::NinjamBridge::kSessionBpmMin;
+    param_info->max_value = mrninjam::core::NinjamBridge::kSessionBpmMax;
+    param_info->default_value = mrninjam::core::NinjamBridge::kSessionBpmDefault;
     return true;
   }
   if (param_index == 3) {
@@ -1816,9 +1816,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     param_info->id = kSessionBpiParamId;
     std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Target Session BPI");
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Session");
-    param_info->min_value = ninjamplugin::core::NinjamBridge::kSessionBpiMin;
-    param_info->max_value = ninjamplugin::core::NinjamBridge::kSessionBpiMax;
-    param_info->default_value = ninjamplugin::core::NinjamBridge::kSessionBpiDefault;
+    param_info->min_value = mrninjam::core::NinjamBridge::kSessionBpiMin;
+    param_info->max_value = mrninjam::core::NinjamBridge::kSessionBpiMax;
+    param_info->default_value = mrninjam::core::NinjamBridge::kSessionBpiDefault;
     return true;
   }
   if (param_index == 4) {
@@ -1826,9 +1826,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     param_info->id = kMonitorMixParamId;
     std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Remote Return");
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Monitor");
-    param_info->min_value = ninjamplugin::core::NinjamBridge::kMonitorMixMin;
-    param_info->max_value = ninjamplugin::core::NinjamBridge::kMonitorMixMax;
-    param_info->default_value = ninjamplugin::core::NinjamBridge::kMonitorMixDefault;
+    param_info->min_value = mrninjam::core::NinjamBridge::kMonitorMixMin;
+    param_info->max_value = mrninjam::core::NinjamBridge::kMonitorMixMax;
+    param_info->default_value = mrninjam::core::NinjamBridge::kMonitorMixDefault;
     return true;
   }
   if (param_index == 5) {
@@ -1836,9 +1836,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     param_info->id = kMetronomeLevelParamId;
     std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Metronome Level");
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Monitor");
-    param_info->min_value = ninjamplugin::core::NinjamBridge::kMetronomeLevelMin;
-    param_info->max_value = ninjamplugin::core::NinjamBridge::kMetronomeLevelMax;
-    param_info->default_value = ninjamplugin::core::NinjamBridge::kMetronomeLevelDefault;
+    param_info->min_value = mrninjam::core::NinjamBridge::kMetronomeLevelMin;
+    param_info->max_value = mrninjam::core::NinjamBridge::kMetronomeLevelMax;
+    param_info->default_value = mrninjam::core::NinjamBridge::kMetronomeLevelDefault;
     return true;
   }
   if (param_index == 6) {
@@ -1846,9 +1846,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     param_info->id = kTransmitModeParamId;
     std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Transmit Mode");
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Session");
-    param_info->min_value = ninjamplugin::core::NinjamBridge::kTransmitModeMono;
-    param_info->max_value = ninjamplugin::core::NinjamBridge::kTransmitModeStereo;
-    param_info->default_value = ninjamplugin::core::NinjamBridge::kTransmitModeStereo;
+    param_info->min_value = mrninjam::core::NinjamBridge::kTransmitModeMono;
+    param_info->max_value = mrninjam::core::NinjamBridge::kTransmitModeStereo;
+    param_info->default_value = mrninjam::core::NinjamBridge::kTransmitModeStereo;
     return true;
   }
   if (param_index == 7) {
@@ -1858,10 +1858,10 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Session");
     param_info->min_value = 0.0;
     param_info->max_value = static_cast<double>(
-        ninjamplugin::core::NinjamBridge::kSupportedTransmitBitrates.size() - 1U);
+        mrninjam::core::NinjamBridge::kSupportedTransmitBitrates.size() - 1U);
     param_info->default_value = static_cast<double>(
-        ninjamplugin::core::NinjamBridge::GetTransmitBitrateIndex(
-            ninjamplugin::core::NinjamBridge::kTransmitBitrateDefault));
+        mrninjam::core::NinjamBridge::GetTransmitBitrateIndex(
+            mrninjam::core::NinjamBridge::kTransmitBitrateDefault));
     return true;
   }
   if (param_index == 8) {
@@ -1869,9 +1869,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     param_info->id = kConnectionStateParamId;
     std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Connection State");
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Status");
-    param_info->min_value = ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable;
-    param_info->max_value = ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect;
-    param_info->default_value = ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable;
+    param_info->min_value = mrninjam::core::NinjamBridge::kConnectionStateUnavailable;
+    param_info->max_value = mrninjam::core::NinjamBridge::kConnectionStateCantConnect;
+    param_info->default_value = mrninjam::core::NinjamBridge::kConnectionStateUnavailable;
     return true;
   }
   if (param_index == 9) {
@@ -1879,9 +1879,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
     param_info->id = kActualSessionBpmParamId;
     std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Actual Session BPM");
     std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Status");
-    param_info->min_value = ninjamplugin::core::NinjamBridge::kSessionBpmMin;
-    param_info->max_value = ninjamplugin::core::NinjamBridge::kSessionBpmMax;
-    param_info->default_value = ninjamplugin::core::NinjamBridge::kSessionBpmDefault;
+    param_info->min_value = mrninjam::core::NinjamBridge::kSessionBpmMin;
+    param_info->max_value = mrninjam::core::NinjamBridge::kSessionBpmMax;
+    param_info->default_value = mrninjam::core::NinjamBridge::kSessionBpmDefault;
     return true;
   }
   if (param_index == 10) {
@@ -1899,9 +1899,9 @@ bool CLAP_ABI ParamsGetInfo(const clap_plugin_t* /*plugin*/,
   param_info->id = kLastFailureReasonParamId;
   std::snprintf(param_info->name, sizeof(param_info->name), "%s", "Last Failure");
   std::snprintf(param_info->module, sizeof(param_info->module), "%s", "Status");
-  param_info->min_value = ninjamplugin::core::NinjamBridge::kLastFailureNone;
-  param_info->max_value = ninjamplugin::core::NinjamBridge::kLastFailureCantConnect;
-  param_info->default_value = ninjamplugin::core::NinjamBridge::kLastFailureNone;
+  param_info->min_value = mrninjam::core::NinjamBridge::kLastFailureNone;
+  param_info->max_value = mrninjam::core::NinjamBridge::kLastFailureCantConnect;
+  param_info->default_value = mrninjam::core::NinjamBridge::kLastFailureNone;
   return true;
 }
 
@@ -1969,11 +1969,11 @@ bool CLAP_ABI ParamsGetValue(const clap_plugin_t* plugin,
   }
   if (param_id == kTransmitBitrateParamId) {
     if (instance->pending_transmit_bitrate_dirty.load(std::memory_order_acquire)) {
-      *out_value = static_cast<double>(ninjamplugin::core::NinjamBridge::GetTransmitBitrateIndex(
+      *out_value = static_cast<double>(mrninjam::core::NinjamBridge::GetTransmitBitrateIndex(
           instance->pending_transmit_bitrate.load(std::memory_order_acquire)));
       return true;
     }
-    *out_value = static_cast<double>(ninjamplugin::core::NinjamBridge::GetTransmitBitrateIndex(
+    *out_value = static_cast<double>(mrninjam::core::NinjamBridge::GetTransmitBitrateIndex(
         instance->runtime.GetTransmitBitrate()));
     return true;
   }
@@ -2035,7 +2035,7 @@ bool CLAP_ABI ParamsValueToText(const clap_plugin_t* /*plugin*/,
     return true;
   }
   if (param_id == kTransmitBitrateParamId) {
-    const int bitrate = ninjamplugin::core::NinjamBridge::GetTransmitBitrateForIndex(
+    const int bitrate = mrninjam::core::NinjamBridge::GetTransmitBitrateForIndex(
         static_cast<int>(std::lround(value)));
     std::snprintf(out_buffer, out_buffer_capacity, "%d kbps", bitrate);
     return true;
@@ -2104,34 +2104,34 @@ bool CLAP_ABI ParamsTextToValue(const clap_plugin_t* /*plugin*/,
   }
 
   if (param_id == kGainParamId) {
-    *out_value = ninjamplugin::core::ParameterModel::ClampGain(parsed);
+    *out_value = mrninjam::core::ParameterModel::ClampGain(parsed);
     return true;
   }
   if (param_id == kSessionBpmParamId) {
-    *out_value = ninjamplugin::core::NinjamBridge::ClampSessionBpm(parsed);
+    *out_value = mrninjam::core::NinjamBridge::ClampSessionBpm(parsed);
     return true;
   }
   if (param_id == kSessionBpiParamId) {
     *out_value = static_cast<double>(
-        ninjamplugin::core::NinjamBridge::ClampSessionBpi(static_cast<int>(std::lround(parsed))));
+        mrninjam::core::NinjamBridge::ClampSessionBpi(static_cast<int>(std::lround(parsed))));
     return true;
   }
   if (param_id == kMonitorMixParamId) {
-    *out_value = ninjamplugin::core::NinjamBridge::ClampMonitorMix(parsed);
+    *out_value = mrninjam::core::NinjamBridge::ClampMonitorMix(parsed);
     return true;
   }
   if (param_id == kMetronomeLevelParamId) {
-    *out_value = ninjamplugin::core::NinjamBridge::ClampMetronomeLevel(parsed);
+    *out_value = mrninjam::core::NinjamBridge::ClampMetronomeLevel(parsed);
     return true;
   }
   if (param_id == kTransmitBitrateParamId) {
-    *out_value = static_cast<double>(ninjamplugin::core::NinjamBridge::ClampTransmitBitrateIndex(
-        static_cast<int>(ninjamplugin::core::NinjamBridge::GetTransmitBitrateIndex(
+    *out_value = static_cast<double>(mrninjam::core::NinjamBridge::ClampTransmitBitrateIndex(
+        static_cast<int>(mrninjam::core::NinjamBridge::GetTransmitBitrateIndex(
             static_cast<int>(std::lround(parsed))))));
     return true;
   }
   if (param_id == kActualSessionBpmParamId) {
-    *out_value = ninjamplugin::core::NinjamBridge::ClampSessionBpm(parsed);
+    *out_value = mrninjam::core::NinjamBridge::ClampSessionBpm(parsed);
     return true;
   }
   if (param_id == kConnectAttemptCountParamId) {
@@ -2151,7 +2151,7 @@ void CLAP_ABI ParamsFlush(const clap_plugin_t* plugin,
   if (instance == nullptr) {
     return;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
   if (in != nullptr) {
@@ -2165,10 +2165,10 @@ bool CLAP_ABI StateSave(const clap_plugin_t* plugin, const clap_ostream_t* strea
   if (instance == nullptr || stream == nullptr || stream->write == nullptr) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
-  ninjamplugin::core::PersistedPluginState state{};
+  mrninjam::core::PersistedPluginState state{};
   const auto connection_settings = instance->runtime.GetConnectionSettings();
   state.has_instance_connection_settings = true;
   state.connection_host = connection_settings.host;
@@ -2209,7 +2209,7 @@ bool CLAP_ABI StateSave(const clap_plugin_t* plugin, const clap_ostream_t* strea
   state.multitrack_capture_enabled = instance->runtime.IsMultitrackCaptureEnabled();
   state.multitrack_wav_clips_enabled = false;
   for (int route_index = 0;
-       route_index < ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+       route_index < mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
        ++route_index) {
     const auto route = instance->runtime.GetLocalInputRouteConfig(route_index);
     state.local_input_routes[static_cast<std::size_t>(route_index)] = {
@@ -2231,7 +2231,7 @@ bool CLAP_ABI StateSave(const clap_plugin_t* plugin, const clap_ostream_t* strea
         route.send_solo,
     };
   }
-  ninjamplugin::core::DebugLogf("clap",
+  mrninjam::core::DebugLogf("clap",
                                 "StateSave gain=%.3f connect=%d bpm=%.2f bpi=%d remote_return=%.3f metronome=%.3f tx_mode=%d tx_bitrate=%d capture=%d multitrack=%d routes={%d:%d send=%.2f mon=%.2f,%d:%d send=%.2f mon=%.2f}",
                                 state.gain,
                                 state.connect_requested ? 1 : 0,
@@ -2252,7 +2252,7 @@ bool CLAP_ABI StateSave(const clap_plugin_t* plugin, const clap_ostream_t* strea
                                 state.local_input_routes[1].send_level,
                                 state.local_input_routes[1].monitor_level);
 
-  const std::string blob = ninjamplugin::core::PluginStateCodec::Serialize(state);
+  const std::string blob = mrninjam::core::PluginStateCodec::Serialize(state);
   if (blob.empty()) {
     return false;
   }
@@ -2276,7 +2276,7 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   if (instance == nullptr || stream == nullptr || stream->read == nullptr) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
   std::array<char, 512> chunk{};
@@ -2295,12 +2295,12 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
     }
   }
 
-  ninjamplugin::core::PersistedPluginState state{};
-  if (!ninjamplugin::core::PluginStateCodec::Deserialize(blob, &state)) {
+  mrninjam::core::PersistedPluginState state{};
+  if (!mrninjam::core::PluginStateCodec::Deserialize(blob, &state)) {
     return false;
   }
 
-  instance->params.SetGain(ninjamplugin::core::ParameterModel::ClampGain(state.gain));
+  instance->params.SetGain(mrninjam::core::ParameterModel::ClampGain(state.gain));
   if (state.has_instance_connection_settings) {
     auto restored_settings = instance->runtime.GetConnectionSettings();
     const std::string restored_user =
@@ -2326,9 +2326,9 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   instance->runtime.SetMetronomeEnabled(state.metronome_enabled);
   instance->runtime.SetLocalMonitorMaster(state.local_monitor_master);
   instance->runtime.SetTransmitMode(
-      ninjamplugin::core::NinjamBridge::ClampTransmitMode(state.transmit_mode));
+      mrninjam::core::NinjamBridge::ClampTransmitMode(state.transmit_mode));
   instance->runtime.SetTransmitBitrate(
-      ninjamplugin::core::NinjamBridge::ClampTransmitBitrate(state.transmit_bitrate));
+      mrninjam::core::NinjamBridge::ClampTransmitBitrate(state.transmit_bitrate));
   instance->runtime.SetActiveDawInputChannelCount(state.active_daw_input_channel_count);
   instance->runtime.SetActiveDawOutputChannelCount(state.active_daw_output_channel_count);
   RequestHostAudioPortsRescan(instance);
@@ -2337,11 +2337,11 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   instance->runtime.SetWavStemExportEnabled(state.wav_stem_export_enabled);
   instance->runtime.SetMultitrackCaptureEnabled(state.multitrack_capture_enabled);
   instance->runtime.SetMultitrackWavClipsEnabled(false);
-  std::array<ninjamplugin::core::LocalInputRouteConfig,
-             ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs>
+  std::array<mrninjam::core::LocalInputRouteConfig,
+             mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs>
       restored_routes{};
   for (int route_index = 0;
-       route_index < ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+       route_index < mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
        ++route_index) {
     const auto& route = state.local_input_routes[static_cast<std::size_t>(route_index)];
     if (route.source_pair_index < 0)
@@ -2372,16 +2372,16 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   instance->pending_connect_requested.store(state.connect_requested, std::memory_order_relaxed);
   instance->pending_connect_requested_dirty.store(false, std::memory_order_release);
   instance->pending_target_session_bpm.store(
-      ninjamplugin::core::NinjamBridge::ClampSessionBpm(state.session_bpm), std::memory_order_relaxed);
+      mrninjam::core::NinjamBridge::ClampSessionBpm(state.session_bpm), std::memory_order_relaxed);
   instance->pending_target_session_bpm_dirty.store(false, std::memory_order_release);
   instance->pending_target_session_bpi.store(
-      ninjamplugin::core::NinjamBridge::ClampSessionBpi(state.session_bpi), std::memory_order_relaxed);
+      mrninjam::core::NinjamBridge::ClampSessionBpi(state.session_bpi), std::memory_order_relaxed);
   instance->pending_target_session_bpi_dirty.store(false, std::memory_order_release);
   instance->pending_monitor_mix.store(
-      ninjamplugin::core::NinjamBridge::ClampMonitorMix(state.monitor_mix), std::memory_order_relaxed);
+      mrninjam::core::NinjamBridge::ClampMonitorMix(state.monitor_mix), std::memory_order_relaxed);
   instance->pending_monitor_mix_dirty.store(false, std::memory_order_release);
   instance->pending_metronome_level.store(
-      ninjamplugin::core::NinjamBridge::ClampMetronomeLevel(state.metronome_level),
+      mrninjam::core::NinjamBridge::ClampMetronomeLevel(state.metronome_level),
       std::memory_order_relaxed);
   instance->pending_metronome_level_dirty.store(false, std::memory_order_release);
   instance->pending_metronome_enabled.store(state.metronome_enabled,
@@ -2389,11 +2389,11 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   instance->pending_metronome_enabled_dirty.store(false,
                                                   std::memory_order_release);
   instance->pending_transmit_mode.store(
-      ninjamplugin::core::NinjamBridge::ClampTransmitMode(state.transmit_mode),
+      mrninjam::core::NinjamBridge::ClampTransmitMode(state.transmit_mode),
       std::memory_order_relaxed);
   instance->pending_transmit_mode_dirty.store(false, std::memory_order_release);
   instance->pending_transmit_bitrate.store(
-      ninjamplugin::core::NinjamBridge::ClampTransmitBitrate(state.transmit_bitrate),
+      mrninjam::core::NinjamBridge::ClampTransmitBitrate(state.transmit_bitrate),
       std::memory_order_relaxed);
   instance->pending_transmit_bitrate_dirty.store(false, std::memory_order_release);
   instance->pending_connection_state.store(instance->runtime.GetConnectionState(), std::memory_order_relaxed);
@@ -2407,7 +2407,7 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   instance->pending_last_failure_reason.store(
       instance->runtime.GetLastFailureReason(), std::memory_order_relaxed);
   instance->pending_last_failure_reason_dirty.store(true, std::memory_order_release);
-  ninjamplugin::core::DebugLogf("clap",
+  mrninjam::core::DebugLogf("clap",
                                 "StateLoad gain=%.3f connect=%d bpm=%.2f bpi=%d remote_return=%.3f metronome=%.3f tx_mode=%d tx_bitrate=%d capture=%d multitrack=%d",
                                 state.gain,
                                 state.connect_requested ? 1 : 0,
@@ -2452,14 +2452,14 @@ bool CLAP_ABI AudioPortsGet(const clap_plugin_t* plugin,
     std::snprintf(info->name, sizeof(info->name), "%s", "Input");
     info->flags = CLAP_AUDIO_PORT_IS_MAIN;
     info->channel_count = static_cast<uint32_t>(
-        instance == nullptr ? ninjamplugin::core::NinjamBridge::kMaxSupportedAudioChannels
+        instance == nullptr ? mrninjam::core::NinjamBridge::kMaxSupportedAudioChannels
                             : instance->runtime.GetActiveDawInputChannelCount());
     info->port_type = nullptr;
   } else {
     std::snprintf(info->name, sizeof(info->name), "%s", "Output");
     info->flags = CLAP_AUDIO_PORT_IS_MAIN;
     info->channel_count = static_cast<uint32_t>(
-        instance == nullptr ? ninjamplugin::core::NinjamBridge::kDefaultActiveOutputChannelCount
+        instance == nullptr ? mrninjam::core::NinjamBridge::kDefaultActiveOutputChannelCount
                             : instance->runtime.GetActiveDawOutputChannelCount());
     info->port_type = nullptr;
   }
@@ -2480,7 +2480,7 @@ bool IsSupportedAudioPortConfiguration(
     const auto& request = requests[index];
     if (request.port_index != 0U || request.channel_count < 2U ||
         request.channel_count >
-            static_cast<uint32_t>(ninjamplugin::core::NinjamBridge::kMaxSupportedAudioChannels)) {
+            static_cast<uint32_t>(mrninjam::core::NinjamBridge::kMaxSupportedAudioChannels)) {
       return false;
     }
     if (request.is_input) {
@@ -2510,7 +2510,7 @@ bool CLAP_ABI AudioPortsApplyConfiguration(
       !IsSupportedAudioPortConfiguration(requests, request_count)) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
   int input_channels = instance->runtime.GetActiveDawInputChannelCount();
@@ -2524,7 +2524,7 @@ bool CLAP_ABI AudioPortsApplyConfiguration(
   }
   instance->runtime.SetActiveDawInputChannelCount(input_channels);
   instance->runtime.SetActiveDawOutputChannelCount(output_channels);
-  ninjamplugin::core::DebugLogf(
+  mrninjam::core::DebugLogf(
       "clap", "Host applied audio layout: %d inputs / %d outputs",
       input_channels, output_channels);
   return true;
@@ -2533,13 +2533,13 @@ bool CLAP_ABI AudioPortsApplyConfiguration(
 bool CLAP_ABI GuiIsApiSupported(const clap_plugin_t* /*plugin*/,
                                 const char* api,
                                 const bool is_floating) {
-  return ninjamplugin::ui::IsEditorShellApiSupported(api, is_floating);
+  return mrninjam::ui::IsEditorShellApiSupported(api, is_floating);
 }
 
 bool CLAP_ABI GuiGetPreferredApi(const clap_plugin_t* /*plugin*/,
                                  const char** api,
                                  bool* is_floating) {
-  return ninjamplugin::ui::GetPreferredEditorShellApi(api, is_floating);
+  return mrninjam::ui::GetPreferredEditorShellApi(api, is_floating);
 }
 
 bool CLAP_ABI GuiCreate(const clap_plugin_t* plugin, const char* api, const bool is_floating) {
@@ -2547,15 +2547,15 @@ bool CLAP_ABI GuiCreate(const clap_plugin_t* plugin, const char* api, const bool
   if (instance == nullptr || instance->editor_created) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
 
-  ninjamplugin::ui::EditorShellConfig config;
-  config.title = ninjamplugin::format::clap::kPluginName;
+  mrninjam::ui::EditorShellConfig config;
+  config.title = mrninjam::format::clap::kPluginName;
   config.show_reaper_keyboard_hint = instance->is_reaper_host;
   config.width = 1024;
   config.height = 680;
-  instance->editor_shell = ninjamplugin::ui::CreateEditorShell(config, api, is_floating);
+  instance->editor_shell = mrninjam::ui::CreateEditorShell(config, api, is_floating);
   instance->editor_created = instance->editor_shell != nullptr;
   instance->editor_visible = false;
   if (instance->editor_created) {
@@ -2563,14 +2563,14 @@ bool CLAP_ABI GuiCreate(const clap_plugin_t* plugin, const char* api, const bool
       instance->editor_controller_host = std::make_unique<ClapConnectionEditorHost>(instance);
     }
     if (instance->editor_controller == nullptr) {
-      instance->editor_controller = std::make_unique<ninjamplugin::ui::ConnectionEditorController>(
+      instance->editor_controller = std::make_unique<mrninjam::ui::ConnectionEditorController>(
           instance->editor_controller_host.get());
     }
     SyncEditorDraftSettingsFromRuntime(instance);
     instance->editor_shell->SetDelegate(instance->editor_controller.get());
     UpdateEditorShellView(instance, true);
   }
-  ninjamplugin::core::DebugLogf("clap",
+  mrninjam::core::DebugLogf("clap",
                                 "GuiCreate api=%s floating=%d ok=%d",
                                 api == nullptr ? "<null>" : api,
                                 is_floating ? 1 : 0,
@@ -2583,7 +2583,7 @@ void CLAP_ABI GuiDestroy(const clap_plugin_t* plugin) {
   if (instance == nullptr) {
     return;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   if (instance->editor_shell != nullptr && instance->editor_controller != nullptr) {
     instance->editor_controller->CaptureDraftSettings(
@@ -2596,7 +2596,7 @@ void CLAP_ABI GuiDestroy(const clap_plugin_t* plugin) {
   instance->editor_created = false;
   instance->editor_visible = false;
   RefreshHostMainThreadPump(instance);
-  ninjamplugin::core::DebugLog("clap", "GuiDestroy");
+  mrninjam::core::DebugLog("clap", "GuiDestroy");
 }
 
 bool CLAP_ABI GuiSetScale(const clap_plugin_t* /*plugin*/, const double /*scale*/) {
@@ -2652,10 +2652,10 @@ bool CLAP_ABI GuiSetParent(const clap_plugin_t* plugin, const clap_window_t* win
   if (instance == nullptr || instance->editor_shell == nullptr || window == nullptr) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   const bool ok = instance->editor_shell->SetParent(window->api, window->ptr);
-  ninjamplugin::core::DebugLogf("clap",
+  mrninjam::core::DebugLogf("clap",
                                 "GuiSetParent api=%s ok=%d",
                                 window->api == nullptr ? "<null>" : window->api,
                                 ok ? 1 : 0);
@@ -2673,12 +2673,12 @@ bool CLAP_ABI GuiShow(const clap_plugin_t* plugin) {
   if (instance == nullptr || instance->editor_shell == nullptr) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   UpdateEditorShellView(instance, true);
   instance->editor_visible = instance->editor_shell->Show();
   RefreshHostMainThreadPump(instance);
-  ninjamplugin::core::DebugLogf("clap", "GuiShow ok=%d", instance->editor_visible ? 1 : 0);
+  mrninjam::core::DebugLogf("clap", "GuiShow ok=%d", instance->editor_visible ? 1 : 0);
   return instance->editor_visible;
 }
 
@@ -2687,7 +2687,7 @@ bool CLAP_ABI GuiHide(const clap_plugin_t* plugin) {
   if (instance == nullptr || instance->editor_shell == nullptr) {
     return false;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   if (instance->editor_controller != nullptr) {
     instance->editor_controller->CaptureDraftSettings(
@@ -2698,7 +2698,7 @@ bool CLAP_ABI GuiHide(const clap_plugin_t* plugin) {
     instance->editor_visible = false;
     RefreshHostMainThreadPump(instance);
   }
-  ninjamplugin::core::DebugLogf("clap", "GuiHide ok=%d", ok ? 1 : 0);
+  mrninjam::core::DebugLogf("clap", "GuiHide ok=%d", ok ? 1 : 0);
   return ok;
 }
 
@@ -2787,7 +2787,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
   if (instance == nullptr) {
     return;
   }
-  const ninjamplugin::core::DebugLogInstanceScope log_scope(
+  const mrninjam::core::DebugLogInstanceScope log_scope(
       instance->debug_log_instance_id);
   instance->main_thread_callback_pending.store(false);
   ApplyPendingRuntimeControlUpdatesOnMainThread(instance);
@@ -2796,7 +2796,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
   const int current_state = instance->runtime.GetConnectionState();
   instance->audio_processing_heartbeat.Update(
       current_state ==
-          ninjamplugin::core::NinjamBridge::kConnectionStateConnected,
+          mrninjam::core::NinjamBridge::kConnectionStateConnected,
       instance->plugin_active.load(std::memory_order_acquire), MonotonicNowNs());
   if (current_state != instance->last_logged_connection_state) {
     instance->last_logged_connection_state = current_state;
@@ -2804,13 +2804,13 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
     instance->pending_connection_state_dirty.store(true, std::memory_order_release);
     status_params_dirty = true;
     RequestHostParamsRescanValues(instance);
-    ninjamplugin::core::DebugLogf("clap", "ConnectionState=%d", current_state);
+    mrninjam::core::DebugLogf("clap", "ConnectionState=%d", current_state);
   }
   const bool connect_requested = instance->runtime.IsConnectRequested();
   if (connect_requested != instance->last_logged_connect_requested) {
     instance->last_logged_connect_requested = connect_requested;
     RequestHostParamsRescanValues(instance);
-    ninjamplugin::core::DebugLogf("clap", "ConnectRequested=%d", connect_requested ? 1 : 0);
+    mrninjam::core::DebugLogf("clap", "ConnectRequested=%d", connect_requested ? 1 : 0);
   }
   const double actual_bpm = instance->runtime.GetActualSessionBpm();
   if (!std::isfinite(instance->last_logged_actual_session_bpm) ||
@@ -2819,7 +2819,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
     instance->pending_actual_session_bpm.store(actual_bpm, std::memory_order_relaxed);
     instance->pending_actual_session_bpm_dirty.store(true, std::memory_order_release);
     status_params_dirty = true;
-    ninjamplugin::core::DebugLogf("clap", "ActualSessionBpm=%.2f", actual_bpm);
+    mrninjam::core::DebugLogf("clap", "ActualSessionBpm=%.2f", actual_bpm);
   }
   const int connect_attempt_count = instance->runtime.GetConnectAttemptCount();
   if (connect_attempt_count != instance->last_logged_connect_attempt_count) {
@@ -2827,7 +2827,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
     instance->pending_connect_attempt_count.store(connect_attempt_count, std::memory_order_relaxed);
     instance->pending_connect_attempt_count_dirty.store(true, std::memory_order_release);
     status_params_dirty = true;
-    ninjamplugin::core::DebugLogf("clap", "ConnectAttempts=%d", connect_attempt_count);
+    mrninjam::core::DebugLogf("clap", "ConnectAttempts=%d", connect_attempt_count);
   }
   const int last_failure_reason = instance->runtime.GetLastFailureReason();
   if (last_failure_reason != instance->last_logged_last_failure_reason) {
@@ -2835,7 +2835,7 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
     instance->pending_last_failure_reason.store(last_failure_reason, std::memory_order_relaxed);
     instance->pending_last_failure_reason_dirty.store(true, std::memory_order_release);
     status_params_dirty = true;
-    ninjamplugin::core::DebugLogf("clap", "LastFailureReason=%d", last_failure_reason);
+    mrninjam::core::DebugLogf("clap", "LastFailureReason=%d", last_failure_reason);
   }
   if (status_params_dirty) {
     RequestHostParamsFlush(instance);
@@ -2846,14 +2846,14 @@ void CLAP_ABI PluginOnMainThread(const clap_plugin_t* plugin) {
 
 const clap_plugin_descriptor_t kPluginDescriptor = {
     CLAP_VERSION,
-    ninjamplugin::format::clap::kPluginId,
-    ninjamplugin::format::clap::kPluginName,
-    ninjamplugin::format::clap::kPluginVendor,
-    ninjamplugin::format::clap::kPluginUrl,
+    mrninjam::format::clap::kPluginId,
+    mrninjam::format::clap::kPluginName,
+    mrninjam::format::clap::kPluginVendor,
+    mrninjam::format::clap::kPluginUrl,
     "",
     "",
-    ninjamplugin::format::clap::kPluginVersion,
-    ninjamplugin::format::clap::kPluginDescription,
+    mrninjam::format::clap::kPluginVersion,
+    mrninjam::format::clap::kPluginDescription,
     kPluginFeatures,
 };
 
@@ -2879,7 +2879,7 @@ const clap_plugin_t* CLAP_ABI FactoryCreatePlugin(const clap_plugin_factory_t* /
     return nullptr;
   }
 
-  auto* instance = new (std::nothrow) NinjamPluginInstance();
+  auto* instance = new (std::nothrow) MrNinjamInstance();
   if (instance == nullptr) {
     return nullptr;
   }
@@ -2908,13 +2908,13 @@ const clap_plugin_factory_t kPluginFactory = {
 };
 
 const array_of_16_bytes kVst3ComponentId = COMPONENT_ID(
-    ninjamplugin::format::clap::kVst3ClassIdPart1,
-    ninjamplugin::format::clap::kVst3ClassIdPart2,
-    ninjamplugin::format::clap::kVst3ClassIdPart3,
-    ninjamplugin::format::clap::kVst3ClassIdPart4);
+    mrninjam::format::clap::kVst3ClassIdPart1,
+    mrninjam::format::clap::kVst3ClassIdPart2,
+    mrninjam::format::clap::kVst3ClassIdPart3,
+    mrninjam::format::clap::kVst3ClassIdPart4);
 
 const clap_plugin_info_as_vst3_t kPluginInfoAsVst3 = {
-    ninjamplugin::format::clap::kPluginVendor,
+    mrninjam::format::clap::kPluginVendor,
     &kVst3ComponentId,
     nullptr,
 };
@@ -2925,8 +2925,8 @@ const clap_plugin_info_as_vst3_t* CLAP_ABI FactoryGetVst3Info(
 }
 
 const clap_plugin_factory_as_vst3_t kPluginFactoryAsVst3 = {
-    ninjamplugin::format::clap::kPluginVendor,
-    ninjamplugin::format::clap::kPluginUrl,
+    mrninjam::format::clap::kPluginVendor,
+    mrninjam::format::clap::kPluginUrl,
     nullptr,
     FactoryGetVst3Info,
     nullptr,
@@ -2936,13 +2936,13 @@ const clap_plugin_factory_as_vst3_t kPluginFactoryAsVst3 = {
 
 extern "C" {
 
-bool CLAP_ABI NinjamPluginEntryInit(const char* /*plugin_path*/) {
+bool CLAP_ABI MrNinjamEntryInit(const char* /*plugin_path*/) {
   return true;
 }
 
-void CLAP_ABI NinjamPluginEntryDeinit() {}
+void CLAP_ABI MrNinjamEntryDeinit() {}
 
-const void* CLAP_ABI NinjamPluginEntryGetFactory(const char* factory_id) {
+const void* CLAP_ABI MrNinjamEntryGetFactory(const char* factory_id) {
   if (factory_id != nullptr && std::strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) == 0) {
     return &kPluginFactory;
   }

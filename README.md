@@ -6,7 +6,7 @@ VST3 through clap-wrapper.
 
 The canonical repository is <https://github.com/mrosenki/MrNinjam>.
 
-The current DAW test build is version `0.2.12`. It is a development-stage
+The current DAW test build is version `0.2.13`. It is a development-stage
 source-code preview, not a production-ready release. The GPL-licensed source is
 available for inspection, building, testing, and contribution, but the project
 does not provide official CLAP or VST3 binaries. Binary packaging,
@@ -77,21 +77,14 @@ install local builds in per-user CLAP/VST3 locations for REAPER and Bitwig.
 
 ## Status and compatibility
 
-Version `0.2.1` established the permanent CLAP ID
-`io.github.mrosenki.mrninjam` and retains the VST3 CID
-`CF3108E94031432BAEC75E1A03E0978F`. The CLAP ID replaces the development-only
-`io.github.mrosenki.ninjamplugin` identity in an approved one-time break before
-the first public release. Projects using that former CLAP identity may require
-manual plug-in replacement. Parameter IDs and V1--V21 saved-state decoding
-remain unchanged. Internal `ninjamplugin` namespaces, targets, environment
-variables, and state headers are deliberately retained for source and state
-compatibility.
+The permanent product identities are the CLAP ID
+`io.github.mrosenki.mrninjam` and VST3 CID
+`CF3108E94031432BAEC75E1A03E0978F`. Parameter IDs remain stable. Development
+build identities and settings from before the public MrNinjam identity are not
+supported or carried forward.
 
-The generated bundles are `MrNinjam.clap` and `MrNinjam.vst3`. Hosts that
-resolve the VST3 by CID should retain project recall after a rescan. CLAP
-projects using the former ID require host-specific migration or manual
-replacement. Hosts that first resolve either format by its bundle filename or
-cached installation path may also require a rescan or manual substitution.
+The generated bundles are `MrNinjam.clap` and `MrNinjam.vst3`. Hosts may require
+a rescan after installing a new development build.
 
 Current automated, validator, and hands-on evidence is summarized in
 [Validation](docs/VALIDATION.md).

@@ -3,17 +3,17 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_TYPE="${1:-Release}"
-BUILD_DIR="${NINJAMPLUGIN_BUILD_DIR:-${ROOT_DIR}/build/${BUILD_TYPE}}"
-CLAP_ARTIFACT="${NINJAMPLUGIN_CLAP_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.clap}"
-VST3_ARTIFACT="${NINJAMPLUGIN_VST3_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.vst3}"
+BUILD_DIR="${MRNINJAM_BUILD_DIR:-${ROOT_DIR}/build/${BUILD_TYPE}}"
+CLAP_ARTIFACT="${MRNINJAM_CLAP_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.clap}"
+VST3_ARTIFACT="${MRNINJAM_VST3_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.vst3}"
 
 "${ROOT_DIR}/scripts/check_submodule_clean.sh"
 
 printf "Configuring MrNinjam (%s)...\n" "$BUILD_TYPE"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON \
-  -DNINJAMPLUGIN_ENABLE_VST3=ON
+  -DMRNINJAM_BUILD_UI_HARNESS=ON \
+  -DMRNINJAM_ENABLE_VST3=ON
 
 printf "Building MrNinjam targets...\n"
 cmake --build "$BUILD_DIR" -j 8

@@ -1,5 +1,5 @@
-#include "ninjamplugin/format/clap/audio_processing_heartbeat.h"
-#include "ninjamplugin/ui/connection_editor_controller.h"
+#include "mrninjam/format/clap/audio_processing_heartbeat.h"
+#include "mrninjam/ui/connection_editor_controller.h"
 
 #include <cstdint>
 #include <iostream>
@@ -7,7 +7,7 @@
 
 namespace {
 
-using ninjamplugin::format::clap::AudioProcessingHeartbeat;
+using mrninjam::format::clap::AudioProcessingHeartbeat;
 
 bool Expect(const bool condition, const std::string& message) {
   if (condition) {
@@ -114,10 +114,10 @@ int main() {
   }
 
   {
-    ninjamplugin::ui::ConnectionEditorController controller(nullptr);
-    ninjamplugin::ui::ConnectionEditorRuntimeSnapshot snapshot;
+    mrninjam::ui::ConnectionEditorController controller(nullptr);
+    mrninjam::ui::ConnectionEditorRuntimeSnapshot snapshot;
     snapshot.connection_state =
-        ninjamplugin::core::NinjamBridge::kConnectionStateConnected;
+        mrninjam::core::NinjamBridge::kConnectionStateConnected;
     snapshot.connection_state_text = "Connected";
     snapshot.audio_processing_paused = true;
     const auto view = controller.BuildViewState(snapshot, false);

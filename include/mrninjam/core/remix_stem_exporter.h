@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 struct RemixSessionPreflight {
   std::string session_directory;
@@ -82,4 +82,4 @@ class RemixStemExporter {
   std::atomic_bool active_{false};
 };
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

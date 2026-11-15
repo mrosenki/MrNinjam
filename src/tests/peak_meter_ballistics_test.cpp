@@ -1,4 +1,4 @@
-#include "ninjamplugin/ui/visage/peak_meter_ballistics.h"
+#include "mrninjam/ui/visage/peak_meter_ballistics.h"
 
 #include <cmath>
 #include <iostream>
@@ -13,7 +13,7 @@ bool NearlyEqual(float left, float right, float tolerance = 0.00001f) {
 }  // namespace
 
 int main() {
-  using ninjamplugin::ui::mixer::PeakMeterBallistics;
+  using mrninjam::ui::mixer::PeakMeterBallistics;
 
   PeakMeterBallistics peak{0.6f};
   peak.Push(0.2f);

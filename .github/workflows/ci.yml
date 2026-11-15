@@ -78,10 +78,10 @@ jobs:
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_TOOLCHAIN_FILE="$GITHUB_WORKSPACE/tools/vcpkg/scripts/buildsystems/vcpkg.cmake" \
               -DVCPKG_TARGET_TRIPLET=x64-windows-static \
-              -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON
+              -DMRNINJAM_BUILD_UI_HARNESS=ON
           else
             cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-              -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON
+              -DMRNINJAM_BUILD_UI_HARNESS=ON
           fi
 
       - name: Build plugins

@@ -31,12 +31,12 @@ Licence notices within those checkouts must remain intact.
 The NINJAM `njclient` sources are GPL-2.0-or-later and are compiled into the
 plug-in runtime. GPL version 3 is selected for the distributed combined work.
 The project patch modifies `ninjam/njclient.cpp` and
-`ninjam/njclient.h`; it now adds prominent notices recording the
-NinjamPlugin modification and its original change date, 2026-07-27.
+`ninjam/njclient.h`; it adds prominent notices recording the MrNinjam
+modification and its original change date, 2026-07-27.
 
 The same integration patch modifies `WDL/rng.cpp` to serialize its
 process-global RNG state for concurrent plug-in instances. The patch plainly
-marks that modification as made by Micah Rosenkind for NinjamPlugin on
+marks that modification as made by Micah Rosenkind for MrNinjam on
 2026-11-09. WDL retains its permissive zlib-style notice, including the
 requirements not to misrepresent origin, to mark altered source, and to retain
 the upstream notice. The complete retained text is in

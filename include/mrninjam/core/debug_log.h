@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 bool IsDebugLogEnabled();
 bool SetDebugLogEnabled(bool enabled);
@@ -42,4 +42,4 @@ class DebugLogInstanceScope {
 void DebugLog(const char* context, const char* message);
 void DebugLogf(const char* context, const char* format, ...);
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

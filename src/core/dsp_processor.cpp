@@ -1,6 +1,6 @@
-#include "ninjamplugin/core/dsp_processor.h"
+#include "mrninjam/core/dsp_processor.h"
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 void DspProcessor::ApplyGain(float* left_channel,
                              float* right_channel,
@@ -17,4 +17,4 @@ void DspProcessor::ApplyGain(float* left_channel,
   }
 }
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

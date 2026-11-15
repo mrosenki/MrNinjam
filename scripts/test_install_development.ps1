@@ -18,11 +18,11 @@ if (-not ($IsWindows -or $env:OS -eq "Windows_NT") -and
 }
 $OriginalPath = $env:PATH
 $OriginalLocalAppData = $env:LOCALAPPDATA
-$OriginalClapDir = $env:NINJAMPLUGIN_CLAP_INSTALL_DIR
-$OriginalVst3Dir = $env:NINJAMPLUGIN_VST3_INSTALL_DIR
-$OriginalBuildDir = $env:NINJAMPLUGIN_BUILD_DIR
-$OriginalClapArtifact = $env:NINJAMPLUGIN_CLAP_ARTIFACT
-$OriginalVst3Artifact = $env:NINJAMPLUGIN_VST3_ARTIFACT
+$OriginalClapDir = $env:MRNINJAM_CLAP_INSTALL_DIR
+$OriginalVst3Dir = $env:MRNINJAM_VST3_INSTALL_DIR
+$OriginalBuildDir = $env:MRNINJAM_BUILD_DIR
+$OriginalClapArtifact = $env:MRNINJAM_CLAP_ARTIFACT
+$OriginalVst3Artifact = $env:MRNINJAM_VST3_ARTIFACT
 
 function Invoke-ExpectedFailure {
   param(
@@ -45,19 +45,17 @@ try {
   $ClapDir = Join-Path $TestRoot "clap"
   $Vst3Dir = Join-Path $TestRoot "vst3"
   New-Item -ItemType Directory -Force -Path $ClapDir, $Vst3Dir | Out-Null
-  New-Item -ItemType File -Force -Path (Join-Path $ClapDir "NinjamPlugin.clap") | Out-Null
-  New-Item -ItemType File -Force -Path (Join-Path $Vst3Dir "NinjamPlugin.vst3") | Out-Null
   $env:LOCALAPPDATA = Join-Path $TestRoot "localappdata"
-  $env:NINJAMPLUGIN_CLAP_INSTALL_DIR = $ClapDir
-  $env:NINJAMPLUGIN_VST3_INSTALL_DIR = $Vst3Dir
+  $env:MRNINJAM_CLAP_INSTALL_DIR = $ClapDir
+  $env:MRNINJAM_VST3_INSTALL_DIR = $Vst3Dir
   if ($BuildDir) {
-    $env:NINJAMPLUGIN_BUILD_DIR = [System.IO.Path]::GetFullPath($BuildDir)
+    $env:MRNINJAM_BUILD_DIR = [System.IO.Path]::GetFullPath($BuildDir)
   }
   if ($ClapArtifact) {
-    $env:NINJAMPLUGIN_CLAP_ARTIFACT = [System.IO.Path]::GetFullPath($ClapArtifact)
+    $env:MRNINJAM_CLAP_ARTIFACT = [System.IO.Path]::GetFullPath($ClapArtifact)
   }
   if ($Vst3Artifact) {
-    $env:NINJAMPLUGIN_VST3_ARTIFACT = [System.IO.Path]::GetFullPath($Vst3Artifact)
+    $env:MRNINJAM_VST3_ARTIFACT = [System.IO.Path]::GetFullPath($Vst3Artifact)
   }
 
   & $Installer -BuildType $BuildType -DryRun -SkipVerify
@@ -70,13 +68,6 @@ try {
 
   & $Installer -BuildType $BuildType -SkipVerify
   & $Installer -BuildType $BuildType -SkipVerify
-  if (-not (Test-Path -LiteralPath (Join-Path $ClapDir "NinjamPlugin.clap"))) {
-    throw "Legacy CLAP marker was removed."
-  }
-  if (-not (Test-Path -LiteralPath (Join-Path $Vst3Dir "NinjamPlugin.vst3"))) {
-    throw "Legacy VST3 marker was removed."
-  }
-
   Remove-Item -LiteralPath (Join-Path $ClapDir "MrNinjam.clap") -Recurse -Force
   Remove-Item -LiteralPath (Join-Path $Vst3Dir "MrNinjam.vst3") -Recurse -Force
   New-Item -ItemType Directory -Force -Path `
@@ -148,11 +139,11 @@ try {
 } finally {
   $env:PATH = $OriginalPath
   $env:LOCALAPPDATA = $OriginalLocalAppData
-  $env:NINJAMPLUGIN_CLAP_INSTALL_DIR = $OriginalClapDir
-  $env:NINJAMPLUGIN_VST3_INSTALL_DIR = $OriginalVst3Dir
-  $env:NINJAMPLUGIN_BUILD_DIR = $OriginalBuildDir
-  $env:NINJAMPLUGIN_CLAP_ARTIFACT = $OriginalClapArtifact
-  $env:NINJAMPLUGIN_VST3_ARTIFACT = $OriginalVst3Artifact
+  $env:MRNINJAM_CLAP_INSTALL_DIR = $OriginalClapDir
+  $env:MRNINJAM_VST3_INSTALL_DIR = $OriginalVst3Dir
+  $env:MRNINJAM_BUILD_DIR = $OriginalBuildDir
+  $env:MRNINJAM_CLAP_ARTIFACT = $OriginalClapArtifact
+  $env:MRNINJAM_VST3_ARTIFACT = $OriginalVst3Artifact
   if (Test-Path Function:\Move-Item) {
     Remove-Item Function:\Move-Item
   }

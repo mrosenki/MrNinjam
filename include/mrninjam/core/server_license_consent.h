@@ -4,7 +4,7 @@
 #include <mutex>
 #include <string>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 struct ServerLicenseAgreement {
   enum class State {
@@ -46,4 +46,4 @@ class ServerLicenseConsent final {
   std::string accepted_text_;
 };
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

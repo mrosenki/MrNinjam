@@ -19,14 +19,13 @@ trap cleanup EXIT
 CLAP_DIR="${TEST_ROOT}/clap"
 VST3_DIR="${TEST_ROOT}/vst3"
 mkdir -p "$CLAP_DIR" "$VST3_DIR"
-touch "${CLAP_DIR}/NinjamPlugin.clap" "${VST3_DIR}/NinjamPlugin.vst3"
 
 run_installer() {
-  NINJAMPLUGIN_CLAP_INSTALL_DIR="$CLAP_DIR" \
-  NINJAMPLUGIN_VST3_INSTALL_DIR="$VST3_DIR" \
-  NINJAMPLUGIN_BUILD_DIR="$SOURCE_BUILD_DIR" \
-  NINJAMPLUGIN_CLAP_ARTIFACT="$SOURCE_CLAP_ARTIFACT" \
-  NINJAMPLUGIN_VST3_ARTIFACT="$SOURCE_VST3_ARTIFACT" \
+  MRNINJAM_CLAP_INSTALL_DIR="$CLAP_DIR" \
+  MRNINJAM_VST3_INSTALL_DIR="$VST3_DIR" \
+  MRNINJAM_BUILD_DIR="$SOURCE_BUILD_DIR" \
+  MRNINJAM_CLAP_ARTIFACT="$SOURCE_CLAP_ARTIFACT" \
+  MRNINJAM_VST3_ARTIFACT="$SOURCE_VST3_ARTIFACT" \
     "$INSTALLER" "$BUILD_TYPE" "$@"
 }
 
@@ -40,25 +39,23 @@ diff -rq "$SOURCE_CLAP_ARTIFACT" \
   "${CLAP_DIR}/MrNinjam.clap"
 diff -rq "$SOURCE_VST3_ARTIFACT" \
   "${VST3_DIR}/MrNinjam.vst3"
-test -e "${CLAP_DIR}/NinjamPlugin.clap"
-test -e "${VST3_DIR}/NinjamPlugin.vst3"
 
 mkdir -p "${SYNTHETIC_BUILD_DIR}/plugin"
 ln -s "$SOURCE_CLAP_ARTIFACT" \
   "${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.clap"
 ln -s "$SOURCE_VST3_ARTIFACT" \
   "${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.vst3"
-if NINJAMPLUGIN_BUILD_DIR="$SYNTHETIC_BUILD_DIR" \
-   NINJAMPLUGIN_CLAP_ARTIFACT="${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.clap" \
-   NINJAMPLUGIN_VST3_ARTIFACT="${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.vst3" \
+if MRNINJAM_BUILD_DIR="$SYNTHETIC_BUILD_DIR" \
+   MRNINJAM_CLAP_ARTIFACT="${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.clap" \
+   MRNINJAM_VST3_ARTIFACT="${SYNTHETIC_BUILD_DIR}/plugin/MrNinjam.vst3" \
    "$INSTALLER" "$SYNTHETIC_BUILD_TYPE" --dry-run --skip-verify >/dev/null 2>&1; then
   printf 'ERROR: installer accepted symbolic-link artifacts.\n' >&2
   exit 1
 fi
 
 ln -s "$ROOT_DIR" "${TEST_ROOT}/source-link"
-if NINJAMPLUGIN_CLAP_INSTALL_DIR="${TEST_ROOT}/source-link/generated-clap" \
-   NINJAMPLUGIN_VST3_INSTALL_DIR="$VST3_DIR" \
+if MRNINJAM_CLAP_INSTALL_DIR="${TEST_ROOT}/source-link/generated-clap" \
+   MRNINJAM_VST3_INSTALL_DIR="$VST3_DIR" \
    "$INSTALLER" "$BUILD_TYPE" --dry-run --skip-verify >/dev/null 2>&1; then
   printf 'ERROR: installer accepted a destination resolving into the source checkout.\n' >&2
   exit 1

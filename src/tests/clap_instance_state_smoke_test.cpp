@@ -1,6 +1,6 @@
-#include "ninjamplugin/core/plugin_state.h"
-#include "ninjamplugin/format/clap/plugin_config.h"
-#include "ninjamplugin/format/clap/plugin_entry.h"
+#include "mrninjam/core/plugin_state.h"
+#include "mrninjam/format/clap/plugin_config.h"
+#include "mrninjam/format/clap/plugin_entry.h"
 
 #include <clap/ext/state.h>
 #include <clap/factory/plugin-factory.h>
@@ -48,7 +48,7 @@ class ScopedConfigPath final {
   bool ready() const { return ready_; }
 
  private:
-  static constexpr const char* kName = "NINJAMPLUGIN_CONNECTION_CONFIG_PATH";
+  static constexpr const char* kName = "MRNINJAM_CONNECTION_CONFIG_PATH";
   bool previous_present_ = false;
   bool ready_ = false;
   std::string previous_value_;
@@ -108,9 +108,9 @@ bool SaveState(const clap_plugin_t* plugin, std::string* blob) {
   return state != nullptr && blob != nullptr && state->save(plugin, &stream);
 }
 
-ninjamplugin::core::PersistedPluginState MakeState(
+mrninjam::core::PersistedPluginState MakeState(
     std::string host, std::string user, std::string recordings_path) {
-  ninjamplugin::core::PersistedPluginState state;
+  mrninjam::core::PersistedPluginState state;
   state.has_instance_connection_settings = true;
   state.connection_host = std::move(host);
   state.connection_user = std::move(user);
@@ -121,8 +121,8 @@ ninjamplugin::core::PersistedPluginState MakeState(
 bool MatchesInstance(const std::string& blob, const std::string_view host,
                      const std::string_view user,
                      const std::string_view recordings_path) {
-  ninjamplugin::core::PersistedPluginState state;
-  return ninjamplugin::core::PluginStateCodec::Deserialize(blob, &state) &&
+  mrninjam::core::PersistedPluginState state;
+  return mrninjam::core::PluginStateCodec::Deserialize(blob, &state) &&
          state.has_instance_connection_settings && state.connection_host == host &&
          state.connection_user == user && state.recordings_path == recordings_path;
 }
@@ -145,26 +145,26 @@ int main() {
   host.request_process = HostRequest;
   host.request_callback = HostRequest;
 
-  if (!NinjamPluginEntryInit("instance-state-test")) {
+  if (!MrNinjamEntryInit("instance-state-test")) {
     std::cerr << "Failed to initialise CLAP entry\n";
     return 1;
   }
   const auto* factory = static_cast<const clap_plugin_factory_t*>(
-      NinjamPluginEntryGetFactory(CLAP_PLUGIN_FACTORY_ID));
+      MrNinjamEntryGetFactory(CLAP_PLUGIN_FACTORY_ID));
   if (factory == nullptr) {
-    NinjamPluginEntryDeinit();
+    MrNinjamEntryDeinit();
     return 1;
   }
 
   const clap_plugin_t* first = factory->create_plugin(
-      factory, &host, ninjamplugin::format::clap::kPluginId);
+      factory, &host, mrninjam::format::clap::kPluginId);
   const clap_plugin_t* second = factory->create_plugin(
-      factory, &host, ninjamplugin::format::clap::kPluginId);
+      factory, &host, mrninjam::format::clap::kPluginId);
   if (first == nullptr || second == nullptr || !first->init(first) ||
       !second->init(second)) {
     if (first != nullptr) first->destroy(first);
     if (second != nullptr) second->destroy(second);
-    NinjamPluginEntryDeinit();
+    MrNinjamEntryDeinit();
     return 1;
   }
 
@@ -173,9 +173,9 @@ int main() {
   const auto second_state = MakeState("second.example.test:2050", "second-user",
                                       "/recordings/bitwig-instance");
   const std::string first_input =
-      ninjamplugin::core::PluginStateCodec::Serialize(first_state);
+      mrninjam::core::PluginStateCodec::Serialize(first_state);
   const std::string second_input =
-      ninjamplugin::core::PluginStateCodec::Serialize(second_state);
+      mrninjam::core::PluginStateCodec::Serialize(second_state);
 
   std::string first_output;
   std::string second_output;
@@ -190,7 +190,7 @@ int main() {
 
   first->destroy(first);
   second->destroy(second);
-  NinjamPluginEntryDeinit();
+  MrNinjamEntryDeinit();
   if (!ok) {
     std::cerr << "CLAP instances did not retain independent non-secret state\n";
     return 1;

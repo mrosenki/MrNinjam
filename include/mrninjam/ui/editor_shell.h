@@ -6,11 +6,11 @@
 #include <string>
 #include <vector>
 
-#include "ninjamplugin/core/connection_config.h"
-#include "ninjamplugin/core/ninjam_bridge.h"
-#include "ninjamplugin/ui/audio_widget_state.h"
+#include "mrninjam/core/connection_config.h"
+#include "mrninjam/core/ninjam_bridge.h"
+#include "mrninjam/ui/audio_widget_state.h"
 
-namespace ninjamplugin::ui {
+namespace mrninjam::ui {
 
 struct EditorShellConfig {
   std::string title;
@@ -113,7 +113,7 @@ struct EditorActionCapabilities {
 };
 
 struct ConnectionEditorViewState {
-  ninjamplugin::core::ConnectionSettings settings;
+  mrninjam::core::ConnectionSettings settings;
   std::string config_path;
   std::string connection_state_text;
   std::string last_failure_text;
@@ -135,10 +135,10 @@ struct ConnectionEditorViewState {
   std::string multitrack_status_text;
   std::string detail_text;
   std::string notice_text;
-  ninjamplugin::core::ServerLicenseAgreement server_license_agreement;
+  mrninjam::core::ServerLicenseAgreement server_license_agreement;
   EditorActionCapabilities capabilities;
   std::array<LocalInputPairViewState,
-             ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+             mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_pairs{};
   std::vector<RemoteMixerRowViewState> remote_mixer_rows;
   std::vector<std::string> remote_channel_choices;
@@ -154,7 +154,7 @@ struct ConnectionEditorViewState {
   double local_monitor_master_value = 1.0;
   int active_daw_input_channel_count = 16;
   int active_daw_output_channel_count = 4;
-  int server_max_local_channels = ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+  int server_max_local_channels = mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
   double session_interval_progress = 0.0;
   double selected_remote_channel_level_value = 1.0;
   int transmit_mode_value = 1;
@@ -183,19 +183,19 @@ struct ConnectionEditorViewState {
   bool replace_form_fields = false;
   bool session_interval_progress_valid = false;
   bool session_proposal_synced = false;
-  std::vector<ninjamplugin::core::IncompleteSessionCaptureInfo>
+  std::vector<mrninjam::core::IncompleteSessionCaptureInfo>
       incomplete_session_captures;
-  ninjamplugin::core::RemixSessionPreflight raw_session_preflight;
-  ninjamplugin::core::RemixStemExportProgress raw_export_progress;
+  mrninjam::core::RemixSessionPreflight raw_session_preflight;
+  mrninjam::core::RemixStemExportProgress raw_export_progress;
 };
 
 class ConnectionEditorDelegate {
  public:
   virtual ~ConnectionEditorDelegate() = default;
 
-  virtual void SaveRequested(const ninjamplugin::core::ConnectionSettings& settings) = 0;
+  virtual void SaveRequested(const mrninjam::core::ConnectionSettings& settings) = 0;
   virtual void ReloadRequested() = 0;
-  virtual void ConnectRequested(const ninjamplugin::core::ConnectionSettings& settings) = 0;
+  virtual void ConnectRequested(const mrninjam::core::ConnectionSettings& settings) = 0;
   virtual void DisconnectRequested() = 0;
   virtual void ServerLicenseAccepted() = 0;
   virtual void ServerLicenseDeclined() = 0;
@@ -244,7 +244,7 @@ class ConnectionEditorDelegate {
       const std::string& partial_file_path) = 0;
   virtual void RawSessionFolderSelected(const std::string& session_directory) = 0;
   virtual void RawSessionExportRequested(
-      const ninjamplugin::core::RemixStemExportOptions& options) = 0;
+      const mrninjam::core::RemixStemExportOptions& options) = 0;
   virtual void RemoteChannelSelectionChanged(int index) = 0;
   virtual void RemoteChannelSubscriptionChanged(bool value) = 0;
   virtual void RemoteChannelMuteChanged(bool value) = 0;
@@ -278,7 +278,7 @@ class EditorShell {
   virtual bool Show() = 0;
   virtual bool Hide() = 0;
   virtual bool IsVisible() const = 0;
-  virtual ninjamplugin::core::ConnectionSettings CollectConnectionSettingsDraft() const = 0;
+  virtual mrninjam::core::ConnectionSettings CollectConnectionSettingsDraft() const = 0;
 };
 
 bool IsEditorShellApiSupported(const char* api, bool is_floating);
@@ -287,4 +287,4 @@ std::unique_ptr<EditorShell> CreateEditorShell(const EditorShellConfig& config,
                                                const char* api,
                                                bool is_floating);
 
-}  // namespace ninjamplugin::ui
+}  // namespace mrninjam::ui
