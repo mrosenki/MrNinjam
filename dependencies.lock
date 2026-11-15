@@ -1,0 +1,9 @@
+# Exact source pins reconstructed from the 0.1.132 migration baseline.
+# name|repository|commit|path
+clap|https://github.com/free-audio/clap.git|29ffcc273be7c7c651f6c9953b99e69700e2387a|deps/clap
+clap-wrapper|https://github.com/free-audio/clap-wrapper.git|35f524b771ec09f54c164720bb90f271273b37d3|deps/clap-wrapper
+visage|https://github.com/VitalAudio/visage.git|20de59464243447816d142e9d38e9723d068f755|deps/visage
+vst3sdk|https://github.com/steinbergmedia/vst3sdk.git|9fad9770f2ae8542ab1a548a68c1ad1ac690abe0|deps/vst3sdk
+ninjam|https://www-dev.cockos.com/ninjam/ninjam.git|dd7cf64cc8d973a319c0677c70a83badded79ba5|external/ninjam-upstream
+bgfx.cmake|https://github.com/bkaradzic/bgfx.cmake.git|a952acef35b431a39c790d39736867c515f32aff|deps/bgfx
+freetype|https://gitlab.freedesktop.org/freetype/freetype.git|526ec5c47b9ebccc4754c85ac0c0cdf7c85a5e9b|deps/freetype
