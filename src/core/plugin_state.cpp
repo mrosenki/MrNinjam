@@ -1,4 +1,4 @@
-#include "ninjamplugin/core/plugin_state.h"
+#include "mrninjam/core/plugin_state.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -9,30 +9,10 @@
 #include <sstream>
 #include <string>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 namespace {
 
-constexpr std::string_view kStateHeaderV1 = "NINJAMPLUGIN_STATE_V1";
-constexpr std::string_view kStateHeaderV2 = "NINJAMPLUGIN_STATE_V2";
-constexpr std::string_view kStateHeaderV3 = "NINJAMPLUGIN_STATE_V3";
-constexpr std::string_view kStateHeaderV4 = "NINJAMPLUGIN_STATE_V4";
-constexpr std::string_view kStateHeaderV5 = "NINJAMPLUGIN_STATE_V5";
-constexpr std::string_view kStateHeaderV6 = "NINJAMPLUGIN_STATE_V6";
-constexpr std::string_view kStateHeaderV7 = "NINJAMPLUGIN_STATE_V7";
-constexpr std::string_view kStateHeaderV8 = "NINJAMPLUGIN_STATE_V8";
-constexpr std::string_view kStateHeaderV9 = "NINJAMPLUGIN_STATE_V9";
-constexpr std::string_view kStateHeaderV10 = "NINJAMPLUGIN_STATE_V10";
-constexpr std::string_view kStateHeaderV11 = "NINJAMPLUGIN_STATE_V11";
-constexpr std::string_view kStateHeaderV12 = "NINJAMPLUGIN_STATE_V12";
-constexpr std::string_view kStateHeaderV13 = "NINJAMPLUGIN_STATE_V13";
-constexpr std::string_view kStateHeaderV14 = "NINJAMPLUGIN_STATE_V14";
-constexpr std::string_view kStateHeaderV15 = "NINJAMPLUGIN_STATE_V15";
-constexpr std::string_view kStateHeaderV16 = "NINJAMPLUGIN_STATE_V16";
-constexpr std::string_view kStateHeaderV17 = "NINJAMPLUGIN_STATE_V17";
-constexpr std::string_view kStateHeaderV18 = "NINJAMPLUGIN_STATE_V18";
-constexpr std::string_view kStateHeaderV19 = "NINJAMPLUGIN_STATE_V19";
-constexpr std::string_view kStateHeaderV20 = "NINJAMPLUGIN_STATE_V20";
-constexpr std::string_view kStateHeaderV21 = "NINJAMPLUGIN_STATE_V21";
+constexpr std::string_view kStateHeaderV21 = "MRNINJAM_STATE_V21";
 
 std::string HexEncode(const std::string& text) {
   static constexpr char kHex[] = "0123456789ABCDEF";
@@ -204,27 +184,6 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
   bool connection_host_seen = false;
   bool connection_user_seen = false;
   bool recordings_path_seen = false;
-  bool is_v1 = false;
-  bool is_v2 = false;
-  bool is_v3 = false;
-  bool is_v4 = false;
-  bool is_v5 = false;
-  bool is_v6 = false;
-  bool is_v7 = false;
-  bool is_v8 = false;
-  bool is_v9 = false;
-  bool is_v10 = false;
-  bool is_v11 = false;
-  bool is_v12 = false;
-  bool is_v13 = false;
-  bool is_v14 = false;
-  bool is_v15 = false;
-  bool is_v16 = false;
-  bool is_v17 = false;
-  bool is_v18 = false;
-  bool is_v19 = false;
-  bool is_v20 = false;
-  bool is_v21 = false;
   std::array<bool, 8> local_input_route_enabled_seen{};
   std::array<bool, 8> local_input_route_source_pair_seen{};
   std::array<bool, 8> local_input_route_send_level_seen{};
@@ -241,10 +200,6 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
   std::array<bool, 8> local_input_route_monitor_solo_seen{};
   std::array<bool, 8> local_input_route_channel_mode_seen{};
   std::array<bool, 8> local_input_route_bitrate_seen{};
-  bool local_input_pair_1_enabled_seen = false;
-  bool local_input_pair_2_enabled_seen = false;
-  bool local_input_pair_1_monitor_level_seen = false;
-  bool local_input_pair_2_monitor_level_seen = false;
   PersistedPluginState parsed{};
 
   std::size_t cursor = 0;
@@ -260,31 +215,7 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
     cursor = next_line == std::string_view::npos ? payload.size() + 1 : next_line + 1;
 
     if (!header_seen) {
-      is_v1 = line == kStateHeaderV1;
-      is_v2 = line == kStateHeaderV2;
-      is_v3 = line == kStateHeaderV3;
-      is_v4 = line == kStateHeaderV4;
-      is_v5 = line == kStateHeaderV5;
-      is_v6 = line == kStateHeaderV6;
-      is_v7 = line == kStateHeaderV7;
-      is_v16 = line == kStateHeaderV16;
-      is_v17 = line == kStateHeaderV17;
-      is_v18 = line == kStateHeaderV18;
-      is_v19 = line == kStateHeaderV19;
-      is_v20 = line == kStateHeaderV20;
-      is_v21 = line == kStateHeaderV21;
-      is_v8 = line == kStateHeaderV8;
-      is_v9 = line == kStateHeaderV9;
-      is_v10 = line == kStateHeaderV10;
-      is_v11 = line == kStateHeaderV11;
-      is_v12 = line == kStateHeaderV12;
-      is_v13 = line == kStateHeaderV13;
-      is_v14 = line == kStateHeaderV14;
-      is_v15 = line == kStateHeaderV15;
-      header_seen =
-          is_v1 || is_v2 || is_v3 || is_v4 || is_v5 || is_v6 || is_v7 || is_v8 || is_v9 ||
-          is_v10 || is_v11 || is_v12 || is_v13 || is_v14 || is_v15 || is_v16 || is_v17 ||
-          is_v18 || is_v19 || is_v20 || is_v21;
+      header_seen = line == kStateHeaderV21;
       if (!header_seen) {
         return false;
       }
@@ -459,42 +390,6 @@ bool PluginStateCodec::Deserialize(const std::string_view payload,
       continue;
     }
 
-    if (key == "local_input_pair_1_enabled") {
-      if (local_input_pair_1_enabled_seen ||
-          !ParseBool01(value, &parsed.local_input_routes[0].enabled)) {
-        return false;
-      }
-      local_input_pair_1_enabled_seen = true;
-      continue;
-    }
-
-    if (key == "local_input_pair_2_enabled") {
-      if (local_input_pair_2_enabled_seen ||
-          !ParseBool01(value, &parsed.local_input_routes[1].enabled)) {
-        return false;
-      }
-      local_input_pair_2_enabled_seen = true;
-      continue;
-    }
-
-    if (key == "local_input_pair_1_monitor_level") {
-      if (local_input_pair_1_monitor_level_seen ||
-          !ParseDoubleStrict(value, &parsed.local_input_routes[0].monitor_level)) {
-        return false;
-      }
-      local_input_pair_1_monitor_level_seen = true;
-      continue;
-    }
-
-    if (key == "local_input_pair_2_monitor_level") {
-      if (local_input_pair_2_monitor_level_seen ||
-          !ParseDoubleStrict(value, &parsed.local_input_routes[1].monitor_level)) {
-        return false;
-      }
-      local_input_pair_2_monitor_level_seen = true;
-      continue;
-    }
-
     for (std::size_t route_index = 0; route_index < parsed.local_input_routes.size(); ++route_index) {
       const std::string prefix = "local_input_route_" + std::to_string(route_index + 1) + "_";
       if (key == prefix + "enabled") {
@@ -618,258 +513,55 @@ parsed_route_key:
     continue;
   }
 
-  if (!header_seen || !gain_seen || !connect_seen || !bpm_seen) {
+  if (!header_seen || !gain_seen || !connect_seen || !bpm_seen || !bpi_seen ||
+      !monitor_mix_seen || !metronome_level_seen || !metronome_enabled_seen ||
+      !local_monitor_master_seen || !transmit_mode_seen || !transmit_bitrate_seen ||
+      !active_daw_input_channels_seen || !active_daw_output_channels_seen ||
+      !session_capture_enabled_seen || !session_capture_bits_per_sample_seen ||
+      !wav_stem_export_enabled_seen || !multitrack_capture_enabled_seen ||
+      !multitrack_wav_clips_enabled_seen || !connection_host_seen ||
+      !connection_user_seen || !recordings_path_seen) {
     return false;
   }
 
-  if (is_v1) {
-    parsed.session_bpi = 8;
-    parsed.monitor_mix = 0.0;
-    parsed.metronome_level = 0.0;
-    parsed.transmit_mode = 1;
-    parsed.transmit_bitrate = 128;
-    parsed.session_capture_enabled = false;
-    parsed.wav_stem_export_enabled = false;
-    parsed.multitrack_capture_enabled = false;
-    parsed.multitrack_wav_clips_enabled = false;
-    parsed.local_input_routes = {{
-        PersistedLocalInputRouteState{true, 0, 1.0, 1.0, 0},
-        PersistedLocalInputRouteState{false, 1, 1.0, 1.0, 0},
-    }};
-  } else if (is_v2) {
-    if (!monitor_mix_seen || !transmit_mode_seen || !transmit_bitrate_seen) {
-      return false;
-    }
-    parsed.session_bpi = 8;
-    parsed.metronome_level = parsed.monitor_mix;
-    parsed.session_capture_enabled = false;
-    parsed.wav_stem_export_enabled = false;
-    parsed.multitrack_capture_enabled = false;
-    parsed.multitrack_wav_clips_enabled = false;
-    parsed.local_input_routes = {{
-        PersistedLocalInputRouteState{true, 0, 1.0, 1.0, 0},
-        PersistedLocalInputRouteState{false, 1, 1.0, 1.0, 0},
-    }};
-  } else if (is_v3) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen) {
-      return false;
-    }
-    parsed.session_bpi = 8;
-    parsed.session_capture_enabled = false;
-    parsed.wav_stem_export_enabled = false;
-    parsed.multitrack_capture_enabled = false;
-    parsed.multitrack_wav_clips_enabled = false;
-    parsed.local_input_routes = {{
-        PersistedLocalInputRouteState{true, 0, 1.0, 1.0, 0},
-        PersistedLocalInputRouteState{false, 1, 1.0, 1.0, 0},
-    }};
-  } else if (is_v4) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen) {
-      return false;
-    }
-    parsed.session_bpi = 8;
-    parsed.wav_stem_export_enabled = false;
-    parsed.multitrack_capture_enabled = false;
-    parsed.multitrack_wav_clips_enabled = false;
-    parsed.local_input_routes = {{
-        PersistedLocalInputRouteState{true, 0, 1.0, 1.0, 0},
-        PersistedLocalInputRouteState{false, 1, 1.0, 1.0, 0},
-    }};
-  } else if (is_v5) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen ||
-        !multitrack_capture_enabled_seen) {
-      return false;
-    }
-    parsed.session_bpi = 8;
-    parsed.wav_stem_export_enabled = false;
-    parsed.multitrack_wav_clips_enabled = false;
-    parsed.local_input_routes = {{
-        PersistedLocalInputRouteState{true, 0, 1.0, 1.0, 0},
-        PersistedLocalInputRouteState{false, 1, 1.0, 1.0, 0},
-    }};
-  } else if (is_v6) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen ||
-        !multitrack_capture_enabled_seen || !multitrack_wav_clips_enabled_seen) {
-      return false;
-    }
-    parsed.session_bpi = 8;
-    parsed.wav_stem_export_enabled = false;
-    parsed.local_input_routes = {{
-        PersistedLocalInputRouteState{true, 0, 1.0, 1.0, 0},
-        PersistedLocalInputRouteState{false, 1, 1.0, 1.0, 0},
-    }};
-  } else if (is_v7) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen ||
-        !wav_stem_export_enabled_seen || !multitrack_capture_enabled_seen ||
-        !multitrack_wav_clips_enabled_seen) {
-      return false;
-    }
-    parsed.session_bpi = 8;
-    parsed.local_input_routes = {{
-        PersistedLocalInputRouteState{true, 0, 1.0, 1.0, 0},
-        PersistedLocalInputRouteState{false, 1, 1.0, 1.0, 0},
-    }};
-  } else if (is_v8) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen ||
-        !wav_stem_export_enabled_seen || !multitrack_capture_enabled_seen ||
-        !bpi_seen ||
-        !multitrack_wav_clips_enabled_seen) {
-      return false;
-    }
-    parsed.local_input_routes = {{
-        PersistedLocalInputRouteState{true, 0, 1.0, 1.0, 0},
-        PersistedLocalInputRouteState{false, 1, 1.0, 1.0, 0},
-    }};
-  } else if (is_v9) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen ||
-        !wav_stem_export_enabled_seen || !multitrack_capture_enabled_seen ||
-        !bpi_seen || !multitrack_wav_clips_enabled_seen ||
-        !local_input_pair_1_enabled_seen || !local_input_pair_2_enabled_seen) {
-      return false;
-    }
-    parsed.local_input_routes[0].source_pair_index = 0;
-    parsed.local_input_routes[1].source_pair_index = 1;
-    parsed.local_input_routes[0].send_level = 1.0;
-    parsed.local_input_routes[1].send_level = 1.0;
-    parsed.local_input_routes[0].monitor_level = 1.0;
-    parsed.local_input_routes[1].monitor_level = 1.0;
-    parsed.local_input_routes[0].output_pair_index = 0;
-    parsed.local_input_routes[1].output_pair_index = 0;
-  } else if (is_v10) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen ||
-        !wav_stem_export_enabled_seen || !multitrack_capture_enabled_seen ||
-        !bpi_seen || !multitrack_wav_clips_enabled_seen ||
-        !local_input_pair_1_enabled_seen || !local_input_pair_2_enabled_seen ||
-        !local_input_pair_1_monitor_level_seen || !local_input_pair_2_monitor_level_seen) {
-      return false;
-    }
-    parsed.local_input_routes[0].source_pair_index = 0;
-    parsed.local_input_routes[1].source_pair_index = 1;
-    parsed.local_input_routes[0].send_level = 1.0;
-    parsed.local_input_routes[1].send_level = 1.0;
-    parsed.local_input_routes[0].output_pair_index = 0;
-    parsed.local_input_routes[1].output_pair_index = 0;
-  } else if (is_v11) {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen ||
-        !wav_stem_export_enabled_seen || !multitrack_capture_enabled_seen ||
-        !bpi_seen || !multitrack_wav_clips_enabled_seen) {
-      return false;
-    }
-    for (std::size_t route_index = 0; route_index < 2U; ++route_index) {
-      if (!local_input_route_enabled_seen[route_index] ||
-          !local_input_route_source_pair_seen[route_index] ||
-          !local_input_route_monitor_level_seen[route_index] ||
-          !local_input_route_output_pair_seen[route_index]) {
-        return false;
-      }
-      parsed.local_input_routes[route_index].send_level = 1.0;
-    }
-  } else {
-    if (!monitor_mix_seen || !metronome_level_seen || !transmit_mode_seen ||
-        !transmit_bitrate_seen || !session_capture_enabled_seen ||
-        !wav_stem_export_enabled_seen || !multitrack_capture_enabled_seen ||
-        !bpi_seen || !multitrack_wav_clips_enabled_seen) {
-      return false;
-    }
-    const std::size_t required_routes = (is_v13 || is_v14 || is_v15 || is_v16 || is_v17 ||
-                                         is_v18 || is_v19 || is_v20 || is_v21)
-                                            ? parsed.local_input_routes.size() : 2U;
-    for (std::size_t route_index = 0; route_index < required_routes; ++route_index) {
-      if (!local_input_route_enabled_seen[route_index] ||
-          !local_input_route_source_pair_seen[route_index] ||
-          !local_input_route_send_level_seen[route_index] ||
-          !local_input_route_monitor_level_seen[route_index] ||
-          !local_input_route_output_pair_seen[route_index]) {
-        return false;
-      }
-      if ((is_v16 || is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
-          (!local_input_route_source_channel_seen[route_index] ||
-                     !local_input_route_source_count_seen[route_index] ||
-                     !local_input_route_name_seen[route_index])) return false;
-      if ((is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
-          (!local_input_route_monitor_pan_seen[route_index] ||
-                     !local_input_route_monitor_muted_seen[route_index] ||
-                     !local_input_route_monitor_solo_seen[route_index] ||
-                     !local_input_route_channel_mode_seen[route_index] ||
-                     !local_input_route_bitrate_seen[route_index])) return false;
-      if ((is_v20 || is_v21) && (!local_input_route_send_pan_seen[route_index] ||
-                     !local_input_route_send_muted_seen[route_index] ||
-                     !local_input_route_send_solo_seen[route_index])) return false;
-    }
-    if ((is_v14 || is_v15 || is_v16 || is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
-        (!session_capture_bits_per_sample_seen ||
-                   (parsed.session_capture_bits_per_sample != 16 &&
-                    parsed.session_capture_bits_per_sample != 24 &&
-                    parsed.session_capture_bits_per_sample != 32)))
-      return false;
-    if ((is_v15 || is_v16 || is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
-        (!local_monitor_master_seen || parsed.local_monitor_master < 0.0 ||
-                   parsed.local_monitor_master > 1.9952623149688795))
-      return false;
-    if ((is_v16 || is_v17 || is_v18 || is_v19 || is_v20 || is_v21) &&
-        (!active_daw_input_channels_seen ||
-                   parsed.active_daw_input_channel_count < 2 ||
-                   parsed.active_daw_input_channel_count > 16)) return false;
-    if ((is_v18 || is_v19 || is_v20 || is_v21) && (!active_daw_output_channels_seen ||
-                   parsed.active_daw_output_channel_count < 2 ||
-                   parsed.active_daw_output_channel_count > 16)) return false;
-    if ((is_v19 || is_v20 || is_v21) && !metronome_enabled_seen) return false;
-    if (is_v21 && (!connection_host_seen || !connection_user_seen || !recordings_path_seen)) {
+  for (std::size_t route_index = 0; route_index < parsed.local_input_routes.size();
+       ++route_index) {
+    if (!local_input_route_enabled_seen[route_index] ||
+        !local_input_route_source_pair_seen[route_index] ||
+        !local_input_route_send_level_seen[route_index] ||
+        !local_input_route_send_pan_seen[route_index] ||
+        !local_input_route_send_muted_seen[route_index] ||
+        !local_input_route_send_solo_seen[route_index] ||
+        !local_input_route_monitor_level_seen[route_index] ||
+        !local_input_route_output_pair_seen[route_index] ||
+        !local_input_route_source_channel_seen[route_index] ||
+        !local_input_route_source_count_seen[route_index] ||
+        !local_input_route_name_seen[route_index] ||
+        !local_input_route_monitor_pan_seen[route_index] ||
+        !local_input_route_monitor_muted_seen[route_index] ||
+        !local_input_route_monitor_solo_seen[route_index] ||
+        !local_input_route_channel_mode_seen[route_index] ||
+        !local_input_route_bitrate_seen[route_index]) {
       return false;
     }
   }
 
-  if (!is_v16 && !is_v17 && !is_v18 && !is_v19 && !is_v20 && !is_v21) {
-    parsed.active_daw_input_channel_count = 2;
-    for (auto& route : parsed.local_input_routes) {
-      route.source_channel_index = route.source_pair_index < 0 ? -1 : route.source_pair_index * 2;
-      route.source_channel_count = 2;
-      if (route.source_channel_index >= 0)
-        parsed.active_daw_input_channel_count = std::max(
-            parsed.active_daw_input_channel_count, route.source_channel_index + 2);
-    }
-    parsed.active_daw_input_channel_count = std::clamp(parsed.active_daw_input_channel_count, 2, 16);
-  }
-  if (!is_v17 && !is_v18 && !is_v19 && !is_v20 && !is_v21) {
-    for (auto& route : parsed.local_input_routes) {
-      route.monitor_pan = 0.0;
-      route.monitor_muted = false;
-      route.monitor_solo = false;
-      route.channel_mode = 0;
-      route.bitrate = parsed.transmit_bitrate;
-    }
-  }
-  if (!is_v18 && !is_v19 && !is_v20 && !is_v21) {
-    // Earlier CLAP builds always declared 16 inputs and four outputs. Preserve
-    // that host-visible layout while migrating legacy route identifiers.
-    parsed.active_daw_input_channel_count = 16;
-    parsed.active_daw_output_channel_count = 4;
-    for (auto& route : parsed.local_input_routes) {
-      if (route.output_pair_index >= 2 && route.output_pair_index <= 5)
-        route.output_pair_index = 8 + (route.output_pair_index - 2);
-    }
-  }
-  if (!is_v20 && !is_v21) {
-    for (auto& route : parsed.local_input_routes) {
-      route.send_pan = 0.0;
-      route.send_muted = false;
-      route.send_solo = false;
-    }
+  if ((parsed.session_capture_bits_per_sample != 16 &&
+       parsed.session_capture_bits_per_sample != 24 &&
+       parsed.session_capture_bits_per_sample != 32) ||
+      parsed.local_monitor_master < 0.0 ||
+      parsed.local_monitor_master > 1.9952623149688795 ||
+      parsed.active_daw_input_channel_count < 2 ||
+      parsed.active_daw_input_channel_count > 16 ||
+      parsed.active_daw_output_channel_count < 2 ||
+      parsed.active_daw_output_channel_count > 16) {
+    return false;
   }
 
-  parsed.has_instance_connection_settings = is_v21;
+  parsed.has_instance_connection_settings = true;
 
   *out_state = parsed;
   return true;
 }
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

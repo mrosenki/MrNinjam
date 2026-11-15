@@ -1,4 +1,4 @@
-#include "ninjamplugin/ui/connection_editor_controller.h"
+#include "mrninjam/ui/connection_editor_controller.h"
 
 #include <algorithm>
 #include <cctype>
@@ -8,7 +8,7 @@
 #include <limits>
 #include <unordered_set>
 
-namespace ninjamplugin::ui {
+namespace mrninjam::ui {
 namespace {
 
 std::string TrimText(const std::string& text) {
@@ -41,11 +41,11 @@ std::string FormatGainAsDbText(const double gain) {
   return buffer;
 }
 
-std::string BuildSessionIdentityText(const ninjamplugin::core::SessionOverview& overview,
-                                     const ninjamplugin::core::ConnectionSettings& draft_settings,
+std::string BuildSessionIdentityText(const mrninjam::core::SessionOverview& overview,
+                                     const mrninjam::core::ConnectionSettings& draft_settings,
                                      const int connection_state) {
   const bool connected =
-      connection_state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected;
+      connection_state == mrninjam::core::NinjamBridge::kConnectionStateConnected;
   const bool has_host = !overview.host_name.empty();
   const bool has_user = !overview.effective_user.empty();
   std::string summary;
@@ -74,11 +74,11 @@ std::string BuildSessionIdentityText(const ninjamplugin::core::SessionOverview& 
   return summary;
 }
 
-std::string BuildRemoteParticipantsText(const ninjamplugin::core::SessionOverview& overview,
+std::string BuildRemoteParticipantsText(const mrninjam::core::SessionOverview& overview,
                                         const int connection_state,
                                         const int selected_user_index,
                                         const int selected_channel_index) {
-  if (connection_state != ninjamplugin::core::NinjamBridge::kConnectionStateConnected) {
+  if (connection_state != mrninjam::core::NinjamBridge::kConnectionStateConnected) {
     return "No remote participants detected yet.";
   }
   if (overview.remote_user_count <= 0 || overview.remote_users.empty()) {
@@ -148,12 +148,12 @@ std::string BuildRemoteParticipantsText(const ninjamplugin::core::SessionOvervie
   return text;
 }
 
-std::string BuildRemoteUserGroupKey(const ninjamplugin::core::RemoteUserInfo& user) {
+std::string BuildRemoteUserGroupKey(const mrninjam::core::RemoteUserInfo& user) {
   return std::to_string(user.runtime_user_index) + "\x1f" + user.name;
 }
 
 std::vector<RemoteMixerRowViewState> BuildRemoteMixerRows(
-    const ninjamplugin::core::SessionOverview& overview,
+    const mrninjam::core::SessionOverview& overview,
     const int connection_state,
     ConnectionEditorControllerHost* host,
     const std::vector<std::pair<int, int>>& remote_channel_runtime_ids,
@@ -161,7 +161,7 @@ std::vector<RemoteMixerRowViewState> BuildRemoteMixerRows(
     const int selected_user_index,
     const int selected_channel_index) {
   std::vector<RemoteMixerRowViewState> rows;
-  if (connection_state != ninjamplugin::core::NinjamBridge::kConnectionStateConnected ||
+  if (connection_state != mrninjam::core::NinjamBridge::kConnectionStateConnected ||
       overview.remote_user_count <= 0 || overview.remote_users.empty()) {
     rows.push_back(RemoteMixerRowViewState{
         .title = "No remote participants detected yet.",
@@ -293,13 +293,13 @@ std::vector<RemoteMixerRowViewState> BuildRemoteMixerRows(
   return rows;
 }
 
-std::string BuildRemoteChannelChoiceLabel(const ninjamplugin::core::RemoteUserInfo& user,
-                                          const ninjamplugin::core::RemoteUserChannelInfo& channel) {
+std::string BuildRemoteChannelChoiceLabel(const mrninjam::core::RemoteUserInfo& user,
+                                          const mrninjam::core::RemoteUserChannelInfo& channel) {
   return user.name + " / " + channel.name;
 }
 
-const ninjamplugin::core::RemoteUserChannelInfo* FindRemoteChannelByRuntimeIds(
-    const ninjamplugin::core::SessionOverview& overview,
+const mrninjam::core::RemoteUserChannelInfo* FindRemoteChannelByRuntimeIds(
+    const mrninjam::core::SessionOverview& overview,
     const int user_index,
     const int channel_index) {
   if (user_index < 0 || channel_index < 0) {
@@ -317,8 +317,8 @@ const ninjamplugin::core::RemoteUserChannelInfo* FindRemoteChannelByRuntimeIds(
   return nullptr;
 }
 
-const ninjamplugin::core::RemoteUserInfo* FindRemoteUserByRuntimeId(
-    const ninjamplugin::core::SessionOverview& overview,
+const mrninjam::core::RemoteUserInfo* FindRemoteUserByRuntimeId(
+    const mrninjam::core::SessionOverview& overview,
     const int user_index) {
   if (user_index < 0) {
     return nullptr;
@@ -338,25 +338,25 @@ EditorActionCapabilities BuildEditorActionCapabilities(
     const int connection_state, const bool connect_requested) {
   EditorActionCapabilities capabilities;
   const bool connected =
-      connection_state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected &&
+      connection_state == mrninjam::core::NinjamBridge::kConnectionStateConnected &&
       connect_requested;
 
   std::string reason;
-  if (connection_state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected &&
+  if (connection_state == mrninjam::core::NinjamBridge::kConnectionStateConnected &&
       !connect_requested) {
     reason = "Disconnecting from the NINJAM server.";
   } else {
     switch (connection_state) {
-      case ninjamplugin::core::NinjamBridge::kConnectionStateConnecting:
+      case mrninjam::core::NinjamBridge::kConnectionStateConnecting:
         reason = "Wait for the NINJAM connection to finish.";
         break;
-      case ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth:
+      case mrninjam::core::NinjamBridge::kConnectionStateInvalidAuth:
         reason = "Reconnect with valid NINJAM credentials.";
         break;
-      case ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect:
+      case mrninjam::core::NinjamBridge::kConnectionStateCantConnect:
         reason = "Reconnect to a reachable NINJAM server.";
         break;
-      case ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable:
+      case mrninjam::core::NinjamBridge::kConnectionStateUnavailable:
         reason = "NINJAM session support is unavailable.";
         break;
       default:
@@ -388,7 +388,7 @@ ConnectionEditorController::~ConnectionEditorController() {
 }
 
 void ConnectionEditorController::SyncDraftSettingsFromRuntime(
-    const ninjamplugin::core::ConnectionSettings& settings,
+    const mrninjam::core::ConnectionSettings& settings,
     const bool force) {
   if (!force && draft_settings_initialized_) {
     return;
@@ -398,7 +398,7 @@ void ConnectionEditorController::SyncDraftSettingsFromRuntime(
 }
 
 void ConnectionEditorController::CaptureDraftSettings(
-    const ninjamplugin::core::ConnectionSettings& settings) {
+    const mrninjam::core::ConnectionSettings& settings) {
   draft_settings_initialized_ = true;
   draft_settings_ = settings;
 }
@@ -455,7 +455,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
       BuildSessionIdentityText(snapshot.overview, draft_settings_, snapshot.connection_state);
   int enabled_route_ordinal = 0;
   for (int pair_index = 0;
-       pair_index < ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount;
+       pair_index < mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount;
        ++pair_index) {
     auto& pair_state = state.local_input_pairs[static_cast<std::size_t>(pair_index)];
     const std::size_t route_slot = static_cast<std::size_t>(pair_index);
@@ -479,7 +479,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
       pair_state.label += " (unavailable)";
     pair_state.enabled = snapshot.local_input_pair_enabled[static_cast<std::size_t>(pair_index)];
     pair_state.server_limited =
-        snapshot.connection_state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected &&
+        snapshot.connection_state == mrninjam::core::NinjamBridge::kConnectionStateConnected &&
         route_configured && pair_state.enabled &&
         enabled_route_ordinal >= snapshot.server_max_local_channels;
     if (route_configured && pair_state.enabled && source_available)
@@ -505,7 +505,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
                                         std::to_string(start + 2);
         choice.selected = start == source_channel_index && count == source_channel_count;
         choice.enabled = true;
-        for (int owner_index = 0; owner_index < ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount;
+        for (int owner_index = 0; owner_index < mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount;
              ++owner_index) {
           if (owner_index == pair_index ||
               !snapshot.local_input_route_configured[static_cast<std::size_t>(owner_index)]) continue;
@@ -522,14 +522,14 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
         pair_state.source_menu_choices.push_back(std::move(choice));
       }
     }
-    pair_state.send_level = ninjamplugin::core::NinjamBridge::ClampLocalInputSendLevel(
+    pair_state.send_level = mrninjam::core::NinjamBridge::ClampLocalInputSendLevel(
         snapshot.local_input_pair_send_level[static_cast<std::size_t>(pair_index)]);
     pair_state.send_level_text = FormatGainAsDbText(pair_state.send_level);
     pair_state.send_pan = snapshot.local_input_send_pan[route_slot];
     pair_state.send_muted = snapshot.local_input_send_muted[route_slot];
     pair_state.send_solo = snapshot.local_input_send_solo[route_slot];
     pair_state.send_clip_latched = snapshot.local_input_send_clip_latched[route_slot];
-    pair_state.monitor_level = ninjamplugin::core::NinjamBridge::ClampLocalInputMonitorLevel(
+    pair_state.monitor_level = mrninjam::core::NinjamBridge::ClampLocalInputMonitorLevel(
         snapshot.local_input_pair_monitor_level[static_cast<std::size_t>(pair_index)]);
     pair_state.monitor_level_text = FormatGainAsDbText(pair_state.monitor_level);
     pair_state.monitor_pan = snapshot.local_input_monitor_pan[route_slot];
@@ -540,7 +540,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
     pair_state.channel_mode = snapshot.local_input_channel_mode[route_slot];
     pair_state.bitrate = snapshot.local_input_bitrate[route_slot];
     if (source_available &&
-        source_channel_index / 2 < ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs) {
+        source_channel_index / 2 < mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs) {
       pair_state.activity_left = snapshot.local_input_pair_peak_left[route_slot];
       pair_state.activity_right = snapshot.local_input_pair_peak_right[route_slot];
       pair_state.monitor_activity_left =
@@ -552,8 +552,8 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
 
   const int remote_connection_state =
       state.capabilities.remote_session_controls.available
-          ? ninjamplugin::core::NinjamBridge::kConnectionStateConnected
-          : ninjamplugin::core::NinjamBridge::kConnectionStateDisconnected;
+          ? mrninjam::core::NinjamBridge::kConnectionStateConnected
+          : mrninjam::core::NinjamBridge::kConnectionStateDisconnected;
   const SelectedRemoteChannelState selected_remote_channel =
       PrepareSelectedRemoteChannelState(snapshot.overview, remote_connection_state);
   state.remote_participants_text = BuildRemoteParticipantsText(snapshot.overview,
@@ -597,7 +597,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
         state.capabilities.raw_session_capture.unavailable_reason;
   }
   state.selected_remote_channel_level_value =
-      ninjamplugin::core::NinjamBridge::ClampRemoteChannelLevel(selected_remote_channel.level);
+      mrninjam::core::NinjamBridge::ClampRemoteChannelLevel(selected_remote_channel.level);
   state.remote_return_bar.normalized_value =
       ClampAudioLevelBarValue(snapshot.session_return_peak_value);
   state.remote_return_bar.enabled =
@@ -605,7 +605,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   state.remote_return_bar.accessibility_text = "Live session return activity";
   state.metronome_level_bar.normalized_value =
       ClampAudioLevelBarValue(state.metronome_level_value /
-                              ninjamplugin::core::NinjamBridge::kMonitorMixMax);
+                              mrninjam::core::NinjamBridge::kMonitorMixMax);
   state.metronome_level_bar.enabled = true;
   state.metronome_level_bar.accessibility_text = "Metronome Level preview";
   double selected_channel_peak = 0.0;
@@ -631,9 +631,9 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   state.notice_text = notice_text_;
   const bool terminal_connection_failure =
       snapshot.connection_state ==
-          ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth ||
+          mrninjam::core::NinjamBridge::kConnectionStateInvalidAuth ||
       snapshot.connection_state ==
-          ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect;
+          mrninjam::core::NinjamBridge::kConnectionStateCantConnect;
   // A failed attempt is no longer an active connection operation. Keep the
   // failure visible, but let the user correct the settings and retry without
   // first performing a fictitious disconnect.
@@ -644,7 +644,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   state.replace_form_fields = replace_form_fields;
   const std::string recordings_directory =
       draft_settings_.recordings_path.empty()
-          ? ninjamplugin::core::GetDefaultSessionCaptureDirectory()
+          ? mrninjam::core::GetDefaultSessionCaptureDirectory()
           : draft_settings_.recordings_path;
   if (recovery_directory_ != recordings_directory) {
     recovery_directory_ = recordings_directory;
@@ -661,17 +661,17 @@ bool ConnectionEditorController::IsRawSessionExportActive() const {
 }
 
 void ConnectionEditorController::SaveRequested(
-    const ninjamplugin::core::ConnectionSettings& settings) {
+    const mrninjam::core::ConnectionSettings& settings) {
   if (host_ == nullptr) {
     return;
   }
-  const auto validation = ninjamplugin::core::ValidateConnectionSettings(settings);
+  const auto validation = mrninjam::core::ValidateConnectionSettings(settings);
   if (!validation.ok) {
     notice_text_ = validation.message;
     host_->RequestViewRefresh(false);
     return;
   }
-  if (!ninjamplugin::core::SaveConnectionSettings(settings)) {
+  if (!mrninjam::core::SaveConnectionSettings(settings)) {
     notice_text_ = "Failed to save settings.";
     host_->RequestViewRefresh(false);
     return;
@@ -690,8 +690,8 @@ void ConnectionEditorController::ReloadRequested() {
     return;
   }
 
-  ninjamplugin::core::ConnectionSettings settings;
-  if (!ninjamplugin::core::LoadPersistedConnectionSettings(&settings)) {
+  mrninjam::core::ConnectionSettings settings;
+  if (!mrninjam::core::LoadPersistedConnectionSettings(&settings)) {
     notice_text_ = "No saved settings found.";
     host_->RequestViewRefresh(false);
     return;
@@ -706,11 +706,11 @@ void ConnectionEditorController::ReloadRequested() {
 }
 
 void ConnectionEditorController::ConnectRequested(
-    const ninjamplugin::core::ConnectionSettings& settings) {
+    const mrninjam::core::ConnectionSettings& settings) {
   if (host_ == nullptr) {
     return;
   }
-  const auto validation = ninjamplugin::core::ValidateConnectionSettings(settings);
+  const auto validation = mrninjam::core::ValidateConnectionSettings(settings);
   if (!validation.ok) {
     notice_text_ = validation.message;
     host_->RequestViewRefresh(false);
@@ -896,7 +896,7 @@ void ConnectionEditorController::RecordingRequestedChanged(const bool value) {
 EditorActionCapabilities ConnectionEditorController::CurrentActionCapabilities() const {
   if (host_ == nullptr) {
     return BuildEditorActionCapabilities(
-        ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable, false);
+        mrninjam::core::NinjamBridge::kConnectionStateUnavailable, false);
   }
   return BuildEditorActionCapabilities(host_->GetConnectionState(),
                                        host_->IsConnectRequested());
@@ -925,7 +925,7 @@ void ConnectionEditorController::LocalInputPairEnabledChanged(const int pair_ind
     return;
   }
   if (pair_index < 0 ||
-      pair_index >= ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount) {
+      pair_index >= mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount) {
     return;
   }
   const auto route = host_->GetLocalInputRouteConfig(pair_index);
@@ -950,7 +950,7 @@ void ConnectionEditorController::LocalInputPairSourceChanged(const int pair_inde
     return;
   }
   if (pair_index < 0 ||
-      pair_index >= ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount ||
+      pair_index >= mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount ||
       source_pair_index < 0 || source_pair_index >= host_->GetAvailableInputPairCount()) {
     notice_text_ = "That input pair is not available on this track.";
     host_->RequestViewRefresh(false);
@@ -1009,7 +1009,7 @@ void ConnectionEditorController::LocalInputPairSendLevelChanged(const int pair_i
     return;
   }
   if (pair_index < 0 ||
-      pair_index >= ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount) {
+      pair_index >= mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount) {
     return;
   }
   const auto route = host_->GetLocalInputRouteConfig(pair_index);
@@ -1020,7 +1020,7 @@ void ConnectionEditorController::LocalInputPairSendLevelChanged(const int pair_i
     return;
   }
   const double clamped =
-      ninjamplugin::core::NinjamBridge::ClampLocalInputSendLevel(value);
+      mrninjam::core::NinjamBridge::ClampLocalInputSendLevel(value);
   host_->SetLocalInputRouteSendLevel(pair_index, clamped);
   char buffer[128];
   std::snprintf(buffer,
@@ -1039,7 +1039,7 @@ void ConnectionEditorController::LocalInputPairMonitorLevelChanged(const int pai
     return;
   }
   if (pair_index < 0 ||
-      pair_index >= ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount) {
+      pair_index >= mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount) {
     return;
   }
   const auto route = host_->GetLocalInputRouteConfig(pair_index);
@@ -1050,7 +1050,7 @@ void ConnectionEditorController::LocalInputPairMonitorLevelChanged(const int pai
     return;
   }
   const double clamped =
-      ninjamplugin::core::NinjamBridge::ClampLocalInputMonitorLevel(value);
+      mrninjam::core::NinjamBridge::ClampLocalInputMonitorLevel(value);
   host_->SetLocalInputRouteMonitorLevel(pair_index, clamped);
   char buffer[128];
   std::snprintf(buffer,
@@ -1131,7 +1131,7 @@ void ConnectionEditorController::LocalInputOutputPairChanged(const int route_ind
                                                               const int output_pair_index) {
   if (host_ == nullptr) return;
   const int route = std::clamp(output_pair_index, 0,
-                               ninjamplugin::core::NinjamBridge::kMaximumOutputRoute);
+                               mrninjam::core::NinjamBridge::kMaximumOutputRoute);
   host_->SetLocalInputRouteOutputPair(route_index, route);
   notice_text_ = route < 2
                      ? "Local monitor routed to stereo outputs " +
@@ -1144,9 +1144,9 @@ void ConnectionEditorController::LocalInputChannelModeChanged(const int route_in
                                                                const int channel_mode) {
   if (host_ == nullptr) return;
   host_->SetLocalInputRouteChannelMode(route_index, channel_mode);
-  notice_text_ = channel_mode == ninjamplugin::core::NinjamBridge::kChannelModeVoiceChat
+  notice_text_ = channel_mode == mrninjam::core::NinjamBridge::kChannelModeVoiceChat
                      ? "Voice Chat mode enabled: audio is sent as soon as possible."
-                 : channel_mode == ninjamplugin::core::NinjamBridge::kChannelModeSession
+                 : channel_mode == mrninjam::core::NinjamBridge::kChannelModeSession
                      ? "Session mode enabled: transmission follows the DAW timeline."
                      : "Normal NINJAM interval mode enabled.";
   host_->RequestViewRefresh(false);
@@ -1187,8 +1187,8 @@ void ConnectionEditorController::LocalInputRouteRemoveRequested(const int pair_i
 void ConnectionEditorController::LocalMonitorMasterChanged(const double value) {
   if (host_ == nullptr) return;
   host_->SetLocalMonitorMaster(std::clamp(
-      value, ninjamplugin::core::NinjamBridge::kLocalInputMonitorLevelMin,
-      ninjamplugin::core::NinjamBridge::kLocalInputMonitorLevelMax));
+      value, mrninjam::core::NinjamBridge::kLocalInputMonitorLevelMin,
+      mrninjam::core::NinjamBridge::kLocalInputMonitorLevelMax));
   notice_text_ = "Input monitor master set to " + FormatGainAsDbText(value) + ".";
   host_->RequestViewRefresh(false);
 }
@@ -1224,7 +1224,7 @@ void ConnectionEditorController::RecordingsPathChanged(const std::string& value)
   draft_settings_.recordings_path = value;
   draft_settings_initialized_ = true;
   recovery_directory_ = value.empty()
-                            ? ninjamplugin::core::GetDefaultSessionCaptureDirectory()
+                            ? mrninjam::core::GetDefaultSessionCaptureDirectory()
                             : value;
   RefreshRecoveryCache();
 
@@ -1239,11 +1239,11 @@ void ConnectionEditorController::RecordingsPathChanged(const std::string& value)
 void ConnectionEditorController::RefreshRecoveryCache() {
   if (recovery_directory_.empty()) {
     recovery_directory_ = draft_settings_.recordings_path.empty()
-                              ? ninjamplugin::core::GetDefaultSessionCaptureDirectory()
+                              ? mrninjam::core::GetDefaultSessionCaptureDirectory()
                               : draft_settings_.recordings_path;
   }
   incomplete_session_captures_ =
-      ninjamplugin::core::ScanIncompleteSessionCaptures(recovery_directory_);
+      mrninjam::core::ScanIncompleteSessionCaptures(recovery_directory_);
 }
 
 void ConnectionEditorController::RecordingRecoveryRefreshRequested() {
@@ -1269,7 +1269,7 @@ void ConnectionEditorController::RecordingRecoveryFinalizeRequested(
   }
   std::string finalized_path;
   std::string error;
-  if (!ninjamplugin::core::FinalizeIncompleteSessionCapture(
+  if (!mrninjam::core::FinalizeIncompleteSessionCapture(
           partial_file_path, &finalized_path, &error)) {
     notice_text_ = "Recovery failed: " + error;
   } else {
@@ -1283,7 +1283,7 @@ void ConnectionEditorController::RecordingRecoveryFinalizeRequested(
 void ConnectionEditorController::RawSessionFolderSelected(
     const std::string& session_directory) {
   raw_session_preflight_ =
-      ninjamplugin::core::InspectRemixSession(session_directory);
+      mrninjam::core::InspectRemixSession(session_directory);
   notice_text_ = raw_session_preflight_.validation_message;
   if (host_ != nullptr) {
     host_->RequestViewRefresh(false);
@@ -1291,7 +1291,7 @@ void ConnectionEditorController::RawSessionFolderSelected(
 }
 
 void ConnectionEditorController::RawSessionExportRequested(
-    const ninjamplugin::core::RemixStemExportOptions& requested_options) {
+    const mrninjam::core::RemixStemExportOptions& requested_options) {
   if (host_ == nullptr) {
     return;
   }
@@ -1310,7 +1310,7 @@ void ConnectionEditorController::RawSessionExportRequested(
     const std::filesystem::path root =
         draft_settings_.recordings_path.empty()
             ? std::filesystem::path(
-                  ninjamplugin::core::GetDefaultSessionCaptureDirectory())
+                  mrninjam::core::GetDefaultSessionCaptureDirectory())
             : std::filesystem::path(draft_settings_.recordings_path);
     options.output_directory = root.string();
   }
@@ -1506,11 +1506,11 @@ void ConnectionEditorController::RemoteChannelOutputPairChanged(const int output
   if (!ResolveSelectedRemoteChannelIndices(&user_index, &channel_index) ||
       !host_->SetRemoteUserChannelOutputPair(user_index, channel_index,
                                              std::clamp(output_pair_index, 0,
-                                                        ninjamplugin::core::NinjamBridge::kMaximumOutputRoute))) {
+                                                        mrninjam::core::NinjamBridge::kMaximumOutputRoute))) {
     notice_text_ = "Remote channel output update failed.";
   } else {
     const int route = std::clamp(output_pair_index, 0,
-                                 ninjamplugin::core::NinjamBridge::kMaximumOutputRoute);
+                                 mrninjam::core::NinjamBridge::kMaximumOutputRoute);
     notice_text_ = route < 2
                        ? "Remote channel routed to stereo outputs " +
                              std::string(route == 0 ? "1/2." : "3/4.")
@@ -1608,7 +1608,7 @@ void ConnectionEditorController::RemoteParticipantLevelChanged(
   if (host_ == nullptr ||
       !host_->SetRemoteUserVolume(
           user_index,
-          ninjamplugin::core::NinjamBridge::ClampRemoteChannelLevel(value))) {
+          mrninjam::core::NinjamBridge::ClampRemoteChannelLevel(value))) {
     notice_text_ = "Participant monitor level update failed.";
   } else {
     notice_text_ = "Participant monitor level updated.";
@@ -1639,7 +1639,7 @@ void ConnectionEditorController::RemoteMixerRowLevelAdjusted(const int index, co
   selected_remote_user_index_ = user_index;
   selected_remote_channel_index_ = channel_index;
   expand_selected_remote_user_pending_ = true;
-  const double next_value = ninjamplugin::core::NinjamBridge::ClampRemoteChannelLevel(
+  const double next_value = mrninjam::core::NinjamBridge::ClampRemoteChannelLevel(
       channel->volume + delta);
   if (!host_->SetRemoteUserChannelVolume(user_index, channel_index, next_value)) {
     notice_text_ = "Remote channel level update failed.";
@@ -1652,10 +1652,10 @@ void ConnectionEditorController::RemoteMixerRowLevelAdjusted(const int index, co
 
 ConnectionEditorController::SelectedRemoteChannelState
 ConnectionEditorController::PrepareSelectedRemoteChannelState(
-    const ninjamplugin::core::SessionOverview& overview,
+    const mrninjam::core::SessionOverview& overview,
     const int connection_state) {
   SelectedRemoteChannelState state;
-  if (connection_state != ninjamplugin::core::NinjamBridge::kConnectionStateConnected) {
+  if (connection_state != mrninjam::core::NinjamBridge::kConnectionStateConnected) {
     remote_channel_runtime_ids_.clear();
     selected_remote_user_index_ = -1;
     selected_remote_channel_index_ = -1;
@@ -1758,4 +1758,4 @@ bool ConnectionEditorController::ApplyRemoteChannelSelectionAndNotify(const int 
   return true;
 }
 
-}  // namespace ninjamplugin::ui
+}  // namespace mrninjam::ui

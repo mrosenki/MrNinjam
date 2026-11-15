@@ -1,6 +1,6 @@
-#include "ninjamplugin/format/clap/audio_processing_heartbeat.h"
+#include "mrninjam/format/clap/audio_processing_heartbeat.h"
 
-namespace ninjamplugin::format::clap {
+namespace mrninjam::format::clap {
 
 void AudioProcessingHeartbeat::MarkValidAudioBlock(
     const std::uint32_t frame_count) noexcept {
@@ -51,4 +51,4 @@ bool AudioProcessingHeartbeat::Update(
   return warning_active_;
 }
 
-}  // namespace ninjamplugin::format::clap
+}  // namespace mrninjam::format::clap

@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 namespace {
 
@@ -13,7 +13,7 @@ bool NearlyEqual(const double lhs, const double rhs, const double epsilon = 1.0e
 }  // namespace
 
 int main() {
-  ninjamplugin::core::NinjamBridge bridge;
+  mrninjam::core::NinjamBridge bridge;
 
   if (bridge.IsInitialized()) {
     std::cerr << "Bridge unexpectedly initialized at startup\n";
@@ -41,7 +41,7 @@ int main() {
   }
   bridge.SetSessionBpi(32);
   if (bridge.GetSessionBpi() != 32 ||
-      bridge.GetActualSessionBpi() != ninjamplugin::core::NinjamBridge::kSessionBpiDefault) {
+      bridge.GetActualSessionBpi() != mrninjam::core::NinjamBridge::kSessionBpiDefault) {
     std::cerr << "Disconnected BPI proposal replaced the observed session timing\n";
     return EXIT_FAILURE;
   }

@@ -10,15 +10,15 @@
 #include <thread>
 #include <vector>
 
-#include "ninjamplugin/core/connection_config.h"
-#include "ninjamplugin/core/remix_stem_exporter.h"
-#include "ninjamplugin/core/server_license_consent.h"
-#include "ninjamplugin/core/session_capture_recorder.h"
+#include "mrninjam/core/connection_config.h"
+#include "mrninjam/core/remix_stem_exporter.h"
+#include "mrninjam/core/server_license_consent.h"
+#include "mrninjam/core/session_capture_recorder.h"
 
 class NJClient;
-class NinjamPluginNJClient;
+class MrNinjamNJClient;
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 struct RemoteUserChannelInfo {
   int runtime_user_index = -1;
@@ -490,7 +490,7 @@ class NinjamBridge {
   ServerLicenseConsent server_license_consent_;
   std::atomic_bool server_license_decision_pending_{false};
   std::atomic_bool server_license_connection_stopped_{false};
-  NinjamPluginNJClient* client_ = nullptr;
+  MrNinjamNJClient* client_ = nullptr;
   int last_nj_status_ = 9999;
   bool connect_attempt_started_ = false;
   std::uint64_t last_connect_attempt_ms_ = 0;
@@ -628,4 +628,4 @@ class NinjamBridge {
   std::vector<std::string> session_feed_lines_;
 };
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

@@ -3,13 +3,13 @@
 #include <iostream>
 #include <thread>
 
-#include "ninjamplugin/core/connection_config.h"
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/connection_config.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 namespace {
 
 const char* StateName(const int state) {
-  using ninjamplugin::core::NinjamBridge;
+  using mrninjam::core::NinjamBridge;
   switch (state) {
     case NinjamBridge::kConnectionStateUnavailable:
       return "Unavailable";
@@ -28,7 +28,7 @@ const char* StateName(const int state) {
   }
 }
 
-bool WaitForTerminalState(ninjamplugin::core::NinjamBridge* bridge,
+bool WaitForTerminalState(mrninjam::core::NinjamBridge* bridge,
                           const std::chrono::steady_clock::time_point deadline,
                           const char* label,
                           int* out_state) {
@@ -40,9 +40,9 @@ bool WaitForTerminalState(ninjamplugin::core::NinjamBridge* bridge,
       last_state = state;
       std::cout << label << " state: " << StateName(state) << '\n';
     }
-    if (state == ninjamplugin::core::NinjamBridge::kConnectionStateConnected ||
-        state == ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth ||
-        state == ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect) {
+    if (state == mrninjam::core::NinjamBridge::kConnectionStateConnected ||
+        state == mrninjam::core::NinjamBridge::kConnectionStateInvalidAuth ||
+        state == mrninjam::core::NinjamBridge::kConnectionStateCantConnect) {
       *out_state = state;
       return true;
     }
@@ -64,18 +64,18 @@ int main(int argc, char** argv) {
     }
   }
 
-  ninjamplugin::core::NinjamBridge bridge;
+  mrninjam::core::NinjamBridge bridge;
   if (!bridge.Initialize(48000.0) || !bridge.Activate(4096U)) {
     std::cerr << "Failed to initialize/activate bridge runtime.\n";
     return 11;
   }
   if (!bridge.IsRuntimeConnectionAvailable()) {
     std::cerr << "Missing connection configuration. Expected env vars or config file at: "
-              << ninjamplugin::core::GetConnectionConfigPath() << "\n";
+              << mrninjam::core::GetConnectionConfigPath() << "\n";
     return 10;
   }
 
-  int state = ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable;
+  int state = mrninjam::core::NinjamBridge::kConnectionStateUnavailable;
   bridge.SetConnectRequested(true);
   if (!WaitForTerminalState(&bridge,
                             std::chrono::steady_clock::now() +
@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
     bridge.Deactivate();
     return 12;
   }
-  if (state != ninjamplugin::core::NinjamBridge::kConnectionStateConnected) {
+  if (state != mrninjam::core::NinjamBridge::kConnectionStateConnected) {
     std::cerr << "Initial connect failed with state " << StateName(state) << '\n';
     bridge.SetConnectRequested(false);
     bridge.Deactivate();
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
     bridge.Deactivate();
     return 14;
   }
-  if (state != ninjamplugin::core::NinjamBridge::kConnectionStateConnected) {
+  if (state != mrninjam::core::NinjamBridge::kConnectionStateConnected) {
     std::cerr << "Reconnect failed with state " << StateName(state) << '\n';
     bridge.SetConnectRequested(false);
     bridge.Deactivate();

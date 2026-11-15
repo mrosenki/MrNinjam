@@ -7,8 +7,8 @@ MrNinjam has one CLAP-native implementation and two packaged formats:
 - CLAP
 - VST3 through clap-wrapper
 
-`NINJAMPLUGIN_ENABLE_VST3` defaults to `ON`. The Visage-backed editor is the
-single production editor on every platform. `NINJAMPLUGIN_BUILD_UI_HARNESS`
+`MRNINJAM_ENABLE_VST3` defaults to `ON`. The Visage-backed editor is the
+single production editor on every platform. `MRNINJAM_BUILD_UI_HARNESS`
 optionally builds its standalone test harness; it does not select a different
 production UI.
 
@@ -58,18 +58,18 @@ top-level Git submodules.
 ```bash
 cmake -S . -B build/Release \
   -DCMAKE_BUILD_TYPE=Release \
-  -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON \
-  -DNINJAMPLUGIN_ENABLE_VST3=ON
+  -DMRNINJAM_BUILD_UI_HARNESS=ON \
+  -DMRNINJAM_ENABLE_VST3=ON
 cmake --build build/Release --config Release --parallel 4
 ctest --test-dir build/Release -C Release --output-on-failure
 ```
 
 Or run `./scripts/verify.sh Release` to perform the dependency check, build,
 CTest run, artifact existence checks, and packaged-file path scan.
-Set `NINJAMPLUGIN_BUILD_DIR` to an absolute configured build directory when a
+Set `MRNINJAM_BUILD_DIR` to an absolute configured build directory when a
 generator or CI job uses a different build tree. If its plug-in outputs do not
-use the default `<build>/plugin` layout, set `NINJAMPLUGIN_CLAP_ARTIFACT` and
-`NINJAMPLUGIN_VST3_ARTIFACT` to the exact artifact paths. CTest supplies those
+use the default `<build>/plugin` layout, set `MRNINJAM_CLAP_ARTIFACT` and
+`MRNINJAM_VST3_ARTIFACT` to the exact artifact paths. CTest supplies those
 paths directly from the CMake targets, including for multi-configuration
 generators whose CLAP and VST3 outputs have different parent directories.
 

@@ -10,7 +10,7 @@ $BuildDir = Join-Path $RootDir ("build/{0}" -f $BuildType)
 
 Write-Host ("Configuring MrNinjam ({0})..." -f $BuildType)
 cmake -S $RootDir -B $BuildDir -DCMAKE_BUILD_TYPE=$BuildType `
-  -DNINJAMPLUGIN_ENABLE_VST3=ON
+  -DMRNINJAM_ENABLE_VST3=ON
 
 Write-Host "Building MrNinjam targets..."
 cmake --build $BuildDir -j 8

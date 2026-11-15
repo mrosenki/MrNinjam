@@ -1,7 +1,7 @@
-#include "ninjamplugin/core/session_capture_recorder.h"
+#include "mrninjam/core/session_capture_recorder.h"
 
-#include "ninjamplugin/core/connection_config.h"
-#include "ninjamplugin/core/debug_log.h"
+#include "mrninjam/core/connection_config.h"
+#include "mrninjam/core/debug_log.h"
 
 #include <algorithm>
 #include <array>
@@ -17,7 +17,7 @@
 #include <new>
 #include <string>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 namespace {
 
 std::string SanitizeFileToken(const std::string& value, const char* fallback) {
@@ -194,7 +194,7 @@ std::map<std::string, std::string> ReadCaptureMetadata(
   }
   std::ifstream input(metadata_path);
   std::string line;
-  if (!std::getline(input, line) || line != "NINJAMPLUGIN_SESSION_CAPTURE_V1") {
+  if (!std::getline(input, line) || line != "MRNINJAM_SESSION_CAPTURE_V1") {
     return values;
   }
   if (has_expected_signature != nullptr) {
@@ -627,7 +627,7 @@ bool SessionCaptureRecorder::WriteCaptureMetadata() const {
   if (!output.is_open()) {
     return false;
   }
-  output << "NINJAMPLUGIN_SESSION_CAPTURE_V1\n"
+  output << "MRNINJAM_SESSION_CAPTURE_V1\n"
          << "state=recording\n"
          << "final_file=" << std::filesystem::path(final_path).filename().string() << '\n'
          << "sample_rate=" << output_sample_rate_ << '\n'
@@ -862,4 +862,4 @@ bool FinalizeIncompleteSessionCapture(const std::string& partial_file_path,
   return true;
 }
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

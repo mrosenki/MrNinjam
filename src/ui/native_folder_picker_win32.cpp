@@ -1,4 +1,4 @@
-#include "ninjamplugin/ui/native_folder_picker.h"
+#include "mrninjam/ui/native_folder_picker.h"
 
 #include <windows.h>
 #include <shlobj.h>
@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <shellapi.h>
 
-namespace ninjamplugin::ui {
+namespace mrninjam::ui {
 
 std::string BrowseForRecordingFolder(const std::string& current_path) {
   return BrowseForFolder(
@@ -37,4 +37,4 @@ void RevealInFileBrowser(const std::string& path) {
   ShellExecuteW(nullptr, L"open", L"explorer.exe", argument.c_str(), nullptr, SW_SHOWNORMAL);
 }
 
-}  // namespace ninjamplugin::ui
+}  // namespace mrninjam::ui

@@ -1,6 +1,6 @@
-#include "ninjamplugin/core/connection_config.h"
-#include "ninjamplugin/format/clap/plugin_config.h"
-#include "ninjamplugin/format/clap/plugin_entry.h"
+#include "mrninjam/core/connection_config.h"
+#include "mrninjam/format/clap/plugin_config.h"
+#include "mrninjam/format/clap/plugin_entry.h"
 
 #include <clap/events.h>
 #include <clap/ext/gui.h>
@@ -60,10 +60,10 @@ class ScopedConnectionSettings final {
       return;
     }
 
-    ninjamplugin::core::ConnectionSettings settings;
+    mrninjam::core::ConnectionSettings settings;
     settings.host = "127.0.0.1:1";
     settings.user = "lifecycle-test";
-    ready_ = ninjamplugin::core::SaveConnectionSettings(settings);
+    ready_ = mrninjam::core::SaveConnectionSettings(settings);
   }
 
   ~ScopedConnectionSettings() {
@@ -164,7 +164,7 @@ bool RunLifecycle(const clap_plugin_factory_t* factory, const clap_host_t* host)
   const std::size_t registrations_before = context->timer_registrations;
   const std::size_t unregistrations_before = context->timer_unregistrations;
   const clap_plugin_t* plugin = factory->create_plugin(
-      factory, host, ninjamplugin::format::clap::kPluginId);
+      factory, host, mrninjam::format::clap::kPluginId);
   if (plugin == nullptr || !plugin->init(plugin)) {
     if (plugin != nullptr) {
       plugin->destroy(plugin);
@@ -288,13 +288,13 @@ bool RunHostLifecycles(const clap_plugin_factory_t* factory,
 int main() {
   ScopedConnectionSettings settings;
   if (!settings.ready() || PlatformApi() == nullptr ||
-      !NinjamPluginEntryInit("lifecycle-test")) {
+      !MrNinjamEntryInit("lifecycle-test")) {
     std::cerr << "CLAP lifecycle test could not initialise the platform API\n";
     return 1;
   }
 
   const auto* factory = static_cast<const clap_plugin_factory_t*>(
-      NinjamPluginEntryGetFactory(CLAP_PLUGIN_FACTORY_ID));
+      MrNinjamEntryGetFactory(CLAP_PLUGIN_FACTORY_ID));
   if (factory == nullptr) {
     std::cerr << "CLAP lifecycle test could not obtain the plug-in factory\n";
     return 1;
@@ -302,11 +302,11 @@ int main() {
 
   if (!RunHostLifecycles(factory, "Generic CLAP lifecycle host") ||
       !RunHostLifecycles(factory, "REAPER")) {
-    NinjamPluginEntryDeinit();
+    MrNinjamEntryDeinit();
     return 1;
   }
 
-  NinjamPluginEntryDeinit();
+  MrNinjamEntryDeinit();
   std::cout << "CLAP GUI lifecycle stress test passed " << kLifecycleIterations
             << " iterations\n";
   return 0;

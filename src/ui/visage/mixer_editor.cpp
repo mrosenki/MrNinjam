@@ -1,8 +1,8 @@
-#include "ninjamplugin/ui/visage/mixer_editor.h"
+#include "mrninjam/ui/visage/mixer_editor.h"
 
-#include "embedded/ninjamplugin_visage_fonts.h"
-#include "ninjamplugin/ui/visage/layout_preferences.h"
-#include "ninjamplugin/ui/visage/peak_meter_ballistics.h"
+#include "embedded/mrninjam_visage_fonts.h"
+#include "mrninjam/ui/visage/layout_preferences.h"
+#include "mrninjam/ui/visage/peak_meter_ballistics.h"
 
 #include <visage_ui/scroll_bar.h>
 #include <visage_ui/popup_menu.h>
@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <utility>
 
-namespace ninjamplugin::ui::mixer {
+namespace mrninjam::ui::mixer {
 namespace {
 
 using namespace visage::dimension;
@@ -3490,7 +3490,7 @@ public:
   std::function<void()> onDecline;
   std::function<void()> onDismiss;
 
-  void setAgreement(const ninjamplugin::core::ServerLicenseAgreement& agreement) {
+  void setAgreement(const mrninjam::core::ServerLicenseAgreement& agreement) {
     if (agreement_ == agreement) return;
     agreement_ = agreement;
     scroll_y_ = 0.0f;
@@ -3518,7 +3518,7 @@ public:
     DrawText(canvas, "Server: " + agreement_.server, 11.0f, kTextMuted,
              x + 24.0f, y + 56.0f, w - 48.0f, 22.0f);
     if (agreement_.state ==
-        ninjamplugin::core::ServerLicenseAgreement::State::kOversized) {
+        mrninjam::core::ServerLicenseAgreement::State::kOversized) {
       DrawText(canvas,
                "The server supplied an agreement larger than MrNinjam can safely display. "
                "The connection has been refused.",
@@ -3645,7 +3645,7 @@ private:
     redraw();
   }
 
-  ninjamplugin::core::ServerLicenseAgreement agreement_;
+  mrninjam::core::ServerLicenseAgreement agreement_;
   visage::Text agreement_text_render_;
   float scroll_y_ = 0.0f;
   float content_height_ = 0.0f;
@@ -5615,4 +5615,4 @@ std::string MixerEditor::rawExportOutputDestination() const {
   return content_->rawExportOutputDestination();
 }
 
-}  // namespace ninjamplugin::ui::mixer
+}  // namespace mrninjam::ui::mixer

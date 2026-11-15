@@ -1,6 +1,6 @@
 #pragma once
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 class ParameterModel {
  public:
@@ -17,4 +17,4 @@ class ParameterModel {
   double gain_ = kGainDefault;
 };
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

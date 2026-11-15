@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 class DspProcessor {
  public:
@@ -12,4 +12,4 @@ class DspProcessor {
                  float gain) const;
 };
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

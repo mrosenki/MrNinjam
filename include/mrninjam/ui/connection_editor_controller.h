@@ -7,19 +7,19 @@
 #include <utility>
 #include <vector>
 
-#include "ninjamplugin/core/connection_config.h"
-#include "ninjamplugin/core/ninjam_bridge.h"
-#include "ninjamplugin/core/remix_stem_exporter.h"
-#include "ninjamplugin/core/session_capture_recorder.h"
-#include "ninjamplugin/ui/editor_shell.h"
+#include "mrninjam/core/connection_config.h"
+#include "mrninjam/core/ninjam_bridge.h"
+#include "mrninjam/core/remix_stem_exporter.h"
+#include "mrninjam/core/session_capture_recorder.h"
+#include "mrninjam/ui/editor_shell.h"
 
-namespace ninjamplugin::ui {
+namespace mrninjam::ui {
 
 EditorActionCapabilities BuildEditorActionCapabilities(int connection_state,
                                                         bool connect_requested);
 
 struct ConnectionEditorRuntimeSnapshot {
-  ninjamplugin::core::SessionOverview overview;
+  mrninjam::core::SessionOverview overview;
   std::string config_path;
   std::string connection_state_text;
   std::string last_failure_text;
@@ -36,22 +36,22 @@ struct ConnectionEditorRuntimeSnapshot {
   std::string recording_status_text;
   std::string wav_stem_export_status_text;
   std::string multitrack_status_text;
-  ninjamplugin::core::ServerLicenseAgreement server_license_agreement;
-  int connection_state = ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable;
+  mrninjam::core::ServerLicenseAgreement server_license_agreement;
+  int connection_state = mrninjam::core::NinjamBridge::kConnectionStateUnavailable;
   int available_input_pair_count = 1;
   int active_daw_input_channel_count = 16;
   int active_daw_output_channel_count = 4;
-  int server_max_local_channels = ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
-  double target_session_bpm_value = ninjamplugin::core::NinjamBridge::kSessionBpmDefault;
-  int target_session_bpi_value = ninjamplugin::core::NinjamBridge::kSessionBpiDefault;
-  double remote_return_value = ninjamplugin::core::NinjamBridge::kMonitorMixDefault;
+  int server_max_local_channels = mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+  double target_session_bpm_value = mrninjam::core::NinjamBridge::kSessionBpmDefault;
+  int target_session_bpi_value = mrninjam::core::NinjamBridge::kSessionBpiDefault;
+  double remote_return_value = mrninjam::core::NinjamBridge::kMonitorMixDefault;
   double session_return_peak_value = 0.0;
   double project_sample_rate = 0.0;
-  double metronome_level_value = ninjamplugin::core::NinjamBridge::kMetronomeLevelDefault;
+  double metronome_level_value = mrninjam::core::NinjamBridge::kMetronomeLevelDefault;
   bool metronome_enabled = true;
   double local_monitor_master_value = 1.0;
   double session_interval_progress = 0.0;
-  int transmit_mode_value = ninjamplugin::core::NinjamBridge::kTransmitModeStereo;
+  int transmit_mode_value = mrninjam::core::NinjamBridge::kTransmitModeStereo;
   int transmit_bitrate_index = 0;
   bool session_capture_enabled = false;
   int session_capture_bits_per_sample = 32;
@@ -66,55 +66,55 @@ struct ConnectionEditorRuntimeSnapshot {
   bool audio_processing_paused = false;
   bool session_interval_progress_valid = false;
   bool session_proposal_synced = false;
-  std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<bool, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_route_configured{true, true};
-  std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<bool, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_pair_enabled{true, false};
-  std::array<int, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<int, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_pair_source_index{0, 1};
-  std::array<int, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<int, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_source_channel_index{0, 2};
-  std::array<int, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<int, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_source_channel_count{2, 2};
-  std::array<std::string, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<std::string, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_route_name{};
-  std::array<double, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<double, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_pair_send_level{
-          ninjamplugin::core::NinjamBridge::kLocalInputSendLevelDefault,
-          ninjamplugin::core::NinjamBridge::kLocalInputSendLevelDefault};
-  std::array<double, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+          mrninjam::core::NinjamBridge::kLocalInputSendLevelDefault,
+          mrninjam::core::NinjamBridge::kLocalInputSendLevelDefault};
+  std::array<double, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_send_pan{};
-  std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<bool, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_send_muted{};
-  std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<bool, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_send_solo{};
-  std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<bool, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_send_clip_latched{};
-  std::array<double, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<double, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_pair_monitor_level{
-          ninjamplugin::core::NinjamBridge::kLocalInputMonitorLevelDefault,
-          ninjamplugin::core::NinjamBridge::kLocalInputMonitorLevelDefault};
-  std::array<double, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+          mrninjam::core::NinjamBridge::kLocalInputMonitorLevelDefault,
+          mrninjam::core::NinjamBridge::kLocalInputMonitorLevelDefault};
+  std::array<double, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_monitor_pan{};
-  std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<bool, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_monitor_muted{};
-  std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<bool, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_monitor_solo{};
-  std::array<bool, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<bool, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_audition_send{};
-  std::array<int, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<int, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_output_pair{};
-  std::array<int, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<int, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_channel_mode{};
-  std::array<int, ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
+  std::array<int, mrninjam::core::NinjamBridge::kMaxLocalInputChannelCount>
       local_input_bitrate{};
-  std::array<double, ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs>
+  std::array<double, mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs>
       local_input_pair_peak_left{};
-  std::array<double, ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs>
+  std::array<double, mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs>
       local_input_pair_peak_right{};
-  std::array<double, ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs>
+  std::array<double, mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs>
       local_input_pair_monitor_peak_left{};
-  std::array<double, ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs>
+  std::array<double, mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs>
       local_input_pair_monitor_peak_right{};
 };
 
@@ -131,15 +131,15 @@ class ConnectionEditorControllerHost {
 
   virtual bool IsConnectRequested() const = 0;
   virtual int GetConnectionState() const = 0;
-  virtual ninjamplugin::core::ConnectionSettings GetRuntimeConnectionSettings() const = 0;
-  virtual ninjamplugin::core::ServerLicenseAgreement GetPendingServerLicenseAgreement() const {
+  virtual mrninjam::core::ConnectionSettings GetRuntimeConnectionSettings() const = 0;
+  virtual mrninjam::core::ServerLicenseAgreement GetPendingServerLicenseAgreement() const {
     return {};
   }
   virtual bool AcceptPendingServerLicenseAgreement() { return false; }
   virtual void DeclinePendingServerLicenseAgreement() {}
   virtual void DismissPendingServerLicenseAgreement() {}
-  virtual void ApplyConnectionSettings(const ninjamplugin::core::ConnectionSettings& settings) = 0;
-  virtual ninjamplugin::core::SessionOverview GetSessionOverview() const = 0;
+  virtual void ApplyConnectionSettings(const mrninjam::core::ConnectionSettings& settings) = 0;
+  virtual mrninjam::core::SessionOverview GetSessionOverview() const = 0;
   virtual double GetSessionReturnPeakLevel() const = 0;
   virtual double GetRemoteUserChannelPeakLevel(int user_index, int channel_index,
                                                int channel = -1) const = 0;
@@ -169,7 +169,7 @@ class ConnectionEditorControllerHost {
   virtual void SetActiveDawInputChannelCount(int value) = 0;
   virtual int GetActiveDawOutputChannelCount() const = 0;
   virtual void SetActiveDawOutputChannelCount(int value) = 0;
-  virtual ninjamplugin::core::LocalInputRouteConfig GetLocalInputRouteConfig(int index) const = 0;
+  virtual mrninjam::core::LocalInputRouteConfig GetLocalInputRouteConfig(int index) const = 0;
   virtual void SetLocalInputRouteEnabled(int index, bool value) = 0;
   virtual void SetLocalInputRouteSourcePairIndex(int index, int source_pair_index) = 0;
   virtual bool SetLocalInputRouteSource(int index, int source_channel_index,
@@ -232,16 +232,16 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
   explicit ConnectionEditorController(ConnectionEditorControllerHost* host);
   ~ConnectionEditorController() override;
 
-  void SyncDraftSettingsFromRuntime(const ninjamplugin::core::ConnectionSettings& settings,
+  void SyncDraftSettingsFromRuntime(const mrninjam::core::ConnectionSettings& settings,
                                     bool force = false);
-  void CaptureDraftSettings(const ninjamplugin::core::ConnectionSettings& settings);
+  void CaptureDraftSettings(const mrninjam::core::ConnectionSettings& settings);
   ConnectionEditorViewState BuildViewState(const ConnectionEditorRuntimeSnapshot& snapshot,
                                            bool replace_form_fields);
   bool IsRawSessionExportActive() const;
 
-  void SaveRequested(const ninjamplugin::core::ConnectionSettings& settings) override;
+  void SaveRequested(const mrninjam::core::ConnectionSettings& settings) override;
   void ReloadRequested() override;
-  void ConnectRequested(const ninjamplugin::core::ConnectionSettings& settings) override;
+  void ConnectRequested(const mrninjam::core::ConnectionSettings& settings) override;
   void DisconnectRequested() override;
   void ServerLicenseAccepted() override;
   void ServerLicenseDeclined() override;
@@ -290,7 +290,7 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
       const std::string& partial_file_path) override;
   void RawSessionFolderSelected(const std::string& session_directory) override;
   void RawSessionExportRequested(
-      const ninjamplugin::core::RemixStemExportOptions& options) override;
+      const mrninjam::core::RemixStemExportOptions& options) override;
   void RemoteChannelSelectionChanged(int index) override;
   void RemoteChannelSubscriptionChanged(bool value) override;
   void RemoteChannelMuteChanged(bool value) override;
@@ -320,13 +320,13 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
     bool subscribed = false;
     bool muted = false;
     bool solo = false;
-    double level = ninjamplugin::core::NinjamBridge::kRemoteChannelLevelDefault;
+    double level = mrninjam::core::NinjamBridge::kRemoteChannelLevelDefault;
     double pan = 0.0;
     int output_pair_index = 0;
   };
 
   SelectedRemoteChannelState PrepareSelectedRemoteChannelState(
-      const ninjamplugin::core::SessionOverview& overview,
+      const mrninjam::core::SessionOverview& overview,
       int connection_state);
   bool ResolveSelectedRemoteChannelIndices(int* out_user_index, int* out_channel_index) const;
   bool ResolveRemoteChannelChoiceIndices(int choice_index,
@@ -338,7 +338,7 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
   bool HasEligibleRecordingOutput() const;
 
   ConnectionEditorControllerHost* host_ = nullptr;
-  ninjamplugin::core::ConnectionSettings draft_settings_;
+  mrninjam::core::ConnectionSettings draft_settings_;
   bool draft_settings_initialized_ = false;
   std::string notice_text_;
   int selected_remote_user_index_ = -1;
@@ -348,10 +348,10 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
   std::vector<RemoteMixerRowViewState> last_remote_mixer_rows_;
   bool expand_selected_remote_user_pending_ = false;
   std::string recovery_directory_;
-  std::vector<ninjamplugin::core::IncompleteSessionCaptureInfo>
+  std::vector<mrninjam::core::IncompleteSessionCaptureInfo>
       incomplete_session_captures_;
-  ninjamplugin::core::RemixSessionPreflight raw_session_preflight_;
-  ninjamplugin::core::RemixStemExporter raw_session_exporter_;
+  mrninjam::core::RemixSessionPreflight raw_session_preflight_;
+  mrninjam::core::RemixStemExporter raw_session_exporter_;
 };
 
-}  // namespace ninjamplugin::ui
+}  // namespace mrninjam::ui

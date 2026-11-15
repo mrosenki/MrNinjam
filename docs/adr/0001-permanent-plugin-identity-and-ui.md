@@ -13,8 +13,7 @@ temporary. They had not been publicly released, but retaining them would make
 the prototype boundary part of the permanent product contract.
 
 The project must establish one public identity while retaining its parameter
-model and V1--V20 state decoder. It must also avoid maintaining two production
-editor implementations.
+model. It must also avoid maintaining two production editor implementations.
 
 ## Decision
 
@@ -27,14 +26,14 @@ Beginning with version 0.2.1:
 - the vendor is `Micah Rosenkind`;
 - the Visage-backed editor is the sole production editor on macOS, Windows,
   and Linux;
-- production UI sources live under `include/ninjamplugin/ui/visage/` and
+- production UI sources live under `include/mrninjam/ui/visage/` and
   `src/ui/visage/` rather than a prototype tree;
 - the standalone UI harness remains optional development tooling; and
 - local builds and CI use one production configuration per platform.
 
 The permanent identity is defined once in `plugin_config.h` and verified
 through both the CLAP descriptor and clap-wrapper VST3 factory. Existing
-parameter IDs and V1--V20 state decoding are unchanged.
+parameter IDs are unchanged.
 
 ## Consequences
 
@@ -44,15 +43,11 @@ break is accepted before public release so future releases can keep a stable
 identity. The repository retains the prior development commits under the
 approved Option A history strategy.
 
-The visible name was amended from the historical `NinjamPlugin` name to
-`MrNinjam` before source publication. The final pre-publication identity review
-also replaces the development-only CLAP ID
-`io.github.mrosenki.ninjamplugin` with `io.github.mrosenki.mrninjam` and uses
-that new base for the `.clap` and `.vst3` macOS bundle identifiers. This is an
-explicitly approved one-time CLAP compatibility break: development projects
-using the former ID may require manual replacement. The VST3 CID, parameter
-IDs, and saved-state schema remain unchanged. Hosts that cache a bundle
-filename or absolute path may still need a rescan or manual substitution.
+The final pre-publication identity review established
+`io.github.mrosenki.mrninjam` as the permanent CLAP ID and as the base for the
+`.clap` and `.vst3` macOS bundle identifiers. The VST3 CID and parameter IDs
+remain unchanged. Hosts that cache a bundle filename or absolute path may still
+need a rescan.
 
 Classic platform-shell code, editor-selection build flags, temporary
 Visage-spike branding, and duplicate CI jobs are removed. Visage remains an

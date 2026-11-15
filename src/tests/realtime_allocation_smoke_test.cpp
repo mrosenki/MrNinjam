@@ -11,8 +11,8 @@
 #include <malloc.h>
 #endif
 
-#include "ninjamplugin/core/ninjam_bridge.h"
-#include "ninjamplugin/core/session_capture_recorder.h"
+#include "mrninjam/core/ninjam_bridge.h"
+#include "mrninjam/core/session_capture_recorder.h"
 
 namespace {
 
@@ -65,9 +65,9 @@ class AllocationWindow final {
 
 bool SetIsolatedConfigPath(const std::filesystem::path& path) {
 #if defined(_WIN32)
-  return _putenv_s("NINJAMPLUGIN_CONNECTION_CONFIG_PATH", path.string().c_str()) == 0;
+  return _putenv_s("MRNINJAM_CONNECTION_CONFIG_PATH", path.string().c_str()) == 0;
 #else
-  return setenv("NINJAMPLUGIN_CONNECTION_CONFIG_PATH", path.string().c_str(), 1) == 0;
+  return setenv("MRNINJAM_CONNECTION_CONFIG_PATH", path.string().c_str(), 1) == 0;
 #endif
 }
 
@@ -144,8 +144,8 @@ void operator delete[](void* memory, const std::size_t,
 }
 
 int main() {
-  using ninjamplugin::core::LocalInputRouteConfig;
-  using ninjamplugin::core::NinjamBridge;
+  using mrninjam::core::LocalInputRouteConfig;
+  using mrninjam::core::NinjamBridge;
   namespace fs = std::filesystem;
 
   constexpr std::size_t kMaximumFrames = 512U;
@@ -154,7 +154,7 @@ int main() {
       static_cast<std::size_t>(NinjamBridge::kMaxSupportedAudioChannels);
 
   const fs::path test_root =
-      fs::temp_directory_path() / "ninjamplugin-realtime-allocation-test";
+      fs::temp_directory_path() / "mrninjam-realtime-allocation-test";
   if (!SetIsolatedConfigPath(test_root / "missing-connection.conf")) {
     std::cerr << "Could not isolate the connection configuration\n";
     return EXIT_FAILURE;
@@ -284,7 +284,7 @@ int main() {
 
   // The capture producer is part of the process call graph when connected.
   // Start/finalize work is intentionally outside the measured producer call.
-  ninjamplugin::core::SessionCaptureRecorder recorder;
+  mrninjam::core::SessionCaptureRecorder recorder;
   if (!recorder.Start(48000.0, test_root.string(), "allocation.test", "tester", 32)) {
     std::cerr << "Recorder setup failed\n";
     return EXIT_FAILURE;

@@ -137,7 +137,7 @@ index 8df9dd1a..6803c85d 100644
 +   add project integration callbacks for decoded remote-channel audio and
 +   authoritative server timing notifications. */
 +
-+#define NINJAMPLUGIN_NJCLIENT_REMOTE_CHANNEL_AUDIO_PATCH 1
++#define MRNINJAM_NJCLIENT_REMOTE_CHANNEL_AUDIO_PATCH 1
  
  /*
 @@ -200,6 +206,19 @@ public:
@@ -186,7 +186,7 @@ index 1db93026..d5821926 100644
        
  */
 +
-+/* Modified by Micah Rosenkind for NinjamPlugin on 2026-11-09:
++/* Modified by Micah Rosenkind for MrNinjam on 2026-11-09:
 +   serialize the process-global RNG state for concurrent plug-in instances. */
  
  /*

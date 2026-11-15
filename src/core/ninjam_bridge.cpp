@@ -1,4 +1,4 @@
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 #include <algorithm>
 #include <bit>
@@ -12,20 +12,20 @@
 #include <limits>
 #include <new>
 
-#include "ninjamplugin/core/debug_log.h"
-#include "ninjamplugin/core/connection_config.h"
+#include "mrninjam/core/debug_log.h"
+#include "mrninjam/core/connection_config.h"
 #include "mpb.h"
 
-#if !defined(NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME)
-#define NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME 0
+#if !defined(MRNINJAM_HAS_NJCLIENT_RUNTIME)
+#define MRNINJAM_HAS_NJCLIENT_RUNTIME 0
 #endif
 
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
 #include "jnetlib/util.h"
-#include "ninjamplugin/core/njclient_extended.h"
+#include "mrninjam/core/njclient_extended.h"
 #endif
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 namespace {
 
 constexpr std::uint64_t kConnectAttemptTimeoutMs = 30ULL * 1000ULL;
@@ -320,7 +320,7 @@ std::string ChatParam(const char** parms, const int nparms, const int index) {
   return parms[index];
 }
 
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
 const char* NJStatusName(const int status) {
   switch (status) {
     case NJClient::NJC_STATUS_DISCONNECTED:
@@ -466,7 +466,7 @@ void NinjamBridge::FinishLifecycleWorkers() {
 }
 
 void NinjamBridge::StartKeepaliveThread() {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (keepalive_thread_.joinable()) {
     return;
   }
@@ -476,7 +476,7 @@ void NinjamBridge::StartKeepaliveThread() {
 }
 
 void NinjamBridge::StopKeepaliveThread() {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   keepalive_thread_stop_.store(true, std::memory_order_release);
   if (keepalive_thread_.joinable()) {
     keepalive_thread_.join();
@@ -485,7 +485,7 @@ void NinjamBridge::StopKeepaliveThread() {
 }
 
 void NinjamBridge::KeepaliveThreadLoop() {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   const bool thread_socket_library_open = JNL::open_socketlib() == 0;
   if (!thread_socket_library_open) {
     DebugLog("bridge", "Keepalive socket library initialization failed");
@@ -599,7 +599,7 @@ NinjamBridge::~NinjamBridge() {
             remix_stem_exporter_.IsActive() ? 1 : 0);
   FinishLifecycleWorkers();
   StopKeepaliveThread();
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   {
     std::lock_guard<std::mutex> lock(client_mutex_);
     if (client_ != nullptr) {
@@ -661,29 +661,29 @@ bool NinjamBridge::Initialize(const double sample_rate) {
                 GetConnectionConfigPath().empty() ? "<unset>" : GetConnectionConfigPath().c_str());
     }
     const double legacy_monitor_mix =
-        ClampMonitorMix(ReadEnvDoubleOrDefault("NINJAMPLUGIN_MONITOR_MIX", kMonitorMixDefault));
+        ClampMonitorMix(ReadEnvDoubleOrDefault("MRNINJAM_MONITOR_MIX", kMonitorMixDefault));
     monitor_mix_.store(
-        ClampMonitorMix(ReadEnvDoubleOrDefault("NINJAMPLUGIN_REMOTE_RETURN_LEVEL",
+        ClampMonitorMix(ReadEnvDoubleOrDefault("MRNINJAM_REMOTE_RETURN_LEVEL",
                                                legacy_monitor_mix)),
         std::memory_order_release);
     metronome_level_.store(
-        ClampMetronomeLevel(ReadEnvDoubleOrDefault("NINJAMPLUGIN_METRONOME_LEVEL",
+        ClampMetronomeLevel(ReadEnvDoubleOrDefault("MRNINJAM_METRONOME_LEVEL",
                                                    legacy_monitor_mix)),
         std::memory_order_release);
     transmit_mode_.store(
         ClampTransmitMode(ReadEnvIntOrDefault(
-            "NINJAMPLUGIN_TRANSMIT_MODE", kTransmitModeStereo)),
+            "MRNINJAM_TRANSMIT_MODE", kTransmitModeStereo)),
         std::memory_order_release);
     transmit_bitrate_.store(
         ClampTransmitBitrate(ReadEnvIntOrDefault(
-            "NINJAMPLUGIN_TRANSMIT_BITRATE", kTransmitBitrateDefault)),
+            "MRNINJAM_TRANSMIT_BITRATE", kTransmitBitrateDefault)),
         std::memory_order_release);
     level_diagnostics_enabled_ =
-        ReadEnvBoolOrDefault("NINJAMPLUGIN_LEVEL_DIAGNOSTICS", false);
+        ReadEnvBoolOrDefault("MRNINJAM_LEVEL_DIAGNOSTICS", false);
     connection_config_loaded_ = true;
   }
 
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (!socket_library_open_) {
     if (JNL::open_socketlib() != 0) {
       DebugLog("bridge", "Socket library initialization failed");
@@ -692,7 +692,7 @@ bool NinjamBridge::Initialize(const double sample_rate) {
     socket_library_open_ = true;
   }
   if (client_ == nullptr) {
-    client_ = new NinjamPluginNJClient();
+    client_ = new MrNinjamNJClient();
   }
   client_->RemoteChannelAudio_User = this;
   client_->RemoteChannelAudioCallback = &NinjamBridge::RemoteChannelAudioCallback;
@@ -775,7 +775,7 @@ bool NinjamBridge::PrepareAudioStorage(
     return false;
   }
 
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (client_ != nullptr && !client_->PrepareAudio(maximum_frame_count)) {
     return false;
   }
@@ -840,7 +840,7 @@ void NinjamBridge::Deactivate() {
             ConnectionStateName(connection_state_),
             keep_runtime_connection ? 1 : 0);
 
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (!keep_runtime_connection) {
     std::lock_guard<std::mutex> lock(client_mutex_);
     if (client_ != nullptr) {
@@ -888,7 +888,7 @@ void NinjamBridge::Reset() {
 
 void NinjamBridge::MainThreadTick() {
   ServiceRealtimeLifecycleRequests();
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   const bool connect_requested = connect_requested_.load(std::memory_order_acquire);
   const bool awaiting_server_license =
       server_license_decision_pending_.load(std::memory_order_acquire);
@@ -1558,7 +1558,7 @@ void NinjamBridge::SetConnectRequested(const bool value) {
   const bool was_requested = connect_requested_.load(std::memory_order_acquire);
   if (value && !was_requested) {
     interval_position_valid_.store(false, std::memory_order_release);
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
     {
       std::lock_guard<std::mutex> lock(client_mutex_);
       server_timing_generation_at_connect_ =
@@ -1614,7 +1614,7 @@ bool NinjamBridge::IsConnected() const {
 }
 
 bool NinjamBridge::IsRuntimeConnectionAvailable() const {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   return !connection_host_.empty();
 #else
   return false;
@@ -1681,7 +1681,7 @@ bool NinjamBridge::AcceptPendingServerLicenseAgreement() {
   if (!server_license_consent_.AcceptPendingAgreement()) return false;
   server_license_decision_pending_.store(false, std::memory_order_release);
   server_license_connection_stopped_.store(false, std::memory_order_release);
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   {
     std::lock_guard<std::mutex> lock(client_mutex_);
     if (client_ != nullptr) client_->Disconnect();
@@ -1729,7 +1729,7 @@ SessionOverview NinjamBridge::GetSessionOverview() const {
   overview.host_name = connection_host_;
   overview.effective_user = connection_user_;
 
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   std::lock_guard<std::mutex> lock(client_mutex_);
   if (client_ == nullptr) {
     return overview;
@@ -1886,7 +1886,7 @@ std::string NinjamBridge::GetSessionFeedText() const {
 }
 
 bool NinjamBridge::SendChatMessage(const std::string& text) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (text.empty()) {
     return false;
   }
@@ -2066,7 +2066,7 @@ double NinjamBridge::ClampMetronomeLevel(const double value) {
 }
 
 double NinjamBridge::GetSessionReturnPeakLevel() const {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   // Remote audio is routed by the bridge callback rather than NJClient's
   // legacy master-output mixer. Report the cyan RECEIVE monitor path here so
   // the header meter follows the same signal as its monitor-only fader.
@@ -2340,7 +2340,7 @@ void NinjamBridge::SetMultitrackCaptureEnabled(const bool value) {
   multitrack_capture_enabled_.store(value, std::memory_order_release);
   if (!value) {
     if (!wav_stem_export_enabled_.load(std::memory_order_acquire)) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
       std::lock_guard<std::mutex> lock(client_mutex_);
       if (client_ != nullptr) {
         client_->config_savelocalaudio = 0;
@@ -2419,7 +2419,7 @@ std::string NinjamBridge::GetWavStemExportDirectory() const {
 
 void NinjamBridge::SetMultitrackWavClipsEnabled(const bool value) {
   multitrack_wav_clips_enabled_.store(value, std::memory_order_release);
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   std::lock_guard<std::mutex> lock(client_mutex_);
   if (client_ != nullptr && multitrack_capture_active_) {
     client_->config_savelocalaudio =
@@ -2508,7 +2508,7 @@ double NinjamBridge::ClampRemoteChannelLevel(const double value) {
 bool NinjamBridge::SetRemoteUserChannelSubscribed(const int user_index,
                                                   const int channel_index,
                                                   const bool value) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   std::lock_guard<std::mutex> lock(client_mutex_);
   if (client_ == nullptr) {
     return false;
@@ -2540,7 +2540,7 @@ bool NinjamBridge::SetRemoteUserChannelSubscribed(const int user_index,
 }
 
 bool NinjamBridge::SetRemoteUserMuted(const int user_index, const bool value) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (user_index < 0 || user_index >= kMaxRemoteUsers) return false;
   remote_user_monitor_muted_[static_cast<std::size_t>(user_index)].store(
       value, std::memory_order_release);
@@ -2554,7 +2554,7 @@ bool NinjamBridge::SetRemoteUserMuted(const int user_index, const bool value) {
 
 bool NinjamBridge::SetRemoteUserVolume(const int user_index,
                                        const double value) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (user_index < 0 || user_index >= kMaxRemoteUsers) return false;
   remote_user_monitor_levels_[static_cast<std::size_t>(user_index)].store(
       ClampRemoteChannelLevel(value), std::memory_order_release);
@@ -2569,7 +2569,7 @@ bool NinjamBridge::SetRemoteUserVolume(const int user_index,
 bool NinjamBridge::SetRemoteUserChannelMuted(const int user_index,
                                              const int channel_index,
                                              const bool value) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   const int slot = RemoteRouteSlotIndex(user_index, channel_index);
   if (slot < 0) return false;
   remote_route_slots_[static_cast<std::size_t>(slot)].record_muted.store(
@@ -2591,7 +2591,7 @@ bool NinjamBridge::SetRemoteUserChannelMuted(const int user_index,
 bool NinjamBridge::SetRemoteUserChannelSolo(const int user_index,
                                             const int channel_index,
                                             const bool value) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   const int slot = RemoteRouteSlotIndex(user_index, channel_index);
   if (slot < 0) return false;
   remote_route_slots_[static_cast<std::size_t>(slot)].record_solo.store(
@@ -2606,7 +2606,7 @@ bool NinjamBridge::SetRemoteUserChannelSolo(const int user_index,
 bool NinjamBridge::SetRemoteUserChannelVolume(const int user_index,
                                               const int channel_index,
                                               const double value) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   const int slot = RemoteRouteSlotIndex(user_index, channel_index);
   if (slot < 0) return false;
   const double clamped_value = ClampRemoteChannelLevel(value);
@@ -2629,7 +2629,7 @@ bool NinjamBridge::SetRemoteUserChannelVolume(const int user_index,
 bool NinjamBridge::SetRemoteUserChannelPan(const int user_index,
                                            const int channel_index,
                                            const double value) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   const int slot = RemoteRouteSlotIndex(user_index, channel_index);
   if (slot < 0) return false;
   remote_route_slots_[static_cast<std::size_t>(slot)].record_pan.store(
@@ -2644,7 +2644,7 @@ bool NinjamBridge::SetRemoteUserChannelPan(const int user_index,
 bool NinjamBridge::SetRemoteUserChannelOutputPair(const int user_index,
                                                   const int channel_index,
                                                   const int output_pair_index) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   const int slot = RemoteRouteSlotIndex(user_index, channel_index);
   if (slot < 0) return false;
   remote_route_slots_[static_cast<std::size_t>(slot)].output_pair_index.store(
@@ -3504,7 +3504,7 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
     diagnostics_dry_peak = ComputePeakStereo(input_left, input_right, frame_count);
   }
 
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   // NJClient documents AudioProc() as audio-thread safe without external
   // locking. Avoiding the bridge mutex here prevents dropped runtime blocks
   // when keepalive/main-thread activity overlaps the host audio callback.
@@ -3727,7 +3727,7 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
     }
   }
 
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (!apply_gain && runtime_monitor_ready) {
     for (std::size_t frame = 0; frame < frame_count; ++frame) {
       output_left[frame] = routed_output_buffers_[0][frame];
@@ -3749,7 +3749,7 @@ bool NinjamBridge::ProcessAudio(const float* const* input_channels,
   }
   if (level_diagnostics_enabled_) {
     AccumulatePeakAtomic(&diagnostics_dry_peak_bits_, diagnostics_dry_peak);
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
     AccumulatePeakAtomic(&diagnostics_return_peak_bits_, diagnostics_return_peak);
 #endif
     AccumulatePeakAtomic(
@@ -3873,7 +3873,7 @@ bool NinjamBridge::ProtocolSelfTest() const {
 
 RealtimePipelineDiagnostics NinjamBridge::GetRealtimePipelineDiagnostics() const {
   RealtimePipelineDiagnostics result;
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (client_ != nullptr) {
     const auto stats = client_->GetRealtimeStatistics();
     result.local_submitted_frames = stats.local_submitted_frames;
@@ -3898,11 +3898,11 @@ RealtimePipelineDiagnostics NinjamBridge::GetRealtimePipelineDiagnostics() const
 }
 
 void NinjamBridge::SetRealtimeWorkerPausedForTesting(bool paused) {
-#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+#if MRNINJAM_HAS_NJCLIENT_RUNTIME
   if (client_ != nullptr) client_->SetRealtimeWorkerPausedForTesting(paused);
 #else
   static_cast<void>(paused);
 #endif
 }
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

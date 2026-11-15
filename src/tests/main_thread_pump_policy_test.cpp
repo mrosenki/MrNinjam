@@ -1,10 +1,10 @@
-#include "ninjamplugin/format/clap/main_thread_pump_policy.h"
+#include "mrninjam/format/clap/main_thread_pump_policy.h"
 
 #include <iostream>
 
 int main() {
-  using ninjamplugin::format::clap::MainThreadPumpNeeds;
-  using ninjamplugin::format::clap::NeedsMainThreadPump;
+  using mrninjam::format::clap::MainThreadPumpNeeds;
+  using mrninjam::format::clap::NeedsMainThreadPump;
 
   if (NeedsMainThreadPump({}) ||
       !NeedsMainThreadPump({.plugin_active = true, .editor_visible = true}) ||

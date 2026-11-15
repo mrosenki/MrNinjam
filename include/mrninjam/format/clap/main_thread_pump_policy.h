@@ -1,6 +1,6 @@
 #pragma once
 
-namespace ninjamplugin::format::clap {
+namespace mrninjam::format::clap {
 
 struct MainThreadPumpNeeds {
   bool plugin_active = false;
@@ -21,4 +21,4 @@ constexpr bool NeedsMainThreadPump(const MainThreadPumpNeeds& needs) noexcept {
           needs.raw_session_export_active);
 }
 
-}  // namespace ninjamplugin::format::clap
+}  // namespace mrninjam::format::clap

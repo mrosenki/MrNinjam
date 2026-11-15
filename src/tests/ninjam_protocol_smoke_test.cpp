@@ -1,10 +1,10 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 int main() {
-  ninjamplugin::core::NinjamBridge bridge;
+  mrninjam::core::NinjamBridge bridge;
   if (!bridge.ProtocolSelfTest()) {
     std::cerr << "NINJAM protocol self-test failed\n";
     return EXIT_FAILURE;

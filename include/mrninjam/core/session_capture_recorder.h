@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 
 std::string GetDefaultSessionCaptureDirectory();
 
@@ -119,4 +119,4 @@ class SessionCaptureRecorder {
   bool write_failed_ = false;
 };
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

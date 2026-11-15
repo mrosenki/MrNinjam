@@ -1,4 +1,4 @@
-#include "ninjamplugin/core/njclient_extended.h"
+#include "mrninjam/core/njclient_extended.h"
 
 #include <algorithm>
 #include <array>
@@ -206,7 +206,7 @@ DecodeState* OpenSessionFile(const std::string& root, const unsigned char* guid)
 
 }  // namespace
 
-struct NinjamPluginNJClient::RealtimeState {
+struct MrNinjamNJClient::RealtimeState {
   SpscRing<LocalPacket> local;
   SpscRing<LocalMarker> local_markers;
   SpscRing<RemotePacket> normal;
@@ -306,14 +306,14 @@ struct NinjamPluginNJClient::RealtimeState {
   std::atomic<std::uint64_t> stale_session{0U};
 };
 
-NinjamPluginNJClient::NinjamPluginNJClient()
+MrNinjamNJClient::MrNinjamNJClient()
     : realtime_(std::make_unique<RealtimeState>()) {
-  ServerTimingCallback = &NinjamPluginNJClient::ServerTimingCallbackThunk;
+  ServerTimingCallback = &MrNinjamNJClient::ServerTimingCallbackThunk;
   ServerTiming_User = this;
 }
-NinjamPluginNJClient::~NinjamPluginNJClient() { StopRealtimeWorkers(); }
+MrNinjamNJClient::~MrNinjamNJClient() { StopRealtimeWorkers(); }
 
-void NinjamPluginNJClient::StopRealtimeWorkers() {
+void MrNinjamNJClient::StopRealtimeWorkers() {
   if (!realtime_) return;
   realtime_->stop.store(true, std::memory_order_release);
   if (realtime_->codec_thread.joinable()) realtime_->codec_thread.join();
@@ -321,7 +321,7 @@ void NinjamPluginNJClient::StopRealtimeWorkers() {
   realtime_->prepared.store(false, std::memory_order_release);
 }
 
-bool NinjamPluginNJClient::PrepareAudio(std::size_t maximum_frame_count) {
+bool MrNinjamNJClient::PrepareAudio(std::size_t maximum_frame_count) {
   if (maximum_frame_count == 0U || maximum_frame_count >
       static_cast<std::size_t>(std::numeric_limits<int>::max()) / (sizeof(float) * 2U))
     return false;
@@ -366,18 +366,18 @@ bool NinjamPluginNJClient::PrepareAudio(std::size_t maximum_frame_count) {
       state.session_decoders.capacity() * sizeof(SessionDecoder) +
       maximum_frame_count * sizeof(float) * 4U;
   state.prepared.store(true, std::memory_order_release);
-  state.codec_thread = std::thread(&NinjamPluginNJClient::CodecWorkerLoop, this);
+  state.codec_thread = std::thread(&MrNinjamNJClient::CodecWorkerLoop, this);
   return true;
 }
 
-void NinjamPluginNJClient::Connect(char* host, char* user, char* pass) {
+void MrNinjamNJClient::Connect(char* host, char* user, char* pass) {
   std::lock_guard<std::mutex> lock(realtime_->pipeline_mutex);
   NJClient::Connect(host, user, pass);
   realtime_->connection_generation.fetch_add(1U, std::memory_order_release);
   PublishControlSnapshot();
 }
 
-int NinjamPluginNJClient::Run() {
+int MrNinjamNJClient::Run() {
   std::lock_guard<std::mutex> lock(realtime_->pipeline_mutex);
   m_srate = realtime_->sample_rate.load(std::memory_order_acquire);
   const int result = NJClient::Run();
@@ -385,39 +385,39 @@ int NinjamPluginNJClient::Run() {
   return result;
 }
 
-void NinjamPluginNJClient::ServerTimingCallbackThunk(
+void MrNinjamNJClient::ServerTimingCallbackThunk(
     void* user_data, const int bpm, const int bpi) {
   if (user_data != nullptr)
-    static_cast<NinjamPluginNJClient*>(user_data)->PublishServerTiming(bpm, bpi);
+    static_cast<MrNinjamNJClient*>(user_data)->PublishServerTiming(bpm, bpi);
 }
 
-void NinjamPluginNJClient::PublishServerTiming(const int bpm, const int bpi) {
+void MrNinjamNJClient::PublishServerTiming(const int bpm, const int bpi) {
   realtime_->pending_bpm.store(std::max(1, bpm), std::memory_order_relaxed);
   realtime_->pending_bpi.store(std::max(1, bpi), std::memory_order_relaxed);
   realtime_->server_timing_generation.fetch_add(1U, std::memory_order_release);
 }
 
-void NinjamPluginNJClient::Disconnect() {
+void MrNinjamNJClient::Disconnect() {
   std::lock_guard<std::mutex> lock(realtime_->pipeline_mutex);
   NJClient::Disconnect();
   realtime_->connection_generation.fetch_add(1U, std::memory_order_release);
   PublishControlSnapshot();
 }
 
-void NinjamPluginNJClient::SetWorkDir(char* path) {
+void MrNinjamNJClient::SetWorkDir(char* path) {
   std::lock_guard<std::mutex> pipeline(realtime_->pipeline_mutex);
   NJClient::SetWorkDir(path);
   std::lock_guard<std::mutex> path_lock(realtime_->path_mutex);
   realtime_->work_directory = m_workdir.Get();
 }
 
-void NinjamPluginNJClient::DeleteLocalChannel(int channel) {
+void MrNinjamNJClient::DeleteLocalChannel(int channel) {
   std::lock_guard<std::mutex> lock(realtime_->pipeline_mutex);
   NJClient::DeleteLocalChannel(channel);
   PublishControlSnapshot();
 }
 
-void NinjamPluginNJClient::SetLocalChannelInfo(
+void MrNinjamNJClient::SetLocalChannelInfo(
     int channel, const char* name, bool set_source, int source,
     bool set_bitrate, int bitrate, bool set_broadcast, bool broadcast,
     bool set_output, int output, bool set_flags, int flags) {
@@ -427,7 +427,7 @@ void NinjamPluginNJClient::SetLocalChannelInfo(
   PublishControlSnapshot();
 }
 
-void NinjamPluginNJClient::SetLocalChannelMonitoring(
+void MrNinjamNJClient::SetLocalChannelMonitoring(
     int channel, bool set_volume, float volume, bool set_pan, float pan,
     bool set_mute, bool mute, bool set_solo, bool solo) {
   std::lock_guard<std::mutex> lock(realtime_->pipeline_mutex);
@@ -436,7 +436,7 @@ void NinjamPluginNJClient::SetLocalChannelMonitoring(
   PublishControlSnapshot();
 }
 
-void NinjamPluginNJClient::SetUserChannelState(
+void MrNinjamNJClient::SetUserChannelState(
     int user, int channel, bool set_subscribed, bool subscribed,
     bool set_volume, float volume, bool set_pan, float pan, bool set_mute,
     bool mute, bool set_solo, bool solo, bool set_output, int output) {
@@ -447,7 +447,7 @@ void NinjamPluginNJClient::SetUserChannelState(
   PublishControlSnapshot();
 }
 
-void NinjamPluginNJClient::PublishControlSnapshot() {
+void MrNinjamNJClient::PublishControlSnapshot() {
   auto& state = *realtime_;
   state.pending_bpm.store(std::max(1, m_bpm), std::memory_order_release);
   state.pending_bpi.store(std::max(1, m_bpi), std::memory_order_release);
@@ -506,35 +506,35 @@ void NinjamPluginNJClient::PublishControlSnapshot() {
   }
 }
 
-void NinjamPluginNJClient::GetPosition(int* position, int* length) {
+void MrNinjamNJClient::GetPosition(int* position, int* length) {
   if (position != nullptr)
     *position = std::max(0, realtime_->published_position.load(std::memory_order_acquire));
   if (length != nullptr)
     *length = realtime_->published_length.load(std::memory_order_acquire);
 }
 
-float NinjamPluginNJClient::GetActualBPM() const {
+float MrNinjamNJClient::GetActualBPM() const {
   return static_cast<float>(
       realtime_->published_active_bpm.load(std::memory_order_acquire));
 }
 
-int NinjamPluginNJClient::GetBPI() const {
+int MrNinjamNJClient::GetBPI() const {
   return realtime_->published_active_bpi.load(std::memory_order_acquire);
 }
 
-int NinjamPluginNJClient::GetPendingBPM() const {
+int MrNinjamNJClient::GetPendingBPM() const {
   return realtime_->pending_bpm.load(std::memory_order_acquire);
 }
 
-int NinjamPluginNJClient::GetPendingBPI() const {
+int MrNinjamNJClient::GetPendingBPI() const {
   return realtime_->pending_bpi.load(std::memory_order_acquire);
 }
 
-std::uint64_t NinjamPluginNJClient::GetServerTimingGeneration() const {
+std::uint64_t MrNinjamNJClient::GetServerTimingGeneration() const {
   return realtime_->server_timing_generation.load(std::memory_order_acquire);
 }
 
-void NinjamPluginNJClient::AudioProc(
+void MrNinjamNJClient::AudioProc(
     float** input, int input_channels, float** output, int output_channels,
     int frames, int sample_rate, bool just_monitor, bool playing, bool seeked,
     double session_position) {
@@ -947,7 +947,7 @@ void NinjamPluginNJClient::AudioProc(
   }
 }
 
-void NinjamPluginNJClient::BeginWorkerInterval(std::uint64_t generation) {
+void MrNinjamNJClient::BeginWorkerInterval(std::uint64_t generation) {
   auto& state = *realtime_;
   m_users_cs.Enter();
   for (int user_index = 0; user_index < m_remoteusers.GetSize(); ++user_index) {
@@ -974,7 +974,7 @@ void NinjamPluginNJClient::BeginWorkerInterval(std::uint64_t generation) {
   state.normal_cursor = state.published_position.load(std::memory_order_acquire);
 }
 
-void NinjamPluginNJClient::ProcessLocalHandoff() {
+void MrNinjamNJClient::ProcessLocalHandoff() {
   auto& state = *realtime_;
   for (int packet_index = 0; packet_index < 32; ++packet_index) {
     const LocalPacket* queued = state.local.Front();
@@ -1194,7 +1194,7 @@ void NinjamPluginNJClient::ProcessLocalHandoff() {
   }
 }
 
-void NinjamPluginNJClient::RenderLiveRemote() {
+void MrNinjamNJClient::RenderLiveRemote() {
   auto& state = *realtime_;
   const auto generation = state.published_interval_generation.load(std::memory_order_acquire);
   const int audio_position = state.published_position.load(std::memory_order_acquire);
@@ -1295,7 +1295,7 @@ void NinjamPluginNJClient::RenderLiveRemote() {
              peak, depth, std::memory_order_relaxed)) {}
 }
 
-void NinjamPluginNJClient::CodecWorkerLoop() {
+void MrNinjamNJClient::CodecWorkerLoop() {
   auto& state = *realtime_;
   while (!state.stop.load(std::memory_order_acquire)) {
     if (state.codec_paused_for_testing.load(std::memory_order_acquire)) {
@@ -1307,13 +1307,13 @@ void NinjamPluginNJClient::CodecWorkerLoop() {
     if (state.session_count.load(std::memory_order_acquire) > 0 &&
         !state.session_started.exchange(true, std::memory_order_acq_rel)) {
       if (state.session_thread.joinable()) state.session_thread.join();
-      state.session_thread = std::thread(&NinjamPluginNJClient::SessionWorkerLoop, this);
+      state.session_thread = std::thread(&MrNinjamNJClient::SessionWorkerLoop, this);
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 
-void NinjamPluginNJClient::RenderSessionRemote() {
+void MrNinjamNJClient::RenderSessionRemote() {
   auto& state = *realtime_;
   if (!state.published_playing.load(std::memory_order_acquire)) return;
   const double position = BitsDouble(
@@ -1467,7 +1467,7 @@ void NinjamPluginNJClient::RenderSessionRemote() {
   }
 }
 
-void NinjamPluginNJClient::SessionWorkerLoop() {
+void MrNinjamNJClient::SessionWorkerLoop() {
   auto& state = *realtime_;
   int idle_cycles = 0;
   while (!state.stop.load(std::memory_order_acquire)) {
@@ -1483,7 +1483,7 @@ void NinjamPluginNJClient::SessionWorkerLoop() {
   state.session_started.store(false, std::memory_order_release);
 }
 
-int NinjamPluginNJClient::GetUserChannelCount(int user_index, int channel_index) {
+int MrNinjamNJClient::GetUserChannelCount(int user_index, int channel_index) {
   std::lock_guard<std::mutex> pipeline(realtime_->pipeline_mutex);
   WDL_MutexLock lock(&m_remotechannel_rd_mutex);
   if (user_index < 0 || user_index >= m_remoteusers.GetSize() ||
@@ -1500,8 +1500,8 @@ int NinjamPluginNJClient::GetUserChannelCount(int user_index, int channel_index)
   return 0;
 }
 
-NinjamPluginNJClient::RealtimeStatistics
-NinjamPluginNJClient::GetRealtimeStatistics() const {
+MrNinjamNJClient::RealtimeStatistics
+MrNinjamNJClient::GetRealtimeStatistics() const {
   RealtimeStatistics result;
   if (!realtime_) return result;
   result.local_submitted_frames = realtime_->local_submitted.load(std::memory_order_acquire);
@@ -1527,21 +1527,21 @@ NinjamPluginNJClient::GetRealtimeStatistics() const {
   return result;
 }
 
-std::size_t NinjamPluginNJClient::GetPreparedRealtimeMemoryBytes() const {
+std::size_t MrNinjamNJClient::GetPreparedRealtimeMemoryBytes() const {
   return realtime_ ? realtime_->memory_bytes : 0U;
 }
 
-void NinjamPluginNJClient::SetRealtimeWorkerPausedForTesting(bool paused) {
+void MrNinjamNJClient::SetRealtimeWorkerPausedForTesting(bool paused) {
   if (realtime_ != nullptr)
     realtime_->codec_paused_for_testing.store(paused, std::memory_order_release);
 }
 
-void NinjamPluginNJClient::SetRealtimeAudioEnabledForTesting() {
+void MrNinjamNJClient::SetRealtimeAudioEnabledForTesting() {
   if (realtime_ != nullptr)
     realtime_->audio_enabled.store(true, std::memory_order_release);
 }
 
-bool NinjamPluginNJClient::PushRemotePacketForTesting(
+bool MrNinjamNJClient::PushRemotePacketForTesting(
     RealtimePacketModeForTesting mode, int user, int channel,
     std::int64_t timeline, int frames, int channels, int output,
     float volume, float pan, bool muted, const float* left,

@@ -23,15 +23,15 @@ official binary release.
 
 ## Current baseline
 
-Version `0.2.12` is the current DAW-test candidate, not a frozen or officially
-distributed release. The accepted integration line is now the `main` baseline.
-The canonical public repository contains the reviewed source baseline and all
-subsequent product work.
+Version `0.2.13` is the current local DAW-test candidate on the #8 development
+branch, not a frozen or officially distributed release. Version `0.2.12` is
+the accepted `main` baseline. Focused REAPER/Bitwig validation has passed; the
+remaining integration gate is cross-platform CI.
 
 Implemented, automated, and already DAW validated in the integration line:
 
 - permanent CLAP and VST3 identities, one Visage production editor, and
-  V1--V21 saved-state decoding;
+  instance-owned saved state;
 - a repeatable per-user verify/install workflow for macOS, Linux, and Windows;
 - host-independent CLAP timer/editor lifecycle guards, disconnected local
   metering, and offline Session Mix WAV and per-route WAV-stem recording;
@@ -70,10 +70,15 @@ Current repository gate:
    tests plus repository and packaged-artifact privacy scans, and passes Linux,
    Windows, and macOS CI. This remains automation evidence rather than DAW
    validation.
+7. **DAW validated; CI pending:** the local `0.2.13` candidate removes
+   unpublished legacy naming, migration, and state-decoding code for #8. Local
+   Release CLAP/VST3 builds and all 31 tests pass. REAPER and Bitwig passed the
+   CLAP/VST3 load, connection/consent/reconnect, recall, audio, meter,
+   monitoring, WAV recording, instance lifecycle, and shutdown checks.
 
 Still requiring product work or broader hands-on evidence:
 
-- removal of the retired `NinjamPlugin` compatibility and naming surface (#8);
+- completion of the active MrNinjam-only naming and compatibility cleanup (#8);
 - the substantive architecture and code-quality audit (#7);
 - representative CLAP/VST3 session and legacy-client interoperability (#5);
 - recording eligibility, failure reporting, finalisation, recovery, and
@@ -116,10 +121,14 @@ and then broaden representative session validation.
 
 Work, in order:
 
-1. Address [#8](https://github.com/mrosenki/MrNinjam/issues/8) in reviewable
-   stages informed by [#7](https://github.com/mrosenki/MrNinjam/issues/7),
-   preserving permanent plug-in IDs and supported state decoding.
-2. Run the controlled matrix in
+1. Require Linux, Windows, and macOS CI for the DAW-validated 0.2.13 branch,
+   then integrate and close
+   [#8](https://github.com/mrosenki/MrNinjam/issues/8).
+2. Continue the evidence-driven architecture audit in
+   [#7](https://github.com/mrosenki/MrNinjam/issues/7), beginning with a
+   component/ownership map and focused decomposition issues rather than a
+   broad rewrite.
+3. Run the controlled matrix in
    [#5](https://github.com/mrosenki/MrNinjam/issues/5) across both hosts and
    formats, creating focused issues for reproducible findings.
 
@@ -148,8 +157,8 @@ removing controls or changing routing semantics.
 
 Primary issue: [#2](https://github.com/mrosenki/MrNinjam/issues/2).
 
-Dependencies: approved reference screenshots and layout decisions, plus a
-stable DAW baseline from `0.2.2`.
+Dependencies: approved reference screenshots and layout decisions, plus an
+integrated stable DAW baseline.
 
 Acceptance criteria:
 
@@ -158,8 +167,8 @@ Acceptance criteria:
   grouping, meters, warnings, and interaction targets;
 - harness renders and host resize checks cover macOS, Windows, and Linux where
   practical; and
-- audio, networking, routing, IDs, parameters, and saved-state decoding are
-  unchanged.
+- audio, networking, routing, IDs, parameters, and the current saved-state
+  schema are unchanged.
 
 ### `0.4.x` onward — Session-driven reliability and interoperability
 
@@ -172,8 +181,8 @@ large rewrites in place of observed, testable failures.
 Minor versions may group larger product milestones. Compatible corrections and
 refinements advance patch versions. Every installable milestone must keep the
 CMake project version, CLAP descriptor, VST3 metadata, and package metadata in
-sync while preserving the established IDs, parameter IDs, and saved-state
-decoding.
+sync while preserving the established IDs, parameter IDs, and supported
+saved-state schema.
 
 ## Separate release-readiness track
 

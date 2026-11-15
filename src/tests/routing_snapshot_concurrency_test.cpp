@@ -1,5 +1,5 @@
-#include "ninjamplugin/core/debug_log.h"
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/debug_log.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 #include <array>
 #include <atomic>
@@ -13,8 +13,8 @@
 
 namespace {
 
-using ninjamplugin::core::LocalInputRouteConfig;
-using ninjamplugin::core::NinjamBridge;
+using mrninjam::core::LocalInputRouteConfig;
+using mrninjam::core::NinjamBridge;
 
 constexpr std::size_t kMaximumFrames = 512;
 
@@ -63,14 +63,14 @@ bool IsExpectedSample(const float value) {
 
 int main() {
   const auto log_root = std::filesystem::temp_directory_path() /
-                        "ninjamplugin-routing-diagnostic-test";
+                        "mrninjam-routing-diagnostic-test";
 #if defined(_WIN32)
-  _putenv_s("NINJAMPLUGIN_DEBUG_LOG", "1");
-  _putenv_s("NINJAMPLUGIN_DEBUG_LOG_PATH",
+  _putenv_s("MRNINJAM_DEBUG_LOG", "1");
+  _putenv_s("MRNINJAM_DEBUG_LOG_PATH",
             (log_root / "diagnostics.log").string().c_str());
 #else
-  setenv("NINJAMPLUGIN_DEBUG_LOG", "1", 1);
-  setenv("NINJAMPLUGIN_DEBUG_LOG_PATH",
+  setenv("MRNINJAM_DEBUG_LOG", "1", 1);
+  setenv("MRNINJAM_DEBUG_LOG_PATH",
          (log_root / "diagnostics.log").string().c_str(), 1);
 #endif
   NinjamBridge bridge;
@@ -99,7 +99,7 @@ int main() {
   std::atomic_bool writer_done{false};
   std::atomic_bool failed{false};
   std::atomic<std::uint64_t> processed_blocks{0};
-  ninjamplugin::core::ResetRealtimeDebugLogViolationCount();
+  mrninjam::core::ResetRealtimeDebugLogViolationCount();
 
   std::thread audio_thread([&] {
     constexpr std::array<std::size_t, 7> frame_counts = {1, 7, 64, 127, 256, 511, 512};
@@ -152,7 +152,7 @@ int main() {
               << processed_blocks.load(std::memory_order_relaxed) << " blocks\n";
     return 1;
   }
-  if (ninjamplugin::core::GetRealtimeDebugLogViolationCount() != 0U) {
+  if (mrninjam::core::GetRealtimeDebugLogViolationCount() != 0U) {
     std::cerr << "Routing stress reached a prohibited diagnostic operation\n";
     return 1;
   }
@@ -189,9 +189,9 @@ int main() {
   bridge.StopProcessing();
   bridge.Deactivate();
 #if defined(_WIN32)
-  _putenv_s("NINJAMPLUGIN_DEBUG_LOG", "0");
+  _putenv_s("MRNINJAM_DEBUG_LOG", "0");
 #else
-  setenv("NINJAMPLUGIN_DEBUG_LOG", "0", 1);
+  setenv("MRNINJAM_DEBUG_LOG", "0", 1);
 #endif
   std::error_code cleanup_error;
   std::filesystem::remove_all(log_root, cleanup_error);

@@ -1,4 +1,4 @@
-#include "ninjamplugin/ui/connection_editor_controller.h"
+#include "mrninjam/ui/connection_editor_controller.h"
 
 #include <iostream>
 #include <string>
@@ -15,8 +15,8 @@ bool Expect(const bool condition, const std::string& message) {
 }  // namespace
 
 int main() {
-  using ninjamplugin::core::NinjamBridge;
-  using ninjamplugin::ui::BuildEditorActionCapabilities;
+  using mrninjam::core::NinjamBridge;
+  using mrninjam::ui::BuildEditorActionCapabilities;
 
   bool ok = true;
   for (const int state : {
@@ -57,8 +57,8 @@ int main() {
                        std::string::npos,
                "disconnecting state did not revoke session actions truthfully");
 
-  ninjamplugin::ui::ConnectionEditorController controller(nullptr);
-  ninjamplugin::ui::ConnectionEditorRuntimeSnapshot snapshot;
+  mrninjam::ui::ConnectionEditorController controller(nullptr);
+  mrninjam::ui::ConnectionEditorRuntimeSnapshot snapshot;
   snapshot.connection_state = NinjamBridge::kConnectionStateDisconnected;
   snapshot.connection_state_text = "Disconnected";
   snapshot.multitrack_capture_enabled = true;

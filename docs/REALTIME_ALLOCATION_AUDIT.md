@@ -7,7 +7,7 @@ The callback-reachable diagnostic graph is:
 ```text
 CLAP/VST3 process
   -> ApplyInputEvents -> ApplyParamEvent
-  -> NinjamBridge::ProcessAudio -> NinjamPluginNJClient::AudioProc
+  -> NinjamBridge::ProcessAudio -> MrNinjamNJClient::AudioProc
        -> bounded queue/counter updates and SessionCaptureRecorder::Push
   -> EmitPendingStatusParamEvents
 ```
@@ -30,7 +30,7 @@ The complete classification is:
 | `PluginProcess()` -> `ApplyParamEvent()` -> `DebugLogf()` | Audio callback; once per non-gain CLAP parameter event | Confirmed formatting, possible lazy preference file read, log mutex, strings/filesystem, append/rotation | Removed. Existing atomics hand the value to `on_main_thread`, whose apply log retains the useful value. |
 | `PluginProcess()` -> `EmitPendingStatusParamEvents()` -> `DebugLogf()` | Audio callback; once per successfully emitted dirty status | Confirmed same unsafe logger path | Removed. `PluginOnMainThread()` already logs each changed connection state, BPM, attempt count, and failure reason. |
 | `DebugLogInstanceScope` in `PluginProcess()` | Every callback | Two bounded thread-local integer assignments; no allocation, lock, formatting, or I/O | Retained for instance identity and classified real-time safe. |
-| `NinjamBridge::ProcessAudio()` and `NinjamPluginNJClient::AudioProc()` overflow, underflow, stale-generation, and pacing evidence | Audio callback; atomics update only when the corresponding condition occurs | Fixed prepared rings plus bounded atomic counters; no diagnostic string or logger call | Retained. `GetRealtimePipelineDiagnostics()` exposes the accumulated evidence off the audio thread. |
+| `NinjamBridge::ProcessAudio()` and `MrNinjamNJClient::AudioProc()` overflow, underflow, stale-generation, and pacing evidence | Audio callback; atomics update only when the corresponding condition occurs | Fixed prepared rings plus bounded atomic counters; no diagnostic string or logger call | Retained. `GetRealtimePipelineDiagnostics()` exposes the accumulated evidence off the audio thread. |
 | Level metering/diagnostics | Audio callback accumulation per prepared block; report at most once per second from `MainThreadTick()` | Frame-count-bounded sample scan and atomics in the callback; formatting/file logging only on the main thread | Retained. |
 | `SessionCaptureRecorder::Push()` drop accounting | Audio callback when capture is active | Prepared SPSC copy and atomic dropped-frame counter; no file or logger call | Retained. File writes, conversion buffers, checkpoint/finalize messages, and recorder logs remain on its writer thread. |
 | Start/stop/reset diagnostics | CLAP/VST3 processing lifecycle callbacks | Callback publishes lifecycle bits only; session-feed cleanup and logging are serviced later | Retained through `ServiceRealtimeLifecycleRequests()` on the main thread. |
@@ -76,7 +76,7 @@ The resulting connected callback graph is:
 ```text
 CLAP/VST3 process
   -> NinjamBridge::ProcessAudio
-    -> NinjamPluginNJClient::AudioProc
+    -> MrNinjamNJClient::AudioProc
       -> clear prepared outputs
       -> read atomic local-control projection and mix local monitor
       -> advance interval/transport generations and metronome phase
@@ -134,7 +134,7 @@ lost.
 
 ### Connected evidence
 
-`ninjamplugin_connected_realtime_pipeline_test` runs the production bridge and
+`mrninjam_connected_realtime_pipeline_test` runs the production bridge and
 client against an in-process NINJAM protocol fixture. It exercises three local
 and remote modes, actual Vorbis stream creation/replacement, interval rollover,
 Session messages/files, two rapid seeks, participant leave/rejoin/rename,
@@ -158,7 +158,7 @@ and counted during the forced worker stall and seek invalidation; it produces
 silence at the missing project timestamp. Recording and metronome remain on the
 callback-owned clocks rather than worker completion time.
 
-`ninjamplugin_realtime_packet_continuity_test` injects known PCM into the
+`mrninjam_realtime_packet_continuity_test` injects known PCM into the
 prepared Normal, Voice, and Session return rings for three simultaneous remote
 channels. It compares every output sample and timestamp across repeating
 1/64/127/128/257/512-frame, non-divisible host blocks. The regression also
@@ -200,7 +200,7 @@ metering. Later sub-block passes apply parameter-event gain in place and do not
 use routing scratch storage. Auxiliary host outputs are copied by
 `CopyLastOutputChannel()`.
 
-When connected, the first pass calls `NinjamPluginNJClient::AudioProc()`, which
+When connected, the first pass calls `MrNinjamNJClient::AudioProc()`, which
 enters upstream `NJClient::process_samples()`. That path can enqueue local send
 audio, decode and resample remote audio, and invoke
 `RemoteChannelAudioCallback()` -> `MixRemoteChannelAudio()`. Session-mix

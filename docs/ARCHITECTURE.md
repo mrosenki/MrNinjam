@@ -2,7 +2,7 @@
 
 ## Product formats
 
-MrNinjam has one CLAP-native implementation. The `ninjamplugin_clap_impl`
+MrNinjam has one CLAP-native implementation. The `mrninjam_clap_impl`
 target contains the shared plugin entry implementation and links the common
 core, NINJAM bridge, and editor shell. The CLAP product exposes that
 implementation directly; clap-wrapper adapts the same implementation into the
@@ -23,11 +23,9 @@ The permanent host identity established in `0.2.1` is:
 
 Identity is centralized in `plugin_config.h` and locked by a descriptor-level
 test. The visible `MrNinjam` name and bundle filenames are separate from the
-permanent CLAP ID and VST3 CID. The permanent CLAP ID replaces the former
-development ID `io.github.mrosenki.ninjamplugin` before public release. The
-historical `ninjamplugin` source namespace, CMake targets, entry symbols,
-environment variables, and serialized state headers remain unchanged.
-Parameter IDs and V1--V21 decoding are retained.
+permanent CLAP ID and VST3 CID. Project namespaces, CMake targets, entry
+symbols, environment variables, settings paths, and serialized-state headers
+use the MrNinjam name. Parameter IDs remain stable.
 
 Changing bundle filenames can expose host-specific recall limitations even
 when a format identity is otherwise unchanged. The VST3 CID remains stable, so
@@ -147,7 +145,7 @@ one of those callbacks; the plug-in does not create a private polling thread.
 
 The lifecycle audit is enforced by source checks over audio-thread lifecycle
 callbacks, CLAP parameter/status-event handlers, and
-`NinjamPluginNJClient::AudioProc()`. Phase 1's disconnected processing
+`MrNinjamNJClient::AudioProc()`. Phase 1's disconnected processing
 regression still covers prepared bridge storage. Phase 2 adds a production
 connected fixture. On macOS the connected test intercepts both C++ allocation
 and direct C allocation on the callback thread. It covers real normal, Voice,
@@ -197,15 +195,9 @@ interval and participant data.
 - Recordings and exports go to a user-selected location or a platform-owned
   default, never a repository checkout.
 
-New settings, UI preferences, diagnostics, logs, and fallback recording paths
-use `MrNinjam` in their platform-owned directory or filename. Until issue #8
-removes the retired pre-release compatibility surface, connection settings are
-copied on first access from the former
-`NinjamPlugin/ninjamplugin_settings.cfg` path when the new settings file does
-not exist. Existing diagnostic and layout preferences are read from their
-former branded paths when no new file is present. The established
-`NINJAMPLUGIN_*` environment-variable interface is retained for development
-and compatibility.
+Settings, UI preferences, diagnostics, logs, and fallback recording paths use
+`MrNinjam` in their platform-owned directory or filename. The `MRNINJAM_*`
+environment-variable interface is available for development and diagnostics.
 
 ## Runtime-path invariant
 

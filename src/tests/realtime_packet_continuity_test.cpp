@@ -4,9 +4,9 @@
 #include <iostream>
 
 #if defined(_WIN32)
-#include "ninjamplugin/platform/windows_upstream_compat.h"
+#include "mrninjam/platform/windows_upstream_compat.h"
 #endif
-#include "ninjamplugin/core/njclient_extended.h"
+#include "mrninjam/core/njclient_extended.h"
 
 namespace {
 
@@ -24,9 +24,9 @@ bool Close(float actual, float expected) {
   return std::fabs(actual - expected) <= 1.0e-6F;
 }
 
-bool RunContinuityTest(NinjamPluginNJClient::RealtimePacketModeForTesting mode,
+bool RunContinuityTest(MrNinjamNJClient::RealtimePacketModeForTesting mode,
                        const char* label) {
-  NinjamPluginNJClient client;
+  MrNinjamNJClient client;
   client.SetRealtimeWorkerPausedForTesting(true);
   if (!client.PrepareAudio(512U)) return false;
   client.SetRealtimeAudioEnabledForTesting();
@@ -47,7 +47,7 @@ bool RunContinuityTest(NinjamPluginNJClient::RealtimePacketModeForTesting mode,
   int normal_start = 0;
   client.GetPosition(&normal_start, nullptr);
   const std::int64_t timeline_start =
-      mode == NinjamPluginNJClient::RealtimePacketModeForTesting::kVoice
+      mode == MrNinjamNJClient::RealtimePacketModeForTesting::kVoice
           ? 0 : normal_start;
 
   for (int packet_index = 0; packet_index < kPacketCount; ++packet_index) {
@@ -110,8 +110,8 @@ bool RunContinuityTest(NinjamPluginNJClient::RealtimePacketModeForTesting mode,
 }
 
 bool RunSessionSeekTest() {
-  using Mode = NinjamPluginNJClient::RealtimePacketModeForTesting;
-  NinjamPluginNJClient client;
+  using Mode = MrNinjamNJClient::RealtimePacketModeForTesting;
+  MrNinjamNJClient client;
   client.SetRealtimeWorkerPausedForTesting(true);
   if (!client.PrepareAudio(128U)) return false;
   client.SetRealtimeAudioEnabledForTesting();
@@ -158,7 +158,7 @@ bool RunSessionSeekTest() {
 }  // namespace
 
 int main() {
-  using Mode = NinjamPluginNJClient::RealtimePacketModeForTesting;
+  using Mode = MrNinjamNJClient::RealtimePacketModeForTesting;
   if (!RunContinuityTest(Mode::kNormal, "normal") ||
       !RunContinuityTest(Mode::kVoice, "voice") ||
       !RunContinuityTest(Mode::kSession, "session") ||

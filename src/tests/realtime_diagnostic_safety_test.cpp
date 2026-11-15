@@ -1,6 +1,6 @@
-#include "ninjamplugin/core/debug_log.h"
-#include "ninjamplugin/format/clap/plugin_config.h"
-#include "ninjamplugin/format/clap/plugin_entry.h"
+#include "mrninjam/core/debug_log.h"
+#include "mrninjam/format/clap/plugin_config.h"
+#include "mrninjam/format/clap/plugin_entry.h"
 
 #include <clap/events.h>
 #include <clap/factory/plugin-factory.h>
@@ -139,7 +139,7 @@ struct PluginFixture {
 
   bool Initialize(const clap_plugin_factory_t* factory, const clap_host_t* host) {
     plugin = factory->create_plugin(
-        factory, host, ninjamplugin::format::clap::kPluginId);
+        factory, host, mrninjam::format::clap::kPluginId);
     if (plugin == nullptr || !plugin->init(plugin) ||
         !plugin->activate(plugin, 48000.0, 1U, kFrameCount) ||
         !plugin->start_processing(plugin)) {
@@ -182,17 +182,17 @@ struct PluginFixture {
 
 int main() {
   const auto root = std::filesystem::temp_directory_path() /
-                    ("ninjamplugin-realtime-diagnostics-" +
+                    ("mrninjam-realtime-diagnostics-" +
                      std::to_string(ProcessId()));
   std::error_code error;
   std::filesystem::remove_all(root, error);
   std::filesystem::create_directories(root, error);
   if (!Require(!error, "could not prepare the isolated log directory"))
     return 1;
-  SetEnvironment("NINJAMPLUGIN_DEBUG_LOG_PATH", (root / "diagnostics.log").string());
+  SetEnvironment("MRNINJAM_DEBUG_LOG_PATH", (root / "diagnostics.log").string());
 
   const auto* factory = static_cast<const clap_plugin_factory_t*>(
-      NinjamPluginEntryGetFactory(CLAP_PLUGIN_FACTORY_ID));
+      MrNinjamEntryGetFactory(CLAP_PLUGIN_FACTORY_ID));
   if (!Require(factory != nullptr, "CLAP factory is unavailable"))
     return 1;
 
@@ -208,7 +208,7 @@ int main() {
   host.request_callback = HostRequest;
 
   bool ok = true;
-  SetEnvironment("NINJAMPLUGIN_DEBUG_LOG", "0");
+  SetEnvironment("MRNINJAM_DEBUG_LOG", "0");
   PluginFixture disabled;
   if (!Require(disabled.Initialize(factory, &host),
                "disabled-log fixture could not initialize")) {
@@ -216,14 +216,14 @@ int main() {
     std::filesystem::remove_all(root, error);
     return 1;
   }
-  ninjamplugin::core::ResetRealtimeDebugLogViolationCount();
+  mrninjam::core::ResetRealtimeDebugLogViolationCount();
   ok &= Require(disabled.ProcessRepeatedly(),
                 "disabled-log processing failed");
-  ok &= Require(ninjamplugin::core::GetRealtimeDebugLogViolationCount() == 0U,
+  ok &= Require(mrninjam::core::GetRealtimeDebugLogViolationCount() == 0U,
                 "disabled logging concealed a callback diagnostic call");
   disabled.Shutdown();
 
-  SetEnvironment("NINJAMPLUGIN_DEBUG_LOG", "1");
+  SetEnvironment("MRNINJAM_DEBUG_LOG", "1");
   PluginFixture first;
   PluginFixture second;
   if (!Require(first.Initialize(factory, &host) && second.Initialize(factory, &host),
@@ -233,7 +233,7 @@ int main() {
     std::filesystem::remove_all(root, error);
     return 1;
   }
-  ninjamplugin::core::ResetRealtimeDebugLogViolationCount();
+  mrninjam::core::ResetRealtimeDebugLogViolationCount();
   bool first_processed = false;
   bool second_processed = false;
   std::thread first_thread([&] { first_processed = first.ProcessRepeatedly(); });
@@ -245,7 +245,7 @@ int main() {
   ok &= Require(first.output_events.accepted.load(std::memory_order_acquire) > 0U &&
                     second.output_events.accepted.load(std::memory_order_acquire) > 0U,
                 "status-event emission was not exercised");
-  ok &= Require(ninjamplugin::core::GetRealtimeDebugLogViolationCount() == 0U,
+  ok &= Require(mrninjam::core::GetRealtimeDebugLogViolationCount() == 0U,
                 "debug-enabled callback reached a prohibited diagnostic operation");
   first.Shutdown();
   second.Shutdown();

@@ -1,4 +1,4 @@
-#include "ninjamplugin/core/remix_stem_exporter.h"
+#include "mrninjam/core/remix_stem_exporter.h"
 
 #include <algorithm>
 #include <array>
@@ -18,15 +18,15 @@
 #include <utility>
 #include <vector>
 
-#include "ninjamplugin/core/debug_log.h"
+#include "mrninjam/core/debug_log.h"
 #include "lineparse.h"
 #include "wavwrite.h"
 
-#if NINJAMPLUGIN_HAS_REMIX_STEM_EXPORT
+#if MRNINJAM_HAS_REMIX_STEM_EXPORT
 #include <vorbis/vorbisfile.h>
 #endif
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 namespace {
 
 namespace fs = std::filesystem;
@@ -313,7 +313,7 @@ bool WriteSilentFrames(StemWaveWriter& writer, const int channels, int64_t frame
   return true;
 }
 
-#if NINJAMPLUGIN_HAS_REMIX_STEM_EXPORT
+#if MRNINJAM_HAS_REMIX_STEM_EXPORT
 bool ProbeOggClip(const fs::path& clip_path,
                   int* out_sample_rate,
                   int* out_channels) {
@@ -613,7 +613,7 @@ ExportSummary ExportTracksToDirectory(const fs::path& session_directory,
                                      const fs::path& output_directory,
                                      const RemixStemExportOptions& options,
                                      const ProgressCallback& report_progress) {
-#if !NINJAMPLUGIN_HAS_REMIX_STEM_EXPORT
+#if !MRNINJAM_HAS_REMIX_STEM_EXPORT
   (void)session_directory;
   (void)output_directory;
   (void)options;
@@ -890,7 +890,7 @@ bool RemixStemExporter::Start(const std::string& session_directory,
 bool RemixStemExporter::Start(const std::string& session_directory,
                               const RemixStemExportOptions& requested_options) {
   Wait();
-#if !NINJAMPLUGIN_HAS_REMIX_STEM_EXPORT
+#if !MRNINJAM_HAS_REMIX_STEM_EXPORT
   (void)session_directory;
   (void)requested_options;
   {
@@ -1098,4 +1098,4 @@ void RemixStemExporter::WorkerThreadLoop(const std::string session_directory,
   NotifyProgress(true);
 }
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core

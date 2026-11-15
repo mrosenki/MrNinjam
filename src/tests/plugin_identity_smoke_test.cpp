@@ -1,5 +1,5 @@
-#include "ninjamplugin/format/clap/plugin_config.h"
-#include "ninjamplugin/format/clap/plugin_entry.h"
+#include "mrninjam/format/clap/plugin_config.h"
+#include "mrninjam/format/clap/plugin_entry.h"
 
 #include <clap/factory/plugin-factory.h>
 #include <clapwrapper/vst3.h>
@@ -15,20 +15,20 @@ namespace {
 constexpr std::array<std::uint8_t, 16> kExpectedVst3ComponentId = COMPONENT_ID(
     0xCF3108E9U, 0x4031432BU, 0xAEC75E1AU, 0x03E0978FU);
 
-static_assert(std::string_view(ninjamplugin::format::clap::kPluginId) ==
+static_assert(std::string_view(mrninjam::format::clap::kPluginId) ==
               "io.github.mrosenki.mrninjam");
-static_assert(std::string_view(ninjamplugin::format::clap::kVst3ClassId) ==
+static_assert(std::string_view(mrninjam::format::clap::kVst3ClassId) ==
               "CF3108E94031432BAEC75E1A03E0978F");
-static_assert(std::string_view(ninjamplugin::format::clap::kPluginName) ==
+static_assert(std::string_view(mrninjam::format::clap::kPluginName) ==
               "MrNinjam");
-static_assert(std::string_view(ninjamplugin::format::clap::kPluginDescription) ==
+static_assert(std::string_view(mrninjam::format::clap::kPluginDescription) ==
               "MrNinjam independent NINJAM client and multitrack recording effect");
-static_assert(std::string_view(ninjamplugin::format::clap::kPluginVendor) ==
+static_assert(std::string_view(mrninjam::format::clap::kPluginVendor) ==
               "Micah Rosenkind");
-static_assert(std::string_view(ninjamplugin::format::clap::kPluginUrl) ==
+static_assert(std::string_view(mrninjam::format::clap::kPluginUrl) ==
               "https://github.com/mrosenki/MrNinjam");
-static_assert(std::string_view(ninjamplugin::format::clap::kPluginVersion) ==
-              "0.2.12");
+static_assert(std::string_view(mrninjam::format::clap::kPluginVersion) ==
+              "0.2.13");
 
 const void* CLAP_ABI HostGetExtension(const clap_host_t* /*host*/,
                                       const char* /*extension_id*/) {
@@ -41,7 +41,7 @@ void CLAP_ABI HostRequest(const clap_host_t* /*host*/) {}
 
 int main() {
   const auto* clap_factory = static_cast<const clap_plugin_factory_t*>(
-      NinjamPluginEntryGetFactory(CLAP_PLUGIN_FACTORY_ID));
+      MrNinjamEntryGetFactory(CLAP_PLUGIN_FACTORY_ID));
   if (clap_factory == nullptr || clap_factory->get_plugin_count(clap_factory) != 1U) {
     std::cerr << "CLAP factory did not expose exactly one plug-in\n";
     return 1;
@@ -49,23 +49,23 @@ int main() {
 
   const auto* descriptor = clap_factory->get_plugin_descriptor(clap_factory, 0U);
   if (descriptor == nullptr ||
-      std::strcmp(descriptor->id, ninjamplugin::format::clap::kPluginId) != 0 ||
-      std::strcmp(descriptor->name, ninjamplugin::format::clap::kPluginName) != 0 ||
-      std::strcmp(descriptor->vendor, ninjamplugin::format::clap::kPluginVendor) != 0 ||
-      std::strcmp(descriptor->url, ninjamplugin::format::clap::kPluginUrl) != 0 ||
-      std::strcmp(descriptor->version, ninjamplugin::format::clap::kPluginVersion) != 0 ||
+      std::strcmp(descriptor->id, mrninjam::format::clap::kPluginId) != 0 ||
+      std::strcmp(descriptor->name, mrninjam::format::clap::kPluginName) != 0 ||
+      std::strcmp(descriptor->vendor, mrninjam::format::clap::kPluginVendor) != 0 ||
+      std::strcmp(descriptor->url, mrninjam::format::clap::kPluginUrl) != 0 ||
+      std::strcmp(descriptor->version, mrninjam::format::clap::kPluginVersion) != 0 ||
       std::strcmp(descriptor->description,
-                  ninjamplugin::format::clap::kPluginDescription) != 0) {
+                  mrninjam::format::clap::kPluginDescription) != 0) {
     std::cerr << "CLAP descriptor identity did not match the permanent metadata\n";
     return 1;
   }
 
   const auto* vst3_factory = static_cast<const clap_plugin_factory_as_vst3_t*>(
-      NinjamPluginEntryGetFactory(CLAP_PLUGIN_FACTORY_INFO_VST3_V1));
+      MrNinjamEntryGetFactory(CLAP_PLUGIN_FACTORY_INFO_VST3_V1));
   if (vst3_factory == nullptr || vst3_factory->vendor_url == nullptr ||
       vst3_factory->get_vst3_info == nullptr ||
       std::strcmp(vst3_factory->vendor_url,
-                  ninjamplugin::format::clap::kPluginUrl) != 0) {
+                  mrninjam::format::clap::kPluginUrl) != 0) {
     std::cerr << "clap-wrapper VST3 identity factory was not exposed\n";
     return 1;
   }
@@ -74,7 +74,7 @@ int main() {
   if (vst3_info == nullptr || vst3_info->componentId == nullptr ||
       std::memcmp(*vst3_info->componentId, kExpectedVst3ComponentId.data(),
                   kExpectedVst3ComponentId.size()) != 0 ||
-      std::strcmp(vst3_info->vendor, ninjamplugin::format::clap::kPluginVendor) != 0 ||
+      std::strcmp(vst3_info->vendor, mrninjam::format::clap::kPluginVendor) != 0 ||
       vst3_factory->get_vst3_info(vst3_factory, 1U) != nullptr) {
     std::cerr << "explicit VST3 class identity did not match the permanent CID\n";
     return 1;
@@ -95,7 +95,7 @@ int main() {
   host.request_callback = HostRequest;
 
   const clap_plugin_t* plugin = clap_factory->create_plugin(
-      clap_factory, &host, ninjamplugin::format::clap::kPluginId);
+      clap_factory, &host, mrninjam::format::clap::kPluginId);
   if (plugin == nullptr || !plugin->init(plugin) ||
       !plugin->activate(plugin, 48000.0, 1U, 257U) ||
       !plugin->start_processing(plugin)) {

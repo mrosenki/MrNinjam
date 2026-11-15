@@ -13,7 +13,7 @@ Usage: ./scripts/install_development.sh [BuildType] [--dry-run] [--skip-verify]
 
 Verifies and installs MrNinjam CLAP and VST3 development bundles into the
 standard per-user plug-in directories. Override the destinations for isolated
-testing with NINJAMPLUGIN_CLAP_INSTALL_DIR and NINJAMPLUGIN_VST3_INSTALL_DIR.
+testing with MRNINJAM_CLAP_INSTALL_DIR and MRNINJAM_VST3_INSTALL_DIR.
 EOF
 }
 
@@ -65,8 +65,8 @@ case "$(uname -s)" in
     ;;
 esac
 
-CLAP_INSTALL_DIR="${NINJAMPLUGIN_CLAP_INSTALL_DIR:-$DEFAULT_CLAP_INSTALL_DIR}"
-VST3_INSTALL_DIR="${NINJAMPLUGIN_VST3_INSTALL_DIR:-$DEFAULT_VST3_INSTALL_DIR}"
+CLAP_INSTALL_DIR="${MRNINJAM_CLAP_INSTALL_DIR:-$DEFAULT_CLAP_INSTALL_DIR}"
+VST3_INSTALL_DIR="${MRNINJAM_VST3_INSTALL_DIR:-$DEFAULT_VST3_INSTALL_DIR}"
 
 require_absolute_destination() {
   local destination="$1"
@@ -127,14 +127,14 @@ require_absolute_destination "$VST3_INSTALL_DIR"
 require_resolved_destination_outside_source "$CLAP_INSTALL_DIR"
 require_resolved_destination_outside_source "$VST3_INSTALL_DIR"
 
-BUILD_DIR="${NINJAMPLUGIN_BUILD_DIR:-${ROOT_DIR}/build/${BUILD_TYPE}}"
-CLAP_ARTIFACT="${NINJAMPLUGIN_CLAP_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.clap}"
-VST3_ARTIFACT="${NINJAMPLUGIN_VST3_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.vst3}"
+BUILD_DIR="${MRNINJAM_BUILD_DIR:-${ROOT_DIR}/build/${BUILD_TYPE}}"
+CLAP_ARTIFACT="${MRNINJAM_CLAP_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.clap}"
+VST3_ARTIFACT="${MRNINJAM_VST3_ARTIFACT:-${BUILD_DIR}/plugin/MrNinjam.vst3}"
 
 if [[ "$SKIP_VERIFY" -eq 0 ]]; then
-  NINJAMPLUGIN_BUILD_DIR="$BUILD_DIR" \
-  NINJAMPLUGIN_CLAP_ARTIFACT="$CLAP_ARTIFACT" \
-  NINJAMPLUGIN_VST3_ARTIFACT="$VST3_ARTIFACT" \
+  MRNINJAM_BUILD_DIR="$BUILD_DIR" \
+  MRNINJAM_CLAP_ARTIFACT="$CLAP_ARTIFACT" \
+  MRNINJAM_VST3_ARTIFACT="$VST3_ARTIFACT" \
     "${ROOT_DIR}/scripts/verify.sh" "$BUILD_TYPE"
 fi
 
@@ -153,17 +153,6 @@ for artifact in "$CLAP_ARTIFACT" "$VST3_ARTIFACT"; do
       -P "${ROOT_DIR}/scripts/check_artifact_paths.cmake"
   done < <(find "$artifact" -type f -print0)
 done
-
-warn_legacy_install() {
-  local legacy_path="$1"
-  if [[ -e "$legacy_path" || -L "$legacy_path" ]]; then
-    printf 'WARNING: legacy development bundle retained at %s\n' "$legacy_path" >&2
-    printf '         Remove it manually only after confirming old projects no longer need it.\n' >&2
-  fi
-}
-
-warn_legacy_install "${CLAP_INSTALL_DIR}/NinjamPlugin.clap"
-warn_legacy_install "${VST3_INSTALL_DIR}/NinjamPlugin.vst3"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   printf 'Would install: %s -> %s\n' \

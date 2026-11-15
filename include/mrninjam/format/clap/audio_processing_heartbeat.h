@@ -3,7 +3,7 @@
 #include <atomic>
 #include <cstdint>
 
-namespace ninjamplugin::format::clap {
+namespace mrninjam::format::clap {
 
 // Audio-thread work is limited to one relaxed, lock-free increment. The main
 // thread supplies monotonic timestamps and owns the warning state.
@@ -30,4 +30,4 @@ class AudioProcessingHeartbeat final {
   bool warning_active_ = false;
 };
 
-}  // namespace ninjamplugin::format::clap
+}  // namespace mrninjam::format::clap

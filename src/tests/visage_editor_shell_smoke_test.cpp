@@ -1,4 +1,4 @@
-#include "ninjamplugin/ui/editor_shell.h"
+#include "mrninjam/ui/editor_shell.h"
 
 #include <clap/ext/gui.h>
 
@@ -25,25 +25,25 @@ const char* PlatformApi() {
 int main() {
   const char* preferred_api = nullptr;
   bool is_floating = true;
-  if (!ninjamplugin::ui::GetPreferredEditorShellApi(&preferred_api, &is_floating) ||
+  if (!mrninjam::ui::GetPreferredEditorShellApi(&preferred_api, &is_floating) ||
       preferred_api == nullptr || is_floating ||
       std::string(preferred_api) != PlatformApi()) {
     std::cerr << "Visage editor did not report the expected embedded platform API\n";
     return 1;
   }
 
-  if (!ninjamplugin::ui::IsEditorShellApiSupported(PlatformApi(), false) ||
-      ninjamplugin::ui::IsEditorShellApiSupported(PlatformApi(), true) ||
-      ninjamplugin::ui::IsEditorShellApiSupported("unsupported", false)) {
+  if (!mrninjam::ui::IsEditorShellApiSupported(PlatformApi(), false) ||
+      mrninjam::ui::IsEditorShellApiSupported(PlatformApi(), true) ||
+      mrninjam::ui::IsEditorShellApiSupported("unsupported", false)) {
     std::cerr << "Visage editor API support filtering is incorrect\n";
     return 1;
   }
 
-  ninjamplugin::ui::EditorShellConfig config;
+  mrninjam::ui::EditorShellConfig config;
   config.title = "Visage editor smoke test";
   config.width = 1024;
   config.height = 680;
-  auto editor = ninjamplugin::ui::CreateEditorShell(config, PlatformApi(), false);
+  auto editor = mrninjam::ui::CreateEditorShell(config, PlatformApi(), false);
   if (editor == nullptr || editor->GetWidth() != 1024U || editor->GetHeight() != 680U) {
     std::cerr << "Visage editor creation or initial dimensions failed\n";
     return 1;
@@ -55,7 +55,7 @@ int main() {
     return 1;
   }
 
-  ninjamplugin::ui::ConnectionEditorViewState state;
+  mrninjam::ui::ConnectionEditorViewState state;
   state.settings.host = "example.test:2049";
   state.settings.user = "smoke-test";
   state.settings.pass = "secret";

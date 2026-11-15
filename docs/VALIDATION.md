@@ -9,16 +9,13 @@ by CI. The successful 2026-11-09 validation below remains specific to the
 
 ## Permanent CLAP identity and CI platform naming
 
-The 2026-11-09 macOS Release validation established the final pre-publication
-CLAP identity `io.github.mrosenki.mrninjam`. The approved replacement of the
-development identity `io.github.mrosenki.ninjamplugin` is a one-time CLAP host
-compatibility break; projects saved against the old ID may require manual
-plug-in replacement. The VST3 CID remains
+The 2026-11-09 macOS Release validation established the permanent
+CLAP identity `io.github.mrosenki.mrninjam`. The VST3 CID is
 `CF3108E94031432BAEC75E1A03E0978F`, and the version remains `0.2.1`.
 
 `./scripts/verify.sh Release` rebuilt `MrNinjam.clap` and `MrNinjam.vst3`,
 passed the dependency and packaged-path checks, and passed all 22 CTest cases.
-This included the identity regression, V1-V20 saved-state codec coverage,
+This included the identity regression, saved-state codec coverage,
 parameter and processing regressions, and both bundle path scans. No production
 audio implementation or dependency pin changed in this update.
 
@@ -41,32 +38,6 @@ The build retained the existing project compiler warnings and the documented
 Homebrew libogg/libvorbis macOS 14-to-11 deployment-target linker warnings.
 Windows and Linux were not built locally in this macOS workspace. GitHub
 Actions remained manually disabled and was not enabled or triggered.
-
-## MrNinjam branding validation
-
-The 2026-11-09 macOS Release validation for the pre-publication rebrand used
-the existing locked dependencies and production build configuration. The
-dependency check passed, `MrNinjam.clap` and `MrNinjam.vst3` built, all 21
-CTest cases passed, and every packaged file passed the source-path scan. The
-identity regression verified the visible `MrNinjam` name and description,
-canonical repository URL, version `0.2.1`, CLAP ID
-`io.github.mrosenki.ninjamplugin`, and VST3 CID
-`CF3108E94031432BAEC75E1A03E0978F`. It also covered migration of an existing
-`NinjamPlugin/ninjamplugin_settings.cfg` file to the branded settings path.
-
-The final CLAP validator run covered 21 tests: 16 passed, none failed, and five
-inapplicable tests were skipped. A cold first scan warned at 246 ms; the final
-scan completed in 91 ms without a warning. The Steinberg VST3 validator passed
-all 47 tests and reported the `MrNinjam` class name, version `0.2.1`, retained
-CID, vendor, and `https://github.com/mrosenki/MrNinjam` URL.
-Both macOS `Info.plist` files reported `MrNinjam` for the bundle and executable
-names while retaining `io.github.mrosenki.ninjamplugin.clap` and
-`io.github.mrosenki.ninjamplugin.vst3` as bundle identifiers.
-
-The build retained the existing project compiler warnings and the documented
-Homebrew libogg/libvorbis macOS 14-to-11 deployment-target linker warnings.
-Windows and Linux were not built locally in this macOS workspace. GitHub
-Actions was intentionally not enabled or triggered for this change.
 
 ## Earlier validation baseline
 
@@ -104,18 +75,6 @@ The merged `0.2.0` baseline at
 private GitHub Actions jobs: macOS Visage, Windows Classic and Visage, and
 Linux Classic and Visage. This established a healthy cross-platform baseline
 before the `0.2.1` single-editor consolidation.
-
-The historical, pre-rebrand `0.2.1` consolidation local validation covered the
-single production configuration, 14 CTest cases (including UI layout,
-editor-shell, identity, audio-heartbeat, state-codec, bridge, and artifact-path
-checks), and both CLAP and VST3 products named `NinjamPlugin`. The CLAP
-validator completed
-with 15 passes, no failures, five inapplicable skips, and one scan-time warning;
-the Steinberg VST3 validator passed all 47 tests and reported the permanent CID.
-Bundle metadata reported version `0.2.1` and the `.clap`/`.vst3` bundle IDs.
-The consolidation PR and subsequent main runs supplied clean macOS, Windows,
-and Linux confirmation. The post-merge workflow at source baseline
-`f351f1261819ecb9715862eed906f851c9dce60e` passed all three matrix jobs.
 
 The Issue #5 Phase 1 bridge-storage correction was validated from the Release
 configuration with both CLAP and wrapped VST3 enabled. Both products built, all

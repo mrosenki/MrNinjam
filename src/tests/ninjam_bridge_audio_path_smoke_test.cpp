@@ -4,7 +4,7 @@
 #include <iterator>
 #include <vector>
 
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 namespace {
 
@@ -35,7 +35,7 @@ std::vector<float> SumBuffers(const std::vector<float>& lhs, const std::vector<f
 }  // namespace
 
 int main() {
-  ninjamplugin::core::NinjamBridge bridge;
+  mrninjam::core::NinjamBridge bridge;
   if (!bridge.Initialize(48000.0) || !bridge.Activate(512U)) {
     std::cerr << "Bridge setup failed\n";
     return EXIT_FAILURE;
@@ -136,8 +136,8 @@ int main() {
   // Send meters represent configured, post-Send routes rather than raw DAW
   // input pairs. Configure two routes and process once more before reading the
   // route-indexed peak snapshots.
-  std::array<ninjamplugin::core::LocalInputRouteConfig,
-             ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs> meter_routes{};
+  std::array<mrninjam::core::LocalInputRouteConfig,
+             mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs> meter_routes{};
   meter_routes[0] = {true, true, true, 0, 1.0, 1.0, 0, 0, 2, "Input 1/2"};
   meter_routes[1] = {true, true, true, 1, 1.0, 1.0, 0, 2, 2, "Input 3/4"};
   bridge.ReplaceLocalInputRoutes(meter_routes);
@@ -154,13 +154,13 @@ int main() {
 
   // Local monitor destinations are real CLAP output pairs: main 1/2 is
   // returned by ProcessAudio and auxiliary 3/4 by CopyLastSessionReturn.
-  ninjamplugin::core::NinjamBridge routing_bridge;
+  mrninjam::core::NinjamBridge routing_bridge;
   if (!routing_bridge.Initialize(48000.0) || !routing_bridge.Activate(512U)) {
     std::cerr << "Output-routing bridge initialization failed\n";
     return EXIT_FAILURE;
   }
   for (int route_index = 0;
-       route_index < ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+       route_index < mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
        ++route_index) {
     if (routing_bridge.GetLocalInputRouteConfig(route_index).configured)
       routing_bridge.RemoveLocalInputRoute(route_index);
@@ -321,12 +321,12 @@ int main() {
   }
 
   bridge.SetLocalInputChannelEnabled(0, false);
-  bridge.SetLocalInputRouteSendLevel(1, ninjamplugin::core::NinjamBridge::kLocalInputSendLevelDefault);
+  bridge.SetLocalInputRouteSendLevel(1, mrninjam::core::NinjamBridge::kLocalInputSendLevelDefault);
   bridge.SetLocalInputChannelMonitorLevel(0,
-                                          ninjamplugin::core::NinjamBridge::
+                                          mrninjam::core::NinjamBridge::
                                               kLocalInputMonitorLevelDefault);
   bridge.SetLocalInputChannelMonitorLevel(1,
-                                          ninjamplugin::core::NinjamBridge::
+                                          mrninjam::core::NinjamBridge::
                                               kLocalInputMonitorLevelDefault);
   std::fill(out_left.begin(), out_left.end(), 0.0F);
   std::fill(out_right.begin(), out_right.end(), 0.0F);
@@ -382,7 +382,7 @@ int main() {
     return EXIT_FAILURE;
   }
   for (int route = 0;
-       route < ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+       route < mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
        ++route) {
     bridge.GetLocalInputRoutePeakLevel(route, 0);
     bridge.GetLocalInputRoutePeakLevel(route, 1);
@@ -391,8 +391,8 @@ int main() {
   // Deterministic six-channel host routing: 1/2, 3/4 and 5/6 must remain
   // distinct at the DAW boundary and in the per-send monitor path.
   bridge.SetActiveDawInputChannelCount(6);
-  std::array<ninjamplugin::core::LocalInputRouteConfig,
-             ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs> six_routes{};
+  std::array<mrninjam::core::LocalInputRouteConfig,
+             mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs> six_routes{};
   six_routes[0] = {true, true, true, 0, 0.25, 0.25, 0, 0, 2, "One"};
   six_routes[1] = {true, true, true, 1, 0.50, 0.50, 0, 2, 2, "Two"};
   six_routes[2] = {true, true, true, 2, 0.75, 0.75, 0, 4, 2, "Three"};
@@ -446,7 +446,7 @@ int main() {
   bridge.SetLocalInputRouteSendPan(2, 0.0);
   bridge.SetLocalInputRouteSendSolo(2, true);
   for (int route = 0;
-       route < ninjamplugin::core::NinjamBridge::kMaxSupportedLocalInputPairs;
+       route < mrninjam::core::NinjamBridge::kMaxSupportedLocalInputPairs;
        ++route) {
     bridge.GetLocalInputRoutePeakLevel(route, 0);
     bridge.GetLocalInputRoutePeakLevel(route, 1);

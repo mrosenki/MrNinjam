@@ -11,14 +11,14 @@
 #include <thread>
 #include <vector>
 
-#include "ninjamplugin/core/remix_stem_exporter.h"
-#include "ninjamplugin/core/session_capture_recorder.h"
+#include "mrninjam/core/remix_stem_exporter.h"
+#include "mrninjam/core/session_capture_recorder.h"
 
 int main() {
   namespace fs = std::filesystem;
 
   const fs::path test_dir =
-      fs::temp_directory_path() / "ninjamplugin-session-capture-smoke";
+      fs::temp_directory_path() / "mrninjam-session-capture-smoke";
   std::error_code error;
   fs::remove_all(test_dir, error);
   error.clear();
@@ -31,7 +31,7 @@ int main() {
   std::vector<float> left(512, 0.25f);
   std::vector<float> right(512, -0.25f);
   for (const int bits : {16, 24, 32}) {
-    ninjamplugin::core::SessionCaptureRecorder recorder;
+    mrninjam::core::SessionCaptureRecorder recorder;
     if (!recorder.Start(48000.0, test_dir.string(), "test.host", "tester", bits)) {
       std::cerr << "Recorder failed to start: " << recorder.GetStatusText() << "\n";
       return EXIT_FAILURE;
@@ -74,7 +74,7 @@ int main() {
   // The real-time stop handoff must let the writer drain and finalize without
   // making the caller join it. Stop() below only reaps the completed thread.
   {
-    ninjamplugin::core::SessionCaptureRecorder recorder;
+    mrninjam::core::SessionCaptureRecorder recorder;
     if (!recorder.Start(48000.0, test_dir.string(), "async-stop.host", "tester", 32)) {
       std::cerr << "Asynchronous-stop recorder failed to start\n";
       return EXIT_FAILURE;
@@ -116,7 +116,7 @@ int main() {
   // Start() runs on the non-real-time owner, joins that writer, and starts a
   // distinct capture without reopening the old recorder input gate.
   {
-    ninjamplugin::core::SessionCaptureRecorder recorder;
+    mrninjam::core::SessionCaptureRecorder recorder;
     if (!recorder.Start(48000.0, test_dir.string(), "rapid-restart.host", "tester", 32)) {
       std::cerr << "Rapid-restart recorder failed to start first capture\n";
       return EXIT_FAILURE;
@@ -159,7 +159,7 @@ int main() {
   {
     std::string partial_file_path;
     {
-      ninjamplugin::core::SessionCaptureRecorder recorder;
+      mrninjam::core::SessionCaptureRecorder recorder;
       if (!recorder.Start(48000.0, test_dir.string(), "destructor.host", "tester", 32)) {
         std::cerr << "Destructor-shutdown recorder failed to start\n";
         return EXIT_FAILURE;
@@ -179,7 +179,7 @@ int main() {
   // A one-second write must leave a playable, size-checkpointed partial before
   // Stop() is called.
   {
-    ninjamplugin::core::SessionCaptureRecorder recorder;
+    mrninjam::core::SessionCaptureRecorder recorder;
     std::vector<float> checkpoint_left(48000, 0.125f);
     std::vector<float> checkpoint_right(48000, -0.125f);
     if (!recorder.Start(48000.0, test_dir.string(), "checkpoint.host", "tester", 32)) {
@@ -227,7 +227,7 @@ int main() {
       interrupted.write(zero_size.data(), static_cast<std::streamsize>(zero_size.size()));
     }
     std::string repair_error;
-    if (!ninjamplugin::core::RepairIncompleteSessionCapture(
+    if (!mrninjam::core::RepairIncompleteSessionCapture(
             interrupted_copy.string(), &repair_error)) {
       std::cerr << "Could not repair interrupted capture: " << repair_error << "\n";
       return EXIT_FAILURE;
@@ -252,7 +252,7 @@ int main() {
     const fs::path metadata_path(interrupted_copy.string() + ".info");
     {
       std::ofstream metadata(metadata_path);
-      metadata << "NINJAMPLUGIN_SESSION_CAPTURE_V1\n"
+      metadata << "MRNINJAM_SESSION_CAPTURE_V1\n"
                << "state=recording\n"
                << "final_file=recovered-session.wav\n"
                << "sample_rate=48000\n"
@@ -269,10 +269,10 @@ int main() {
     }
     const std::uintmax_t size_before_scan = fs::file_size(interrupted_copy);
     const auto incomplete =
-        ninjamplugin::core::ScanIncompleteSessionCaptures(test_dir.string());
+        mrninjam::core::ScanIncompleteSessionCaptures(test_dir.string());
     const auto matching = std::find_if(
         incomplete.begin(), incomplete.end(),
-        [&](const ninjamplugin::core::IncompleteSessionCaptureInfo& item) {
+        [&](const mrninjam::core::IncompleteSessionCaptureInfo& item) {
           return item.partial_file_path == interrupted_copy.string();
         });
     if (matching == incomplete.end() || !matching->recoverable ||
@@ -286,7 +286,7 @@ int main() {
 
     std::string finalized_path;
     std::string finalize_error;
-    if (!ninjamplugin::core::FinalizeIncompleteSessionCapture(
+    if (!mrninjam::core::FinalizeIncompleteSessionCapture(
             interrupted_copy.string(), &finalized_path, &finalize_error)) {
       std::cerr << "Could not finalize interrupted capture: "
                 << finalize_error << "\n";
@@ -316,7 +316,7 @@ int main() {
                << "end\n";
     }
     const auto preflight =
-        ninjamplugin::core::InspectRemixSession(raw_session.string());
+        mrninjam::core::InspectRemixSession(raw_session.string());
     if (!preflight.valid || preflight.track_count != 2 ||
         preflight.clip_count != 2 || preflight.missing_clip_count != 2 ||
         preflight.local_track_names.size() != 1 ||
@@ -338,14 +338,14 @@ int main() {
     }
     std::atomic<int> progress_notifications{0};
     std::atomic<int> forced_notifications{0};
-    ninjamplugin::core::RemixStemExporter exporter;
+    mrninjam::core::RemixStemExporter exporter;
     exporter.SetProgressNotification([&](const bool force) {
       progress_notifications.fetch_add(1, std::memory_order_relaxed);
       if (force) {
         forced_notifications.fetch_add(1, std::memory_order_relaxed);
       }
     });
-    ninjamplugin::core::RemixStemExportOptions export_options;
+    mrninjam::core::RemixStemExportOptions export_options;
     export_options.output_directory = blocked_output_root.string();
     if (!exporter.Start(raw_session.string(), export_options)) {
       std::cerr << "RAW export did not start for progress notification test\n";
@@ -363,7 +363,7 @@ int main() {
     progress_notifications.store(0, std::memory_order_relaxed);
     forced_notifications.store(0, std::memory_order_relaxed);
     {
-      ninjamplugin::core::RemixStemExporter destructor_exporter;
+      mrninjam::core::RemixStemExporter destructor_exporter;
       destructor_exporter.SetProgressNotification([&](const bool force) {
         progress_notifications.fetch_add(1, std::memory_order_relaxed);
         if (force) {
@@ -389,7 +389,7 @@ int main() {
                << "unsupported value\n";
     }
     const auto invalid_preflight =
-        ninjamplugin::core::InspectRemixSession(invalid_session.string());
+        mrninjam::core::InspectRemixSession(invalid_session.string());
     if (invalid_preflight.valid ||
         invalid_preflight.validation_message.find("line 2") == std::string::npos ||
         invalid_preflight.validation_message.find("unsupported") ==
@@ -408,7 +408,7 @@ int main() {
       }
     }
     const auto large_preflight =
-        ninjamplugin::core::InspectRemixSession(raw_session.string());
+        mrninjam::core::InspectRemixSession(raw_session.string());
     if (!large_preflight.valid || large_preflight.clip_count != 2002 ||
         large_preflight.validation_message.find("Short BPI") !=
             std::string::npos) {

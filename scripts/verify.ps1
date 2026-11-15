@@ -10,20 +10,20 @@ $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $PSScriptRoot "development_artifacts.ps1")
 $BuildDir = if ($BuildDir) {
   [System.IO.Path]::GetFullPath($BuildDir)
-} elseif ($env:NINJAMPLUGIN_BUILD_DIR) {
-  [System.IO.Path]::GetFullPath($env:NINJAMPLUGIN_BUILD_DIR)
+} elseif ($env:MRNINJAM_BUILD_DIR) {
+  [System.IO.Path]::GetFullPath($env:MRNINJAM_BUILD_DIR)
 } else {
   Join-Path $RootDir ("build/{0}" -f $BuildType)
 }
 $RequestedClapArtifact = if ($ClapArtifact) {
   $ClapArtifact
 } else {
-  $env:NINJAMPLUGIN_CLAP_ARTIFACT
+  $env:MRNINJAM_CLAP_ARTIFACT
 }
 $RequestedVst3Artifact = if ($Vst3Artifact) {
   $Vst3Artifact
 } else {
-  $env:NINJAMPLUGIN_VST3_ARTIFACT
+  $env:MRNINJAM_VST3_ARTIFACT
 }
 
 & (Join-Path $RootDir "scripts/check_submodule_clean.ps1")
@@ -33,8 +33,8 @@ if (-not $?) {
 
 Write-Host ("Configuring MrNinjam ({0})..." -f $BuildType)
 cmake -S $RootDir -B $BuildDir -DCMAKE_BUILD_TYPE=$BuildType `
-  -DNINJAMPLUGIN_BUILD_UI_HARNESS=ON `
-  -DNINJAMPLUGIN_ENABLE_VST3=ON
+  -DMRNINJAM_BUILD_UI_HARNESS=ON `
+  -DMRNINJAM_ENABLE_VST3=ON
 if ($LASTEXITCODE -ne 0) {
   throw "CMake configuration failed with exit code $LASTEXITCODE."
 }

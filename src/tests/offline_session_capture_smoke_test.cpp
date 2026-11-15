@@ -1,4 +1,4 @@
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 #include <chrono>
 #include <cmath>
@@ -39,7 +39,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  ninjamplugin::core::NinjamBridge bridge;
+  mrninjam::core::NinjamBridge bridge;
   if (!bridge.Initialize(48000.0) || !bridge.Activate(512U) ||
       !bridge.StartProcessing()) {
     std::cerr << "Could not start bridge for offline capture\n";
@@ -47,7 +47,7 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  ninjamplugin::core::ConnectionSettings settings;
+  mrninjam::core::ConnectionSettings settings;
   settings.host = "127.0.0.1:2049";
   settings.user = "offline-test";
   settings.recordings_path = test_directory.string();

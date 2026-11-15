@@ -1,10 +1,10 @@
-#include "ninjamplugin/ui/editor_shell.h"
+#include "mrninjam/ui/editor_shell.h"
 
-#include "ninjamplugin/core/debug_log.h"
-#include "ninjamplugin/format/clap/plugin_config.h"
-#include "ninjamplugin/ui/native_folder_picker.h"
+#include "mrninjam/core/debug_log.h"
+#include "mrninjam/format/clap/plugin_config.h"
+#include "mrninjam/ui/native_folder_picker.h"
 
-#include "ninjamplugin/ui/visage/mixer_editor.h"
+#include "mrninjam/ui/visage/mixer_editor.h"
 
 #include <clap/ext/gui.h>
 
@@ -14,7 +14,7 @@
 #include <memory>
 #include <utility>
 
-namespace ninjamplugin::ui {
+namespace mrninjam::ui {
 namespace {
 
 bool IsSupportedApi(const char* api) {
@@ -56,10 +56,10 @@ int ParseIntOr(const std::string& text, int fallback) {
   return end != text.c_str() ? static_cast<int>(value) : fallback;
 }
 
-ninjamplugin::ui::mixer::SessionUiState BuildSessionUiState(
+mrninjam::ui::mixer::SessionUiState BuildSessionUiState(
     const ConnectionEditorViewState& state) {
-  ninjamplugin::ui::mixer::SessionUiState session;
-  session.version_text = ninjamplugin::format::clap::kPluginVersion;
+  mrninjam::ui::mixer::SessionUiState session;
+  session.version_text = mrninjam::format::clap::kPluginVersion;
   session.uses_live_backend = true;
   session.connection_state_text = state.connection_state_text;
   session.session_identity_text = state.session_identity_text;
@@ -69,7 +69,7 @@ ninjamplugin::ui::mixer::SessionUiState BuildSessionUiState(
   session.notice_text = state.notice_text;
   session.server_license_agreement = state.server_license_agreement;
   session.failure_text = state.last_failure_text;
-  session.diagnostic_logging_enabled = ninjamplugin::core::IsDebugLogEnabled();
+  session.diagnostic_logging_enabled = mrninjam::core::IsDebugLogEnabled();
   session.actual_bpm_text = state.actual_session_bpm_text;
   session.actual_bpi_text = state.actual_session_bpi_text;
   session.recording_status_text = state.recording_status_text;
@@ -158,7 +158,7 @@ ninjamplugin::ui::mixer::SessionUiState BuildSessionUiState(
     const auto& pair = state.local_input_pairs[route_index];
     if (!pair.available)
       continue;
-    ninjamplugin::ui::mixer::LocalInputState local;
+    mrninjam::ui::mixer::LocalInputState local;
     local.source_pair = pair.label;
     local.custom_name = pair.custom_name;
     local.send_enabled = pair.enabled;
@@ -253,12 +253,12 @@ class VisageEditorShell final : public EditorShell {
 public:
   explicit VisageEditorShell(EditorShellConfig config)
       : config_(std::move(config)),
-        editor_(ninjamplugin::ui::mixer::MakeMixerScenario(
+        editor_(mrninjam::ui::mixer::MakeMixerScenario(
             "CLAP host embedding / live data", 0, 0, 0)) {
     editor_.onCloseRequested() += [] { return true; };
     editor_.setReaperKeyboardHint(config_.show_reaper_keyboard_hint);
     editor_.setUiCallbacks({
-        .on_connect_requested = [this](const ninjamplugin::ui::mixer::ConnectionUiDraft& draft) {
+        .on_connect_requested = [this](const mrninjam::ui::mixer::ConnectionUiDraft& draft) {
           if (delegate_ != nullptr)
             delegate_->ConnectRequested(SettingsFromDraft(draft));
         },
@@ -275,7 +275,7 @@ public:
         .on_server_license_dismissed = [this]() {
           if (delegate_ != nullptr) delegate_->ServerLicenseDismissed();
         },
-        .on_save_requested = [this](const ninjamplugin::ui::mixer::ConnectionUiDraft& draft) {
+        .on_save_requested = [this](const mrninjam::ui::mixer::ConnectionUiDraft& draft) {
           if (delegate_ != nullptr)
             delegate_->SaveRequested(SettingsFromDraft(draft));
         },
@@ -284,14 +284,14 @@ public:
             delegate_->ReloadRequested();
         },
         .on_diagnostic_logging_changed = [](bool enabled) {
-          ninjamplugin::core::SetDebugLogEnabled(enabled);
-          ninjamplugin::core::DebugLog(
+          mrninjam::core::SetDebugLogEnabled(enabled);
+          mrninjam::core::DebugLog(
               "diagnostics", enabled ? "Diagnostic logging enabled"
                                      : "Diagnostic logging disabled");
         },
         .on_open_diagnostic_logs_requested = []() {
-          if (ninjamplugin::core::EnsureDebugLogDirectoryExists())
-            RevealInFileBrowser(ninjamplugin::core::GetDebugLogDirectory());
+          if (mrninjam::core::EnsureDebugLogDirectoryExists())
+            RevealInFileBrowser(mrninjam::core::GetDebugLogDirectory());
         },
         .on_timing_vote_requested = [this](double bpm, int bpi) {
           return delegate_ != nullptr && delegate_->TimingVoteRequested(bpm, bpi);
@@ -512,10 +512,10 @@ public:
           return BrowseForFolder(current, "Choose a folder for exported WAV stems.", true);
         },
         .on_raw_export_requested = [this](
-                                       const ninjamplugin::ui::mixer::RawExportUiOptions& ui_options) {
+                                       const mrninjam::ui::mixer::RawExportUiOptions& ui_options) {
           if (delegate_ == nullptr)
             return;
-          ninjamplugin::core::RemixStemExportOptions options;
+          mrninjam::core::RemixStemExportOptions options;
           options.output_directory = ui_options.output_directory;
           options.include_local_tracks = ui_options.include_local_tracks;
           options.include_remote_tracks = ui_options.include_remote_tracks;
@@ -583,13 +583,13 @@ public:
 
   bool IsVisible() const override { return visible_; }
 
-  ninjamplugin::core::ConnectionSettings CollectConnectionSettingsDraft() const override {
+  mrninjam::core::ConnectionSettings CollectConnectionSettingsDraft() const override {
     return SettingsFromDraft(editor_.connectionUiDraft());
   }
 
 private:
-  ninjamplugin::core::ConnectionSettings SettingsFromDraft(
-      const ninjamplugin::ui::mixer::ConnectionUiDraft& draft) const {
+  mrninjam::core::ConnectionSettings SettingsFromDraft(
+      const mrninjam::ui::mixer::ConnectionUiDraft& draft) const {
     auto settings = view_state_.settings;
     settings.host = draft.host;
     settings.user = draft.user;
@@ -608,7 +608,7 @@ private:
   }
 
   EditorShellConfig config_;
-  ninjamplugin::ui::mixer::MixerEditor editor_;
+  mrninjam::ui::mixer::MixerEditor editor_;
   ConnectionEditorDelegate* delegate_ = nullptr;
   ConnectionEditorViewState view_state_;
   void* parent_handle_ = nullptr;
@@ -639,4 +639,4 @@ std::unique_ptr<EditorShell> CreateEditorShell(const EditorShellConfig& config,
   return std::make_unique<VisageEditorShell>(config);
 }
 
-}  // namespace ninjamplugin::ui
+}  // namespace mrninjam::ui

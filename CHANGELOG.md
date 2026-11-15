@@ -6,6 +6,16 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.13 - DAW test build
+
+- Remove retired pre-publication settings, layout, saved-state, bundle, and
+  installer compatibility paths.
+- Rename project-owned namespaces, include paths, build targets, tests, and
+  private entry symbols to MrNinjam while preserving the permanent CLAP ID,
+  VST3 CID, and parameter IDs.
+- Keep settings, diagnostics, UI preferences, and development overrides on
+  the single MrNinjam path and `MRNINJAM_*` interface.
+
 ## 0.2.12 - DAW test build
 
 - Model a pending server-licence decision explicitly instead of converting it
@@ -100,31 +110,28 @@ independently of the package version.
   safeguards.
 - Add a privacy-safe REAPER and Bitwig smoke-test baseline for locally built
   development versions.
-- Preserve the permanent plug-in identifiers, parameter IDs, and V1--V21
-  saved-state decoding established through the current development line.
+- Preserve the permanent plug-in identifiers and parameter IDs established
+  through the current development line.
 
 ## 0.2.1 - Development baseline
 
 - Establish the permanent CLAP ID `io.github.mrosenki.mrninjam` and VST3
   CID `CF3108E94031432BAEC75E1A03E0978F` before public release.
-- Replace the development-only CLAP ID `io.github.mrosenki.ninjamplugin` in an
-  approved one-time pre-publication compatibility break.
-- Rename the visible product, bundles, and artifacts from the historical
-  `NinjamPlugin` name to `MrNinjam` before public release. The deliberate CLAP
-  ID replacement is recorded separately above; the VST3 CID remains unchanged.
+- Establish the visible `MrNinjam` product, bundle, and artifact names before
+  public release. The VST3 CID remains unchanged.
 - Make the Visage-backed editor the only production editor on macOS, Windows,
   and Linux; remove the deprecated Classic platform shells.
 - Move production UI sources out of the prototype tree while retaining an
   optional standalone UI test harness.
 - Collapse local and CI builds to one production configuration per platform.
-- Preserve parameter IDs and V1--V20 saved-state decoding. Projects saved with
+- Preserve parameter IDs. Projects saved with
   the temporary pre-`0.2.1` host identities may require manual replacement.
 
 ## 0.2.0 - Private development baseline
 
 - Begin active development in the independent repository.
 - Preserve the existing CLAP plug-in IDs, clap-wrapper VST3 class identifiers,
-  parameter identities, and V1--V20 saved-state decoding compatibility.
+  and parameter identities.
 - Align CMake, CLAP, VST3 wrapper, Visage display, and vcpkg metadata on
   version `0.2.0`.
 - Warn when a connected session stops receiving valid DAW audio-processing

@@ -32,19 +32,17 @@ Default per-user destinations are:
 | Windows | `%LOCALAPPDATA%\Programs\Common\CLAP` | `%LOCALAPPDATA%\Programs\Common\VST3` |
 | Linux | `~/.clap` | `~/.vst3` |
 
-For isolated installer tests, set `NINJAMPLUGIN_CLAP_INSTALL_DIR` and
-`NINJAMPLUGIN_VST3_INSTALL_DIR` to absolute temporary directories. The
+For isolated installer tests, set `MRNINJAM_CLAP_INSTALL_DIR` and
+`MRNINJAM_VST3_INSTALL_DIR` to absolute temporary directories. The
 installer rejects destinations inside the source checkout.
 
 Only `MrNinjam.clap` and `MrNinjam.vst3` are replaced. Both verified artifacts
 are prepared before either installed bundle is changed; a failure while
 committing either format restores the preceding CLAP and VST3 installations.
 Symbolic-link artifacts, install targets, and destinations that resolve through
-links or junctions are rejected. A detected
-`NinjamPlugin` development bundle produces a warning and is never removed
-automatically because projects using the retired CLAP identity may still need
-it. To roll back, check out and verify the required compatible revision and run
-the installer again. To remove the development version, close the DAWs and
+links or junctions are rejected. The installer neither searches for nor changes
+unrelated bundles. To roll back, check out and verify the required compatible
+revision and run the installer again. To remove the development version, close the DAWs and
 delete only the exact `MrNinjam.clap` and `MrNinjam.vst3` targets shown by the
 dry run.
 

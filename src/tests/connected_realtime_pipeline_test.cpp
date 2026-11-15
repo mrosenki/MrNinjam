@@ -16,11 +16,11 @@
 #include <malloc/malloc.h>
 #endif
 
-#include "ninjamplugin/core/connection_config.h"
-#include "ninjamplugin/core/debug_log.h"
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/connection_config.h"
+#include "mrninjam/core/debug_log.h"
+#include "mrninjam/core/ninjam_bridge.h"
 #if defined(_WIN32)
-#include "ninjamplugin/platform/windows_upstream_compat.h"
+#include "mrninjam/platform/windows_upstream_compat.h"
 #endif
 #include "jnetlib/jnetlib.h"
 #include "mpb.h"
@@ -435,8 +435,8 @@ void operator delete(void* memory, std::size_t) noexcept { std::free(memory); }
 void operator delete[](void* memory, std::size_t) noexcept { std::free(memory); }
 
 int main() {
-  using ninjamplugin::core::ConnectionSettings;
-  using ninjamplugin::core::NinjamBridge;
+  using mrninjam::core::ConnectionSettings;
+  using mrninjam::core::NinjamBridge;
   // This guard is constructed before, and therefore destroyed after, every
   // fixture server and bridge client that owns a JNetLib socket.
   SocketLibrary socket_library;
@@ -470,16 +470,16 @@ int main() {
   report_phase("fixtures-started");
 
   const auto recordings_root = std::filesystem::temp_directory_path() /
-      ("ninjamplugin-phase2-" + std::to_string(
+      ("mrninjam-phase2-" + std::to_string(
           std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(recordings_root);
 #if defined(_WIN32)
-  _putenv_s("NINJAMPLUGIN_DEBUG_LOG", "1");
-  _putenv_s("NINJAMPLUGIN_DEBUG_LOG_PATH",
+  _putenv_s("MRNINJAM_DEBUG_LOG", "1");
+  _putenv_s("MRNINJAM_DEBUG_LOG_PATH",
             (recordings_root / "diagnostics.log").string().c_str());
 #else
-  setenv("NINJAMPLUGIN_DEBUG_LOG", "1", 1);
-  setenv("NINJAMPLUGIN_DEBUG_LOG_PATH",
+  setenv("MRNINJAM_DEBUG_LOG", "1", 1);
+  setenv("MRNINJAM_DEBUG_LOG_PATH",
          (recordings_root / "diagnostics.log").string().c_str(), 1);
 #endif
   NinjamBridge bridge;
@@ -502,7 +502,7 @@ int main() {
   }
   report_phase("bridges-prepared");
   bridge.SetActiveDawInputChannelCount(6);
-  auto routes = std::array<ninjamplugin::core::LocalInputRouteConfig,
+  auto routes = std::array<mrninjam::core::LocalInputRouteConfig,
                            NinjamBridge::kMaxSupportedLocalInputPairs>{};
   for (int index = 0; index < 3; ++index) {
     auto& route = routes[static_cast<std::size_t>(index)];
@@ -518,7 +518,7 @@ int main() {
   }
   bridge.ReplaceLocalInputRoutes(routes);
   secondary_bridge.SetActiveDawInputChannelCount(2);
-  auto secondary_routes = std::array<ninjamplugin::core::LocalInputRouteConfig,
+  auto secondary_routes = std::array<mrninjam::core::LocalInputRouteConfig,
                                      NinjamBridge::kMaxSupportedLocalInputPairs>{};
   secondary_routes[0] = routes[0];
   secondary_bridge.ReplaceLocalInputRoutes(secondary_routes);
@@ -526,7 +526,7 @@ int main() {
   bridge.SetRecordingRequested(true);
   bridge.SetConnectRequested(true);
   secondary_bridge.SetConnectRequested(true);
-  ninjamplugin::core::ResetRealtimeDebugLogViolationCount();
+  mrninjam::core::ResetRealtimeDebugLogViolationCount();
 
   const bool initially_connected = WaitFor(std::chrono::seconds(5), [&] {
     return bridge.IsConnected() && secondary_bridge.IsConnected();
@@ -862,11 +862,11 @@ int main() {
   report_phase("fixtures-stopped");
   std::error_code cleanup_error;
 #if defined(_WIN32)
-  _putenv_s("NINJAMPLUGIN_DEBUG_LOG", "0");
+  _putenv_s("MRNINJAM_DEBUG_LOG", "0");
 #else
-  setenv("NINJAMPLUGIN_DEBUG_LOG", "0", 1);
+  setenv("MRNINJAM_DEBUG_LOG", "0", 1);
 #endif
-  if (std::getenv("NINJAMPLUGIN_KEEP_CONNECTED_FIXTURE") == nullptr)
+  if (std::getenv("MRNINJAM_KEEP_CONNECTED_FIXTURE") == nullptr)
     std::filesystem::remove_all(recordings_root, cleanup_error);
   else
     std::cout << "fixture_recordings=" << recordings_root.string() << '\n';
@@ -875,9 +875,9 @@ int main() {
     std::cerr << "connected callback allocations=" << audio_allocations << '\n';
     return 5;
   }
-  if (ninjamplugin::core::GetRealtimeDebugLogViolationCount() != 0U) {
+  if (mrninjam::core::GetRealtimeDebugLogViolationCount() != 0U) {
     std::cerr << "connected callback diagnostic violations="
-              << ninjamplugin::core::GetRealtimeDebugLogViolationCount() << '\n';
+              << mrninjam::core::GetRealtimeDebugLogViolationCount() << '\n';
     return 5;
   }
 #if defined(__APPLE__)

@@ -17,13 +17,13 @@ if (-not $env:LOCALAPPDATA) {
 
 $DefaultClapInstallDir = Join-Path $env:LOCALAPPDATA "Programs/Common/CLAP"
 $DefaultVst3InstallDir = Join-Path $env:LOCALAPPDATA "Programs/Common/VST3"
-$ClapInstallDir = if ($env:NINJAMPLUGIN_CLAP_INSTALL_DIR) {
-  $env:NINJAMPLUGIN_CLAP_INSTALL_DIR
+$ClapInstallDir = if ($env:MRNINJAM_CLAP_INSTALL_DIR) {
+  $env:MRNINJAM_CLAP_INSTALL_DIR
 } else {
   $DefaultClapInstallDir
 }
-$Vst3InstallDir = if ($env:NINJAMPLUGIN_VST3_INSTALL_DIR) {
-  $env:NINJAMPLUGIN_VST3_INSTALL_DIR
+$Vst3InstallDir = if ($env:MRNINJAM_VST3_INSTALL_DIR) {
+  $env:MRNINJAM_VST3_INSTALL_DIR
 } else {
   $DefaultVst3InstallDir
 }
@@ -67,16 +67,16 @@ function Assert-SafeInstallDirectory {
 
 $ClapInstallDir = Assert-SafeInstallDirectory $ClapInstallDir
 $Vst3InstallDir = Assert-SafeInstallDirectory $Vst3InstallDir
-$BuildDir = if ($env:NINJAMPLUGIN_BUILD_DIR) {
-  [System.IO.Path]::GetFullPath($env:NINJAMPLUGIN_BUILD_DIR)
+$BuildDir = if ($env:MRNINJAM_BUILD_DIR) {
+  [System.IO.Path]::GetFullPath($env:MRNINJAM_BUILD_DIR)
 } else {
   Join-Path $RootDir ("build/{0}" -f $BuildType)
 }
 
 if (-not $SkipVerify) {
   & (Join-Path $RootDir "scripts/verify.ps1") -BuildType $BuildType `
-    -BuildDir $BuildDir -ClapArtifact $env:NINJAMPLUGIN_CLAP_ARTIFACT `
-    -Vst3Artifact $env:NINJAMPLUGIN_VST3_ARTIFACT
+    -BuildDir $BuildDir -ClapArtifact $env:MRNINJAM_CLAP_ARTIFACT `
+    -Vst3Artifact $env:MRNINJAM_VST3_ARTIFACT
   if (-not $?) {
     throw "Development build verification failed; installed plug-ins were not changed."
   }
@@ -84,10 +84,10 @@ if (-not $SkipVerify) {
 
 $ClapArtifact = Resolve-DevelopmentArtifactPath -Format "CLAP" `
   -BuildDir $BuildDir -BuildType $BuildType `
-  -ExplicitPath $env:NINJAMPLUGIN_CLAP_ARTIFACT
+  -ExplicitPath $env:MRNINJAM_CLAP_ARTIFACT
 $Vst3Artifact = Resolve-DevelopmentArtifactPath -Format "VST3" `
   -BuildDir $BuildDir -BuildType $BuildType `
-  -ExplicitPath $env:NINJAMPLUGIN_VST3_ARTIFACT
+  -ExplicitPath $env:MRNINJAM_VST3_ARTIFACT
 
 foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
   $ArtifactEntries = @(
@@ -107,18 +107,6 @@ foreach ($ArtifactPath in @($ClapArtifact, $Vst3Artifact)) {
     }
   }
 }
-
-function Write-LegacyWarning {
-  param([string]$Path)
-
-  if (Test-Path -LiteralPath $Path) {
-    Write-Warning "Legacy development bundle retained at $Path"
-    Write-Warning "Remove it manually only after confirming old projects no longer need it."
-  }
-}
-
-Write-LegacyWarning (Join-Path $ClapInstallDir "NinjamPlugin.clap")
-Write-LegacyWarning (Join-Path $Vst3InstallDir "NinjamPlugin.vst3")
 
 if ($DryRun) {
   Write-Host ("Would install: {0} -> {1}" -f $ClapArtifact,

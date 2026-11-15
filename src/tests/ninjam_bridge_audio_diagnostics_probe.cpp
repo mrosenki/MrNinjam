@@ -4,14 +4,14 @@
 #include <thread>
 #include <vector>
 
-#include "ninjamplugin/core/connection_config.h"
-#include "ninjamplugin/core/debug_log.h"
-#include "ninjamplugin/core/ninjam_bridge.h"
+#include "mrninjam/core/connection_config.h"
+#include "mrninjam/core/debug_log.h"
+#include "mrninjam/core/ninjam_bridge.h"
 
 namespace {
 
 const char* StateName(const int state) {
-  using ninjamplugin::core::NinjamBridge;
+  using mrninjam::core::NinjamBridge;
   switch (state) {
     case NinjamBridge::kConnectionStateUnavailable:
       return "Unavailable";
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  ninjamplugin::core::NinjamBridge bridge;
+  mrninjam::core::NinjamBridge bridge;
   if (!bridge.Initialize(48000.0) || !bridge.Activate(4096U) ||
       !bridge.StartProcessing()) {
     std::cerr << "Failed to initialize processing bridge runtime.\n";
@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
   }
   if (!bridge.IsRuntimeConnectionAvailable()) {
     std::cerr << "Missing connection configuration. Expected env vars or config file at: "
-              << ninjamplugin::core::GetConnectionConfigPath() << '\n';
+              << mrninjam::core::GetConnectionConfigPath() << '\n';
     return 10;
   }
 
@@ -57,11 +57,11 @@ int main(int argc, char** argv) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds);
   while (std::chrono::steady_clock::now() < deadline) {
     bridge.MainThreadTick();
-    if (bridge.GetConnectionState() == ninjamplugin::core::NinjamBridge::kConnectionStateConnected) {
+    if (bridge.GetConnectionState() == mrninjam::core::NinjamBridge::kConnectionStateConnected) {
       break;
     }
-    if (bridge.GetConnectionState() == ninjamplugin::core::NinjamBridge::kConnectionStateInvalidAuth ||
-        bridge.GetConnectionState() == ninjamplugin::core::NinjamBridge::kConnectionStateCantConnect) {
+    if (bridge.GetConnectionState() == mrninjam::core::NinjamBridge::kConnectionStateInvalidAuth ||
+        bridge.GetConnectionState() == mrninjam::core::NinjamBridge::kConnectionStateCantConnect) {
       std::cerr << "Connect failed with state " << StateName(bridge.GetConnectionState()) << '\n';
       bridge.SetConnectRequested(false);
       bridge.StopProcessing();
@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
 
-  if (bridge.GetConnectionState() != ninjamplugin::core::NinjamBridge::kConnectionStateConnected) {
+  if (bridge.GetConnectionState() != mrninjam::core::NinjamBridge::kConnectionStateConnected) {
     std::cerr << "Timed out waiting for Connected.\n";
     bridge.SetConnectRequested(false);
     bridge.StopProcessing();
@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
 
-  std::cout << "LogPath: " << ninjamplugin::core::GetDebugLogPath() << '\n';
+  std::cout << "LogPath: " << mrninjam::core::GetDebugLogPath() << '\n';
   std::cout << "Result: DiagnosticsRan\n";
   bridge.SetConnectRequested(false);
   bridge.StopProcessing();

@@ -1,4 +1,4 @@
-#include "ninjamplugin/ui/visage/layout_preferences.h"
+#include "mrninjam/ui/visage/layout_preferences.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -28,10 +28,10 @@ void ClearEnvironment(const char* key) {
 
 int main() {
   namespace fs = std::filesystem;
-  using ninjamplugin::ui::mixer::DefaultLayoutPreferencesPath;
-  using ninjamplugin::ui::mixer::LayoutPreferences;
-  using ninjamplugin::ui::mixer::LoadLayoutPreferences;
-  using ninjamplugin::ui::mixer::SaveLayoutPreferences;
+  using mrninjam::ui::mixer::DefaultLayoutPreferencesPath;
+  using mrninjam::ui::mixer::LayoutPreferences;
+  using mrninjam::ui::mixer::LoadLayoutPreferences;
+  using mrninjam::ui::mixer::SaveLayoutPreferences;
 
   const fs::path root =
       fs::temp_directory_path() /
@@ -52,26 +52,23 @@ int main() {
 #else
   SetEnvironment("XDG_CONFIG_HOME", root.string());
 #endif
-  ClearEnvironment("NINJAMPLUGIN_VISAGE_LAYOUT_PREFERENCES");
+  ClearEnvironment("MRNINJAM_VISAGE_LAYOUT_PREFERENCES");
 
   const fs::path standard_path = DefaultLayoutPreferencesPath();
-  const fs::path former_path = standard_path.parent_path().parent_path() /
-                               "NinjamPlugin" / "visage-layout.conf";
-  const LayoutPreferences former_preferences{
+  const LayoutPreferences standard_preferences{
       .show_session_panel = false,
       .show_recording_panel = false,
       .chat_font_size = 2,
   };
-  if (!SaveLayoutPreferences(former_path, former_preferences) ||
-      fs::exists(standard_path) ||
-      LoadLayoutPreferences(standard_path) != former_preferences) {
-    std::cerr << "Standard MrNinjam path did not load former preferences\n";
+  if (!SaveLayoutPreferences(standard_path, standard_preferences) ||
+      LoadLayoutPreferences(standard_path) != standard_preferences) {
+    std::cerr << "Standard MrNinjam preferences did not round-trip\n";
     fs::remove_all(root, error);
     return 2;
   }
 
   const fs::path missing_override = root / "custom" / "missing-layout.conf";
-  SetEnvironment("NINJAMPLUGIN_VISAGE_LAYOUT_PREFERENCES",
+  SetEnvironment("MRNINJAM_VISAGE_LAYOUT_PREFERENCES",
                  missing_override.string());
   if (DefaultLayoutPreferencesPath() != missing_override) {
     std::cerr << "Layout preference override was not selected\n";

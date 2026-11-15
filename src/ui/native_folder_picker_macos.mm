@@ -1,8 +1,8 @@
-#include "ninjamplugin/ui/native_folder_picker.h"
+#include "mrninjam/ui/native_folder_picker.h"
 
 #import <AppKit/AppKit.h>
 
-namespace ninjamplugin::ui {
+namespace mrninjam::ui {
 
 std::string BrowseForRecordingFolder(const std::string& current_path) {
   return BrowseForFolder(
@@ -43,4 +43,4 @@ void RevealInFileBrowser(const std::string& path) {
   }
 }
 
-}  // namespace ninjamplugin::ui
+}  // namespace mrninjam::ui

@@ -10,7 +10,7 @@ BUILD_DIR="${ROOT_DIR}/build/${BUILD_TYPE}"
 printf "Configuring MrNinjam (%s)...\n" "$BUILD_TYPE"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-  -DNINJAMPLUGIN_ENABLE_VST3=ON
+  -DMRNINJAM_ENABLE_VST3=ON
 
 printf "Building MrNinjam targets...\n"
 cmake --build "$BUILD_DIR" -j 8

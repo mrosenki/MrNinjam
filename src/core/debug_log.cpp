@@ -1,4 +1,4 @@
-#include "ninjamplugin/core/debug_log.h"
+#include "mrninjam/core/debug_log.h"
 
 #include <algorithm>
 #include <atomic>
@@ -20,7 +20,7 @@
 #include <unistd.h>
 #endif
 
-namespace ninjamplugin::core {
+namespace mrninjam::core {
 namespace {
 
 static_assert(std::atomic<std::uint64_t>::is_always_lock_free);
@@ -111,24 +111,6 @@ std::filesystem::path PlatformConfigDirectory() {
   return std::filesystem::temp_directory_path(error) / "MrNinjam";
 }
 
-std::filesystem::path FormerPlatformConfigDirectory() {
-#if defined(_WIN32)
-  if (const char* root = ReadEnvNonEmpty("APPDATA"))
-    return std::filesystem::path(root) / "NinjamPlugin";
-#elif defined(__APPLE__)
-  if (const char* home = ReadEnvNonEmpty("HOME"))
-    return std::filesystem::path(home) / "Library" / "Application Support" /
-           "NinjamPlugin";
-#else
-  if (const char* root = ReadEnvNonEmpty("XDG_CONFIG_HOME"))
-    return std::filesystem::path(root) / "NinjamPlugin";
-  if (const char* home = ReadEnvNonEmpty("HOME"))
-    return std::filesystem::path(home) / ".config" / "NinjamPlugin";
-#endif
-  std::error_code error;
-  return std::filesystem::temp_directory_path(error) / "NinjamPlugin";
-}
-
 std::filesystem::path PlatformLogDirectory() {
 #if defined(_WIN32)
   if (const char* root = ReadEnvNonEmpty("LOCALAPPDATA"))
@@ -155,10 +137,6 @@ std::filesystem::path DiagnosticsPreferencesPath() {
 
 bool LoadPersistedEnabled() {
   std::ifstream input(DiagnosticsPreferencesPath());
-  if (!input.is_open()) {
-    input.clear();
-    input.open(FormerPlatformConfigDirectory() / "diagnostics.conf");
-  }
   std::string line;
   while (std::getline(input, line)) {
     if (line.rfind("enabled=", 0) == 0)
@@ -292,7 +270,7 @@ void RemoveOldLogs(const std::filesystem::path& directory,
     if (!it->is_regular_file(error))
       continue;
     const auto name = it->path().filename().string();
-    if ((name.rfind("mrninjam-", 0) == 0 || name.rfind("ninjamplugin-", 0) == 0) &&
+    if ((name.rfind("mrninjam-", 0) == 0 || name.rfind("mrninjam-", 0) == 0) &&
         it->path().extension() == ".log")
       logs.push_back(*it);
   }
@@ -317,7 +295,7 @@ void RemoveOldLogs(const std::filesystem::path& directory,
 void ConfigurePathLocked(const char* host_name, const char* host_version) {
   if (!DebugLogPathStorage().empty())
     return;
-  if (const char* override_path = ReadEnvNonEmpty("NINJAMPLUGIN_DEBUG_LOG_PATH")) {
+  if (const char* override_path = ReadEnvNonEmpty("MRNINJAM_DEBUG_LOG_PATH")) {
     DebugLogPathStorage() = override_path;
     DebugLogDirectoryStorage() = std::filesystem::path(override_path).parent_path().string();
     return;
@@ -377,7 +355,7 @@ void WriteLogLine(const char* context, const char* message) {
 bool IsDebugLogEnabled() {
   if (RejectRealtimeDiagnosticCall())
     return false;
-  if (const char* env = ReadEnvNonEmpty("NINJAMPLUGIN_DEBUG_LOG"))
+  if (const char* env = ReadEnvNonEmpty("MRNINJAM_DEBUG_LOG"))
     return ParseEnabled(env, false);
   return PersistedEnabled();
 }
@@ -404,7 +382,7 @@ const char* GetDebugLogDirectory() {
     return "";
   std::lock_guard<std::mutex> lock(LogMutex());
   if (DebugLogDirectoryStorage().empty()) {
-    if (const char* override_path = ReadEnvNonEmpty("NINJAMPLUGIN_DEBUG_LOG_PATH"))
+    if (const char* override_path = ReadEnvNonEmpty("MRNINJAM_DEBUG_LOG_PATH"))
       DebugLogDirectoryStorage() = std::filesystem::path(override_path).parent_path().string();
     else
       DebugLogDirectoryStorage() = PlatformLogDirectory().string();
@@ -478,4 +456,4 @@ void DebugLogf(const char* context, const char* format, ...) {
     WriteLogLine(context, buffer);
 }
 
-}  // namespace ninjamplugin::core
+}  // namespace mrninjam::core
