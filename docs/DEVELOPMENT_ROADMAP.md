@@ -23,7 +23,7 @@ official binary release.
 
 ## Current baseline
 
-Version `0.2.11` is the current DAW-test candidate, not a frozen or officially
+Version `0.2.12` is the current DAW-test candidate, not a frozen or officially
 distributed release. The accepted integration line is now the `main` baseline.
 The canonical public repository contains the reviewed source baseline and all
 subsequent product work.
@@ -62,10 +62,10 @@ Current repository gate:
 4. **Completed:** #6 is closed after documenting the host-independent CLAP
    timer lifecycle correction, focused sanitizer/regression coverage, and
    passing REAPER/Bitwig add-remove and shutdown checks.
-5. **In progress locally:** `0.2.11` replaces automatic server-licence
-   acceptance with bounded, instance-scoped explicit consent. Focused model,
-   bridge lifecycle, controller/editor, and CLAP GUI lifecycle tests pass;
-   controlled-server DAW validation remains required before closing #4.
+5. **Validated for integration:** `0.2.12` replaces automatic server-licence
+   acceptance with bounded, instance-scoped explicit consent. Automated tests
+   and controlled-server validation in REAPER and Bitwig pass, including
+   accept, decline, reconnect, wrapped long-form terms, and per-instance use.
 6. **Completed locally:** the canonical source tree built CLAP and VST3,
    passed all 30 tests, and passed repository and packaged-artifact privacy
    scans. Run the repository's first cross-platform CI after publication; this
@@ -117,9 +117,8 @@ and then broaden representative session validation.
 
 Work, in order:
 
-1. Complete controlled-server REAPER and Bitwig validation for
-   [#4](https://github.com/mrosenki/MrNinjam/issues/4). The bounded plain-text,
-   explicit accept/decline implementation is present in `0.2.11`.
+1. Integrate and close [#4](https://github.com/mrosenki/MrNinjam/issues/4)
+   after the validated `0.2.12` consent patch passes repository CI.
 2. Address [#8](https://github.com/mrosenki/MrNinjam/issues/8) in reviewable
    stages informed by [#7](https://github.com/mrosenki/MrNinjam/issues/7),
    preserving permanent plug-in IDs and supported state decoding.

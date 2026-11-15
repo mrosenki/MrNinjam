@@ -6,6 +6,18 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.12 - DAW test build
+
+- Model a pending server-licence decision explicitly instead of converting it
+  into an ordinary disconnect request.
+- Pause the underlying NINJAM connection once while a decision is pending and
+  suppress authentication retries until the user accepts or declines.
+- Allow a declined agreement to be presented again on a later connection and
+  verify that consent never crosses plug-in instances.
+- Queue each connection-settings snapshot and apply it on the plug-in main
+  thread before its matching Connect command, preventing intermittent attempts
+  with a previous credential draft in hosts with deferred callbacks.
+
 ## 0.2.11 - DAW test build
 
 - Replace silent server-licence acceptance with an explicit, blocking consent
@@ -15,6 +27,9 @@ independently of the package version.
   presets, defaults, or diagnostic logs.
 - Treat decline, dismissal, changed terms, and oversized terms as disconnected
   outcomes, with synthetic state-machine and lifecycle regression coverage.
+- Known DAW-test defect: the bridge repeatedly entered its deferred-disconnect
+  path while consent was pending, making reconnect behavior misleading.
+  Superseded by `0.2.12`.
 
 ## 0.2.10 - DAW test build
 

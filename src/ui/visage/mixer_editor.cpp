@@ -3481,6 +3481,9 @@ public:
     layout().setHeight(0_px);
     layout().setFlexGrow(0.0f);
     layout().setFlexShrink(0.0f);
+    agreement_text_render_.setFont(Font(11.0f));
+    agreement_text_render_.setJustification(visage::Font::kTopLeft);
+    agreement_text_render_.setMultiLine(true);
   }
 
   std::function<void()> onAccept;
@@ -3488,8 +3491,10 @@ public:
   std::function<void()> onDismiss;
 
   void setAgreement(const ninjamplugin::core::ServerLicenseAgreement& agreement) {
+    if (agreement_ == agreement) return;
     agreement_ = agreement;
     scroll_y_ = 0.0f;
+    agreement_text_render_.setText(agreement.text);
     setVisible(agreement.RequiresDecision());
     if (isVisible()) setOnTop(true);
     redraw();
@@ -3522,13 +3527,39 @@ public:
       canvas.setColor(kTrack);
       canvas.roundedRectangle(x + 24.0f, y + 88.0f, w - 48.0f,
                               std::max(40.0f, h - 164.0f), 8.0f);
+      const float text_x = x + 36.0f;
+      const float text_y = y + 100.0f;
+      const float text_width = std::max(24.0f, w - 84.0f);
+      const float viewport_height = std::max(24.0f, h - 188.0f);
+      const visage::String display_text(agreement_.text);
+      const auto display_font = Font(11.0f).withDpiScale(dpiScale());
+      const auto line_breaks = display_font.lineBreaks(
+          display_text.c_str(), static_cast<int>(display_text.length()), text_width);
+      content_height_ = std::max(
+          viewport_height,
+          (static_cast<float>(line_breaks.size()) + 1.0f) *
+                  display_font.lineHeight() +
+              8.0f);
+      scroll_y_ = std::clamp(scroll_y_, 0.0f, maxScroll(viewport_height));
       canvas.saveState();
       canvas.trimClampBounds(x + 32.0f, y + 96.0f, w - 64.0f,
-                             std::max(24.0f, h - 180.0f));
-      DrawText(canvas, agreement_.text, 11.0f, kText,
-               x + 36.0f, y + 100.0f - scroll_y_, w - 72.0f,
-               std::max(200.0f, static_cast<float>(agreement_.text.size()) * 0.45f));
+                             viewport_height + 8.0f);
+      canvas.setColor(kText);
+      canvas.text(&agreement_text_render_, text_x, text_y - scroll_y_,
+                  text_width, content_height_);
       canvas.restoreState();
+      if (content_height_ > viewport_height + 1.0f) {
+        const float track_x = x + w - 36.0f;
+        canvas.setColor(kBorder);
+        canvas.roundedRectangle(track_x, text_y, 5.0f, viewport_height, 2.5f);
+        const float thumb_height = std::max(
+            28.0f, viewport_height * viewport_height / content_height_);
+        const float thumb_y = text_y +
+            (viewport_height - thumb_height) *
+                (scroll_y_ / maxScroll(viewport_height));
+        canvas.setColor(kTextMuted);
+        canvas.roundedRectangle(track_x, thumb_y, 5.0f, thumb_height, 2.5f);
+      }
     }
     const float button_y = y + h - 52.0f;
     DrawButton(canvas, "DECLINE", x + 24.0f, button_y, 96.0f, 32.0f,
@@ -3543,7 +3574,16 @@ public:
     const float y = std::max(14.0f, height() * 0.08f);
     const float w = width() - 2.0f * x;
     const float h = height() - 2.0f * y;
-    if (event.position.x >= x + w - 92.0f && event.position.y <= y + 56.0f) {
+    const float text_y = y + 100.0f;
+    const float viewport_height = std::max(24.0f, h - 188.0f);
+    if (event.position.x >= x + w - 44.0f &&
+        event.position.x <= x + w - 24.0f &&
+        event.position.y >= text_y &&
+        event.position.y <= text_y + viewport_height &&
+        content_height_ > viewport_height + 1.0f) {
+      dragging_scrollbar_ = true;
+      setScrollFromScrollbar(event.position.y, text_y, viewport_height);
+    } else if (event.position.x >= x + w - 92.0f && event.position.y <= y + 56.0f) {
       setVisible(false);
       if (onDismiss) onDismiss();
     } else if (event.position.y >= y + h - 62.0f) {
@@ -3562,14 +3602,54 @@ public:
     const float delta = event.precise_wheel_delta_y != 0.0f
                             ? event.precise_wheel_delta_y
                             : event.wheel_delta_y;
-    scroll_y_ = std::max(0.0f, scroll_y_ - delta * 80.0f);
+    const float x = std::max(14.0f, width() * 0.10f);
+    const float y = std::max(14.0f, height() * 0.08f);
+    const float w = width() - 2.0f * x;
+    const float h = height() - 2.0f * y;
+    (void)w;
+    const float viewport_height = std::max(24.0f, h - 188.0f);
+    scroll_y_ = std::clamp(scroll_y_ - delta * 80.0f,
+                           0.0f, maxScroll(viewport_height));
     redraw();
     return true;
   }
 
+  void mouseDrag(const visage::MouseEvent& event) override {
+    if (!dragging_scrollbar_) return;
+    const float y = std::max(14.0f, height() * 0.08f);
+    const float h = height() - 2.0f * y;
+    const float text_y = y + 100.0f;
+    const float viewport_height = std::max(24.0f, h - 188.0f);
+    setScrollFromScrollbar(event.position.y, text_y, viewport_height);
+  }
+
+  void mouseUp(const visage::MouseEvent& /*event*/) override {
+    dragging_scrollbar_ = false;
+  }
+
 private:
+  float maxScroll(const float viewport_height) const {
+    return std::max(0.0f, content_height_ - viewport_height);
+  }
+
+  void setScrollFromScrollbar(const float pointer_y, const float text_y,
+                              const float viewport_height) {
+    const float maximum = maxScroll(viewport_height);
+    if (maximum <= 0.0f) return;
+    const float thumb_height = std::max(
+        28.0f, viewport_height * viewport_height / content_height_);
+    const float travel = std::max(1.0f, viewport_height - thumb_height);
+    const float thumb_top = std::clamp(
+        pointer_y - text_y - thumb_height * 0.5f, 0.0f, travel);
+    scroll_y_ = maximum * thumb_top / travel;
+    redraw();
+  }
+
   ninjamplugin::core::ServerLicenseAgreement agreement_;
+  visage::Text agreement_text_render_;
   float scroll_y_ = 0.0f;
+  float content_height_ = 0.0f;
+  bool dragging_scrollbar_ = false;
 };
 
 class RecoveryExportOverlay : public visage::Frame {
@@ -4641,6 +4721,11 @@ public:
     notes_panel_.setState(state);
     recovery_export_overlay_.setState(state);
     server_license_overlay_.setAgreement(state.server_license_agreement);
+    if (server_license_overlay_.isVisible()) {
+      server_license_overlay_.setOnTop(true);
+      server_license_overlay_.setBounds(
+          0.0f, 0.0f, workspace_.width(), workspace_.height());
+    }
     chat_panel_.setState(state);
     remote_panel_.setMasterReturn(state.remote_return_level, state.remote_return_activity);
     input_panel_.setInputMaster(state.local_monitor_master,

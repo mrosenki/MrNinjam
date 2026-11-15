@@ -39,6 +39,25 @@ int main() {
     std::cerr << "Decline did not clear the pending decision\n";
     return 1;
   }
+  if (consent.Observe("server.test:2049", "Synthetic terms v2")) {
+    std::cerr << "Declined agreement was accepted on a later connection\n";
+    return 1;
+  }
+  pending = consent.GetPendingAgreement();
+  if (!pending.RequiresDecision() || pending.text != "Synthetic terms v2") {
+    std::cerr << "A later connection did not present declined terms again\n";
+    return 1;
+  }
+  consent.DismissPendingAgreement();
+
+  ServerLicenseConsent other_instance;
+  if (other_instance.Observe("server.test:2049", "Synthetic terms v1") ||
+      !other_instance.GetPendingAgreement().RequiresDecision()) {
+    std::cerr << "Consent leaked between plug-in instances\n";
+    return 1;
+  }
+  other_instance.DismissPendingAgreement();
+
   if (consent.Observe("other.test:2049", "Synthetic terms v1")) {
     std::cerr << "Consent leaked to a different server\n";
     return 1;
