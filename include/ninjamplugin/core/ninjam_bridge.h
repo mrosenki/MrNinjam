@@ -12,6 +12,7 @@
 
 #include "ninjamplugin/core/connection_config.h"
 #include "ninjamplugin/core/remix_stem_exporter.h"
+#include "ninjamplugin/core/server_license_consent.h"
 #include "ninjamplugin/core/session_capture_recorder.h"
 
 class NJClient;
@@ -213,6 +214,10 @@ class NinjamBridge {
   bool SendChatMessage(const std::string& text);
   ConnectionSettings GetConnectionSettings() const;
   void ApplyConnectionSettings(const ConnectionSettings& settings);
+  ServerLicenseAgreement GetPendingServerLicenseAgreement() const;
+  bool AcceptPendingServerLicenseAgreement();
+  void DeclinePendingServerLicenseAgreement();
+  void DismissPendingServerLicenseAgreement();
 
   void SetSessionBpm(double value);
   void SubmitTimingVote(double bpm, int bpi);
@@ -432,6 +437,9 @@ class NinjamBridge {
                                   const char** parms,
                                   int nparms);
   void HandleChatMessage(const char** parms, int nparms);
+  static int ServerLicenseAgreementCallback(void* user_data,
+                                            const char* agreement_text);
+  int HandleServerLicenseAgreement(const char* agreement_text);
   void AppendSessionFeedLine(const std::string& line);
   void ClearSessionFeedState();
   void ServiceRealtimeLifecycleRequests();
@@ -479,6 +487,7 @@ class NinjamBridge {
   std::string connection_user_;
   std::string connection_pass_;
   std::string session_capture_directory_;
+  ServerLicenseConsent server_license_consent_;
   NinjamPluginNJClient* client_ = nullptr;
   int last_nj_status_ = 9999;
   bool connect_attempt_started_ = false;

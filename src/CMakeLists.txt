@@ -122,6 +122,7 @@ add_library(ninjamplugin_ninjam_bridge STATIC
   core/connection_config.cpp
   core/ninjam_bridge.cpp
   core/remix_stem_exporter.cpp
+  core/server_license_consent.cpp
   core/session_capture_recorder.cpp
 )
 set_target_properties(ninjamplugin_ninjam_bridge PROPERTIES
@@ -245,6 +246,18 @@ target_link_libraries(ninjamplugin_ui_shell
 )
 
 if(NINJAMPLUGIN_ENABLE_TESTS)
+  add_executable(ninjamplugin_server_license_consent_test
+    tests/server_license_consent_test.cpp
+  )
+  target_link_libraries(ninjamplugin_server_license_consent_test PRIVATE
+    ninjamplugin_ninjam_bridge
+  )
+  target_compile_features(ninjamplugin_server_license_consent_test PRIVATE cxx_std_20)
+  ninjamplugin_apply_warnings(ninjamplugin_server_license_consent_test)
+  add_test(NAME ninjamplugin_server_license_consent_test
+    COMMAND ninjamplugin_server_license_consent_test
+  )
+
   add_executable(ninjamplugin_ninjam_protocol_smoke_test
     tests/ninjam_protocol_smoke_test.cpp
   )

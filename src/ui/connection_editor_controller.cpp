@@ -434,6 +434,7 @@ ConnectionEditorViewState ConnectionEditorController::BuildViewState(
   state.transmit_bitrate_text = snapshot.transmit_bitrate_text;
   state.recording_status_text = snapshot.recording_status_text;
   state.multitrack_status_text = snapshot.multitrack_status_text;
+  state.server_license_agreement = snapshot.server_license_agreement;
   state.audio_processing_paused = snapshot.audio_processing_paused;
   state.target_session_bpm_value = snapshot.target_session_bpm_value;
   state.target_session_bpi_value = snapshot.target_session_bpi_value;
@@ -735,6 +736,31 @@ void ConnectionEditorController::DisconnectRequested() {
   notice_text_ = "Disconnect requested.";
   host_->RequestHostEditorControlSync();
   host_->RequestViewRefresh(true);
+}
+
+void ConnectionEditorController::ServerLicenseAccepted() {
+  if (host_ == nullptr) return;
+  if (host_->AcceptPendingServerLicenseAgreement()) {
+    notice_text_ = "Server licence accepted. Reconnecting.";
+    host_->RequestHostEditorControlSync();
+  }
+  host_->RequestViewRefresh(false);
+}
+
+void ConnectionEditorController::ServerLicenseDeclined() {
+  if (host_ == nullptr) return;
+  host_->DeclinePendingServerLicenseAgreement();
+  notice_text_ = "Server licence declined. Disconnected.";
+  host_->RequestHostEditorControlSync();
+  host_->RequestViewRefresh(false);
+}
+
+void ConnectionEditorController::ServerLicenseDismissed() {
+  if (host_ == nullptr) return;
+  host_->DismissPendingServerLicenseAgreement();
+  notice_text_ = "Server licence dismissed. Disconnected.";
+  host_->RequestHostEditorControlSync();
+  host_->RequestViewRefresh(false);
 }
 
 bool ConnectionEditorController::TimingVoteRequested(const double bpm, const int bpi) {

@@ -67,6 +67,7 @@ ninjamplugin::ui::mixer::SessionUiState BuildSessionUiState(
   session.user = state.settings.user;
   session.password = state.settings.pass;
   session.notice_text = state.notice_text;
+  session.server_license_agreement = state.server_license_agreement;
   session.failure_text = state.last_failure_text;
   session.diagnostic_logging_enabled = ninjamplugin::core::IsDebugLogEnabled();
   session.actual_bpm_text = state.actual_session_bpm_text;
@@ -264,6 +265,15 @@ public:
         .on_disconnect_requested = [this]() {
           if (delegate_ != nullptr)
             delegate_->DisconnectRequested();
+        },
+        .on_server_license_accepted = [this]() {
+          if (delegate_ != nullptr) delegate_->ServerLicenseAccepted();
+        },
+        .on_server_license_declined = [this]() {
+          if (delegate_ != nullptr) delegate_->ServerLicenseDeclined();
+        },
+        .on_server_license_dismissed = [this]() {
+          if (delegate_ != nullptr) delegate_->ServerLicenseDismissed();
         },
         .on_save_requested = [this](const ninjamplugin::ui::mixer::ConnectionUiDraft& draft) {
           if (delegate_ != nullptr)

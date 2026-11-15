@@ -3472,6 +3472,106 @@ private:
   visage::TextEditor path_editor_{"recordings-path"};
 };
 
+class ServerLicenseOverlay : public visage::Frame {
+public:
+  ServerLicenseOverlay() : Frame("server-license-overlay") {
+    setVisible(false);
+    setOnTop(true);
+    layout().setWidth(0_px);
+    layout().setHeight(0_px);
+    layout().setFlexGrow(0.0f);
+    layout().setFlexShrink(0.0f);
+  }
+
+  std::function<void()> onAccept;
+  std::function<void()> onDecline;
+  std::function<void()> onDismiss;
+
+  void setAgreement(const ninjamplugin::core::ServerLicenseAgreement& agreement) {
+    agreement_ = agreement;
+    scroll_y_ = 0.0f;
+    setVisible(agreement.RequiresDecision());
+    if (isVisible()) setOnTop(true);
+    redraw();
+  }
+
+  void draw(visage::Canvas& canvas) override {
+    canvas.setColor(kOverlay);
+    canvas.fill(0.0f, 0.0f, width(), height());
+    const float x = std::max(14.0f, width() * 0.10f);
+    const float y = std::max(14.0f, height() * 0.08f);
+    const float w = width() - 2.0f * x;
+    const float h = height() - 2.0f * y;
+    canvas.setColor(kPanel);
+    canvas.roundedRectangle(x, y, w, h, 18.0f);
+    canvas.setColor(kCyan);
+    canvas.roundedRectangleBorder(x + 0.5f, y + 0.5f, w - 1.0f, h - 1.0f,
+                                  18.0f, 1.5f);
+    DrawText(canvas, "SERVER LICENCE AGREEMENT", 17.0f, kText,
+             x + 24.0f, y + 20.0f, w - 110.0f, 26.0f);
+    DrawButton(canvas, "CLOSE", x + w - 82.0f, y + 16.0f, 62.0f, 30.0f);
+    DrawText(canvas, "Server: " + agreement_.server, 11.0f, kTextMuted,
+             x + 24.0f, y + 56.0f, w - 48.0f, 22.0f);
+    if (agreement_.state ==
+        ninjamplugin::core::ServerLicenseAgreement::State::kOversized) {
+      DrawText(canvas,
+               "The server supplied an agreement larger than MrNinjam can safely display. "
+               "The connection has been refused.",
+               12.0f, kRed, x + 24.0f, y + 100.0f, w - 48.0f, 70.0f);
+    } else {
+      canvas.setColor(kTrack);
+      canvas.roundedRectangle(x + 24.0f, y + 88.0f, w - 48.0f,
+                              std::max(40.0f, h - 164.0f), 8.0f);
+      canvas.saveState();
+      canvas.trimClampBounds(x + 32.0f, y + 96.0f, w - 64.0f,
+                             std::max(24.0f, h - 180.0f));
+      DrawText(canvas, agreement_.text, 11.0f, kText,
+               x + 36.0f, y + 100.0f - scroll_y_, w - 72.0f,
+               std::max(200.0f, static_cast<float>(agreement_.text.size()) * 0.45f));
+      canvas.restoreState();
+    }
+    const float button_y = y + h - 52.0f;
+    DrawButton(canvas, "DECLINE", x + 24.0f, button_y, 96.0f, 32.0f,
+               true, kRed);
+    DrawButton(canvas, "ACCEPT", x + w - 120.0f, button_y, 96.0f, 32.0f,
+               agreement_.CanAccept(), kGreen);
+  }
+
+  void mouseDown(const visage::MouseEvent& event) override {
+    if (!event.isLeftButton()) return;
+    const float x = std::max(14.0f, width() * 0.10f);
+    const float y = std::max(14.0f, height() * 0.08f);
+    const float w = width() - 2.0f * x;
+    const float h = height() - 2.0f * y;
+    if (event.position.x >= x + w - 92.0f && event.position.y <= y + 56.0f) {
+      setVisible(false);
+      if (onDismiss) onDismiss();
+    } else if (event.position.y >= y + h - 62.0f) {
+      if (event.position.x <= x + 132.0f) {
+        setVisible(false);
+        if (onDecline) onDecline();
+      } else if (event.position.x >= x + w - 132.0f && agreement_.CanAccept()) {
+        setVisible(false);
+        if (onAccept) onAccept();
+      }
+    }
+  }
+
+  bool mouseWheel(const visage::MouseEvent& event) override {
+    if (!agreement_.CanAccept()) return false;
+    const float delta = event.precise_wheel_delta_y != 0.0f
+                            ? event.precise_wheel_delta_y
+                            : event.wheel_delta_y;
+    scroll_y_ = std::max(0.0f, scroll_y_ - delta * 80.0f);
+    redraw();
+    return true;
+  }
+
+private:
+  ninjamplugin::core::ServerLicenseAgreement agreement_;
+  float scroll_y_ = 0.0f;
+};
+
 class RecoveryExportOverlay : public visage::Frame {
 public:
   enum class Mode { Recovery, RawImport };
@@ -4365,6 +4465,7 @@ public:
     workspace_.addChild(right_column_);
     workspace_.addChild(recording_column_);
     workspace_.addChild(recovery_export_overlay_);
+    workspace_.addChild(server_license_overlay_);
     addChild(session_tab_);
     addChild(recording_tab_);
     session_tab_.onPressed = [this]() { toggleSessionPanel(); };
@@ -4392,6 +4493,18 @@ public:
     recovery_export_overlay_.onExportRaw = [this](const RawExportUiOptions& options) {
       if (ui_callbacks_.on_raw_export_requested)
         ui_callbacks_.on_raw_export_requested(options);
+    };
+    server_license_overlay_.onAccept = [this]() {
+      if (ui_callbacks_.on_server_license_accepted)
+        ui_callbacks_.on_server_license_accepted();
+    };
+    server_license_overlay_.onDecline = [this]() {
+      if (ui_callbacks_.on_server_license_declined)
+        ui_callbacks_.on_server_license_declined();
+    };
+    server_license_overlay_.onDismiss = [this]() {
+      if (ui_callbacks_.on_server_license_dismissed)
+        ui_callbacks_.on_server_license_dismissed();
     };
     remote_panel_.onMasterReturnChanged = [this](double value) {
       if (ui_callbacks_.on_remote_return_changed)
@@ -4527,6 +4640,7 @@ public:
     session_panel_.setState(state);
     notes_panel_.setState(state);
     recovery_export_overlay_.setState(state);
+    server_license_overlay_.setAgreement(state.server_license_agreement);
     chat_panel_.setState(state);
     remote_panel_.setMasterReturn(state.remote_return_level, state.remote_return_activity);
     input_panel_.setInputMaster(state.local_monitor_master,
@@ -4978,6 +5092,11 @@ public:
       recovery_export_overlay_.setBounds(
           0.0f, 0.0f, workspace_.width(), workspace_.height());
     }
+    if (server_license_overlay_.isVisible()) {
+      server_license_overlay_.setOnTop(true);
+      server_license_overlay_.setBounds(
+          0.0f, 0.0f, workspace_.width(), workspace_.height());
+    }
     workspace_.redrawAll();
     redraw();
     if (save_preferences && persist_layout_preferences_)
@@ -5273,6 +5392,7 @@ private:
   SessionPanel session_panel_;
   NotesPanel notes_panel_;
   RecoveryExportOverlay recovery_export_overlay_;
+  ServerLicenseOverlay server_license_overlay_;
   InlineEditorCoordinator inline_editor_coordinator_;
   MixerPanel input_panel_;
   MixerPanel remote_panel_;

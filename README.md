@@ -6,7 +6,7 @@ VST3 through clap-wrapper.
 
 The canonical repository is <https://github.com/mrosenki/MrNinjam>.
 
-The current DAW test build is version `0.2.10`. It is a development-stage
+The current DAW test build is version `0.2.11`. It is a development-stage
 source-code preview, not a production-ready release. The GPL-licensed source is
 available for inspection, building, testing, and contribution, but the project
 does not provide official CLAP or VST3 binaries. Binary packaging,
@@ -21,7 +21,7 @@ distribution gates are maintained separately in the
 ## Implemented product
 
 - NINJAM connection, authentication, timing, reconnect, chat, and session
-  status.
+  status, with explicit consent for server-provided licence agreements.
 - Configurable DAW input routes with independent SEND and local MONITOR state.
 - Remote-participant RECORD and MONITOR paths with gain, pan, mute, solo,
   routing, metering, and clip indication.
