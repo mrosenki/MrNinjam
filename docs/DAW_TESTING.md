@@ -91,11 +91,11 @@ Run the non-network checks in all four host/format combinations:
 Use synthetic identities and a controlled server for initial connection tests.
 The current `0.2.10` DAW test build still auto-accepts a server-provided licence
 agreement; public or third-party server testing that supplies an agreement is
-deferred until [issue #23](https://github.com/mrosenki/MrNinjam/issues/23)
+deferred until [issue #4](https://github.com/mrosenki/MrNinjam/issues/4)
 implements explicit consent.
 
 Once that condition is met, follow
-[issue #24](https://github.com/mrosenki/MrNinjam/issues/24) for connection,
+[issue #5](https://github.com/mrosenki/MrNinjam/issues/5) for connection,
 reconnect, participant reuse, routing, timing, chat, interoperability and later
 recording-session evidence. File focused issues for reproducible defects rather
 than placing private diagnostic material in the repository.

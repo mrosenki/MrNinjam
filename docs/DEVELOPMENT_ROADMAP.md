@@ -52,12 +52,12 @@ Immediate integration gate:
    first-connection REAPER VST3 test. Server proposal initialization plus
    BPM-only, BPI-only, and combined voting passed; #9 is closed.
 2. **Completed:** #27 is closed after reconciling its focused defect evidence;
-   broader cross-host/format interoperability remains tracked by #24.
+   broader cross-host/format interoperability remains tracked by #5.
 3. **Reviewed locally:** the consolidated diff preserves permanent identities,
    parameter/state compatibility, and host-independent lifecycle behavior. The
    review removed a public endpoint literal, added a repository privacy scan,
    corrected V21 documentation, and recorded non-blocking decomposition work
-   under #31.
+   under #7.
 4. Retarget the consolidated integration PR to `main`, run its final
    cross-platform CI, and merge only after explicit approval. Then close the
    superseded stacked PRs with links to the merge.
@@ -65,15 +65,15 @@ Immediate integration gate:
 
 Still requiring product work or broader hands-on evidence:
 
-- explicit server-licence consent (#23);
-- removal of the retired `NinjamPlugin` compatibility and naming surface (#40);
-- the substantive architecture and code-quality audit (#31);
-- representative CLAP/VST3 session and legacy-client interoperability (#24);
+- explicit server-licence consent (#4);
+- removal of the retired `NinjamPlugin` compatibility and naming surface (#8);
+- the substantive architecture and code-quality audit (#7);
+- representative CLAP/VST3 session and legacy-client interoperability (#5);
 - recording eligibility, failure reporting, finalisation, recovery, and
-  exported-content validation (#8);
-- compact mixer usability with realistic participant and channel counts (#10);
+  exported-content validation (#1);
+- compact mixer usability with realistic participant and channel counts (#2);
   and
-- reproducible Ogg/Vorbis dependencies and macOS 11 compatibility (#11).
+- reproducible Ogg/Vorbis dependencies and macOS 11 compatibility (#3).
 
 ## Development sequence
 
@@ -81,23 +81,26 @@ Still requiring product work or broader hands-on evidence:
 
 Completed and recorded:
 
-- #7 real-time diagnostic safety, #21 worker-drain reliability, and #22 the
+- archived tracker issues `#7`, `#21`, and `#22` completed real-time diagnostic
+  safety, worker-drain reliability, and the
   development installer;
-- #33 truthful capability-driven actions, #34 disconnected metering/offline
-  WAV recording, #35 distinct build versions, #38 per-instance configuration,
-  and #39 host-independent meter ballistics; and
+- archived tracker issues `#33`, `#34`, `#35`, `#38`, and `#39` completed
+  capability-driven actions, disconnected metering/offline WAV recording,
+  distinct build versions, per-instance configuration, and host-independent
+  meter ballistics; and
 - repeated REAPER and Bitwig add/remove, project recall, multi-instance,
   recording, and shutdown checks without a reproduced crash.
 
 Open at this boundary:
 
-- #9 is complete and closed after the focused `0.2.10` first-connection test;
-  #27 remains open only for reconciliation of its broader host/format criteria;
-- #28 retains the unresolved distinction between a corrected plug-in lifecycle
+- archived tracker issue `#9` is complete after the focused `0.2.10`
+  first-connection test, and archived tracker issue `#27` is closed after
+  reconciliation of its broader host/format criteria;
+- #6 retains the unresolved distinction between a corrected plug-in lifecycle
   risk and a host-side stale timer, despite positive sanitizer, regression, and
   DAW evidence; close it only when its bounded investigation criteria are
   explicitly documented; and
-- #23, #40, #31, and #24 continue after the integration merge rather than
+- #4, #8, #7, and #5 continue after the integration merge rather than
   enlarging the current branch stack.
 
 ### Next `0.2.x` milestone — Consent, naming, and controlled sessions
@@ -108,13 +111,13 @@ and then broaden representative session validation.
 
 Work, in order:
 
-1. Implement [#23](https://github.com/mrosenki/MrNinjam/issues/23) with bounded
+1. Implement [#4](https://github.com/mrosenki/MrNinjam/issues/4) with bounded
    plain-text agreement handling and explicit accept/decline behavior.
-2. Address [#40](https://github.com/mrosenki/MrNinjam/issues/40) in reviewable
-   stages informed by [#31](https://github.com/mrosenki/MrNinjam/issues/31),
+2. Address [#8](https://github.com/mrosenki/MrNinjam/issues/8) in reviewable
+   stages informed by [#7](https://github.com/mrosenki/MrNinjam/issues/7),
    preserving permanent plug-in IDs and supported state decoding.
 3. Run the controlled matrix in
-   [#24](https://github.com/mrosenki/MrNinjam/issues/24) across both hosts and
+   [#5](https://github.com/mrosenki/MrNinjam/issues/5) across both hosts and
    formats, creating focused issues for reproducible findings.
 
 ### Recording and recovery reliability
@@ -122,7 +125,7 @@ Work, in order:
 Objective: make recording state and saved output accurately reflect what the
 plug-in can and did capture.
 
-Primary issue: [#8](https://github.com/mrosenki/MrNinjam/issues/8).
+Primary issue: [#1](https://github.com/mrosenki/MrNinjam/issues/1).
 
 Acceptance criteria:
 
@@ -132,7 +135,7 @@ Acceptance criteria:
   invalid-path, cancellation, and shutdown cases are covered;
 - output existence, duration, channels, content, metadata, and recovery are
   checked with synthetic material; and
-- hands-on REAPER and Bitwig recording results are added to #24 without
+- hands-on REAPER and Bitwig recording results are added to #5 without
   publishing recordings or private paths.
 
 ### `0.3.0` — Compact mixer usability
@@ -140,7 +143,7 @@ Acceptance criteria:
 Objective: fit materially more SEND and RECEIVE channels on screen without
 removing controls or changing routing semantics.
 
-Primary issue: [#10](https://github.com/mrosenki/MrNinjam/issues/10).
+Primary issue: [#2](https://github.com/mrosenki/MrNinjam/issues/2).
 
 Dependencies: approved reference screenshots and layout decisions, plus a
 stable DAW baseline from `0.2.2`.
@@ -157,7 +160,7 @@ Acceptance criteria:
 
 ### `0.4.x` onward — Session-driven reliability and interoperability
 
-Use [#24](https://github.com/mrosenki/MrNinjam/issues/24) to run representative
+Use [#5](https://github.com/mrosenki/MrNinjam/issues/5) to run representative
 sessions and create focused issues for reproducible defects. Prioritise
 connection recovery, participant slot reuse, bus layouts, routing, timing,
 capture, recovery, and legacy-client interoperability. Do not create speculative
@@ -174,7 +177,7 @@ decoding.
 Official binary release work does not block local development installs or DAW
 testing unless it exposes a direct safety or compatibility problem.
 
-- [#11](https://github.com/mrosenki/MrNinjam/issues/11) provides controlled
+- [#3](https://github.com/mrosenki/MrNinjam/issues/3) provides controlled
   Ogg/Vorbis sources and validates the macOS 11 deployment target.
 - Asset and shader-tool provenance, package notices, Corresponding Source,
   validator runs on final candidates, runtime dependency review, checksums,
@@ -187,7 +190,7 @@ testing unless it exposes a direct safety or compatibility problem.
 ## Issue hygiene and change safeguards
 
 - Keep one focused issue and PR per unrelated change.
-- Use [#31](https://github.com/mrosenki/MrNinjam/issues/31) as the continuing
+- Use [#7](https://github.com/mrosenki/MrNinjam/issues/7) as the continuing
   architecture and code-quality review track; observed symptoms still receive
   focused issues and regression tests rather than accumulating local patches.
 - Record whether evidence is automated, controlled-fixture, or hands-on DAW

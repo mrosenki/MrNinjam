@@ -173,7 +173,7 @@ generation is accepted.
 - The real-time diagnostic violation counter is regression instrumentation,
   not an event transport or a user-facing log. Expected audio conditions use
   the established per-instance pipeline and recorder counters instead.
-- Recording eligibility/export policy remains Issue #8; Phase 2 preserves the
+- Recording eligibility/export policy remains Issue #1; Phase 2 preserves the
   existing bounded recorder handoff and alignment.
 - Direct C allocation interposition is currently implemented only for the
   macOS connected regression. AppleClang ThreadSanitizer passes the final
