@@ -62,18 +62,17 @@ Current repository gate:
 4. **Completed:** #6 is closed after documenting the host-independent CLAP
    timer lifecycle correction, focused sanitizer/regression coverage, and
    passing REAPER/Bitwig add-remove and shutdown checks.
-5. **Validated for integration:** `0.2.12` replaces automatic server-licence
+5. **Completed:** #4 is closed after `0.2.12` replaced automatic server-licence
    acceptance with bounded, instance-scoped explicit consent. Automated tests
    and controlled-server validation in REAPER and Bitwig pass, including
    accept, decline, reconnect, wrapped long-form terms, and per-instance use.
-6. **Completed locally:** the canonical source tree built CLAP and VST3,
-   passed all 30 tests, and passed repository and packaged-artifact privacy
-   scans. Run the repository's first cross-platform CI after publication; this
-   remains automation evidence rather than DAW validation.
+6. **Completed:** the canonical source tree builds CLAP and VST3, passes all 31
+   tests plus repository and packaged-artifact privacy scans, and passes Linux,
+   Windows, and macOS CI. This remains automation evidence rather than DAW
+   validation.
 
 Still requiring product work or broader hands-on evidence:
 
-- controlled-server DAW validation of explicit server-licence consent (#4);
 - removal of the retired `NinjamPlugin` compatibility and naming surface (#8);
 - the substantive architecture and code-quality audit (#7);
 - representative CLAP/VST3 session and legacy-client interoperability (#5);
@@ -106,7 +105,7 @@ Open at this boundary:
   reconciliation of its broader host/format criteria;
 - #6 is closed with the corrected lifecycle risk and the unresolved status of
   the earlier allocator signature documented separately; and
-- #4 validation, #8, #7, and #5 continue after the integration merge rather than
+- #8, #7, and #5 continue after the integration merge rather than
   enlarging the current branch stack.
 
 ### Next `0.2.x` milestone — Consent, naming, and controlled sessions
@@ -117,12 +116,10 @@ and then broaden representative session validation.
 
 Work, in order:
 
-1. Integrate and close [#4](https://github.com/mrosenki/MrNinjam/issues/4)
-   after the validated `0.2.12` consent patch passes repository CI.
-2. Address [#8](https://github.com/mrosenki/MrNinjam/issues/8) in reviewable
+1. Address [#8](https://github.com/mrosenki/MrNinjam/issues/8) in reviewable
    stages informed by [#7](https://github.com/mrosenki/MrNinjam/issues/7),
    preserving permanent plug-in IDs and supported state decoding.
-3. Run the controlled matrix in
+2. Run the controlled matrix in
    [#5](https://github.com/mrosenki/MrNinjam/issues/5) across both hosts and
    formats, creating focused issues for reproducible findings.
 
