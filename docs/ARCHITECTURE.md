@@ -198,9 +198,9 @@ interval and participant data.
   default, never a repository checkout.
 
 New settings, UI preferences, diagnostics, logs, and fallback recording paths
-use `MrNinjam` in their platform-owned directory or filename. On first access,
-Until issue #8 removes the retired pre-release compatibility surface,
-connection settings are copied from the former
+use `MrNinjam` in their platform-owned directory or filename. Until issue #8
+removes the retired pre-release compatibility surface, connection settings are
+copied on first access from the former
 `NinjamPlugin/ninjamplugin_settings.cfg` path when the new settings file does
 not exist. Existing diagnostic and layout preferences are read from their
 former branded paths when no new file is present. The established

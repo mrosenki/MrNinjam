@@ -25,9 +25,9 @@ official binary release.
 ## Current baseline
 
 Version `0.2.10` is the current DAW-test candidate, not a frozen or officially
-distributed release. It is carried by the open integration stack ending at
-PR #45; `main` intentionally remains behind that stack until the focused
-timing-vote test and consolidated integration review are complete.
+distributed release. The accepted integration line is now the `main` baseline.
+The replacement public repository starts from a sanitized source snapshot with
+no ancestry relationship to the retired private development history.
 
 Implemented, automated, and already DAW validated in the integration line:
 
@@ -46,22 +46,24 @@ Implemented, automated, and already DAW validated in the integration line:
   race-free routing publication, guarded real-time diagnostics, and clean-clone
   Linux, Windows, and macOS builds and tests.
 
-Immediate integration gate:
+Current repository gate:
 
 1. **Completed:** `0.2.10` passed Linux, Windows, and macOS CI and the focused
    first-connection REAPER VST3 test. Server proposal initialization plus
-   BPM-only, BPI-only, and combined voting passed; #9 is closed.
-2. **Completed:** #27 is closed after reconciling its focused defect evidence;
+   BPM-only, BPI-only, and combined voting passed; archived tracker issue `#9`
+   is closed.
+2. **Completed:** archived tracker issue `#27` is closed after reconciling its
+   focused defect evidence;
    broader cross-host/format interoperability remains tracked by #5.
-3. **Reviewed locally:** the consolidated diff preserves permanent identities,
+3. **Completed:** the consolidated review preserves permanent identities,
    parameter/state compatibility, and host-independent lifecycle behavior. The
    review removed a public endpoint literal, added a repository privacy scan,
    corrected V21 documentation, and recorded non-blocking decomposition work
    under #7.
-4. Retarget the consolidated integration PR to `main`, run its final
-   cross-platform CI, and merge only after explicit approval. Then close the
-   superseded stacked PRs with links to the merge.
-   successful CI, then close superseded stacked PRs with links to the merge.
+4. **Completed locally:** the sanitized replacement tree built CLAP and VST3,
+   passed all 30 tests, and passed repository and packaged-artifact privacy
+   scans. Run the replacement repository's first cross-platform CI after it is
+   public; this remains automation evidence rather than DAW validation.
 
 Still requiring product work or broader hands-on evidence:
 
