@@ -641,6 +641,8 @@ ninjamplugin::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSn
   snapshot.audio_processing_paused =
       instance->audio_processing_heartbeat.IsWarningActive();
   snapshot.session_feed_text = instance->runtime.GetSessionFeedText();
+  snapshot.server_license_agreement =
+      instance->runtime.GetPendingServerLicenseAgreement();
 
   snapshot.target_session_bpm_value =
       instance->pending_target_session_bpm_dirty.load(std::memory_order_acquire)
@@ -831,6 +833,24 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
   ninjamplugin::core::ConnectionSettings GetRuntimeConnectionSettings() const override {
     return instance_ == nullptr ? ninjamplugin::core::ConnectionSettings()
                                 : instance_->runtime.GetConnectionSettings();
+  }
+
+  ninjamplugin::core::ServerLicenseAgreement GetPendingServerLicenseAgreement() const override {
+    return instance_ == nullptr
+               ? ninjamplugin::core::ServerLicenseAgreement{}
+               : instance_->runtime.GetPendingServerLicenseAgreement();
+  }
+
+  bool AcceptPendingServerLicenseAgreement() override {
+    return instance_ != nullptr && instance_->runtime.AcceptPendingServerLicenseAgreement();
+  }
+
+  void DeclinePendingServerLicenseAgreement() override {
+    if (instance_ != nullptr) instance_->runtime.DeclinePendingServerLicenseAgreement();
+  }
+
+  void DismissPendingServerLicenseAgreement() override {
+    if (instance_ != nullptr) instance_->runtime.DismissPendingServerLicenseAgreement();
   }
 
   void ApplyConnectionSettings(const ninjamplugin::core::ConnectionSettings& settings) override {

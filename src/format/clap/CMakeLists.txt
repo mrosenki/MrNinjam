@@ -181,6 +181,7 @@ else()
   )
   target_link_libraries(ninjamplugin_clap PRIVATE ninjamplugin_clap_impl)
   target_include_directories(ninjamplugin_clap PRIVATE
+    "${PROJECT_SOURCE_DIR}/include"
     "${NINJAMPLUGIN_CLAP_SOURCE_DIR}/include"
   )
   target_compile_features(ninjamplugin_clap PRIVATE cxx_std_20)

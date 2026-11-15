@@ -36,6 +36,7 @@ struct ConnectionEditorRuntimeSnapshot {
   std::string recording_status_text;
   std::string wav_stem_export_status_text;
   std::string multitrack_status_text;
+  ninjamplugin::core::ServerLicenseAgreement server_license_agreement;
   int connection_state = ninjamplugin::core::NinjamBridge::kConnectionStateUnavailable;
   int available_input_pair_count = 1;
   int active_daw_input_channel_count = 16;
@@ -131,6 +132,12 @@ class ConnectionEditorControllerHost {
   virtual bool IsConnectRequested() const = 0;
   virtual int GetConnectionState() const = 0;
   virtual ninjamplugin::core::ConnectionSettings GetRuntimeConnectionSettings() const = 0;
+  virtual ninjamplugin::core::ServerLicenseAgreement GetPendingServerLicenseAgreement() const {
+    return {};
+  }
+  virtual bool AcceptPendingServerLicenseAgreement() { return false; }
+  virtual void DeclinePendingServerLicenseAgreement() {}
+  virtual void DismissPendingServerLicenseAgreement() {}
   virtual void ApplyConnectionSettings(const ninjamplugin::core::ConnectionSettings& settings) = 0;
   virtual ninjamplugin::core::SessionOverview GetSessionOverview() const = 0;
   virtual double GetSessionReturnPeakLevel() const = 0;
@@ -236,6 +243,9 @@ class ConnectionEditorController final : public ConnectionEditorDelegate {
   void ReloadRequested() override;
   void ConnectRequested(const ninjamplugin::core::ConnectionSettings& settings) override;
   void DisconnectRequested() override;
+  void ServerLicenseAccepted() override;
+  void ServerLicenseDeclined() override;
+  void ServerLicenseDismissed() override;
   bool TimingVoteRequested(double bpm, int bpi) override;
   void RemoteReturnChanged(double value) override;
   void MetronomeLevelChanged(double value) override;

@@ -23,7 +23,7 @@ official binary release.
 
 ## Current baseline
 
-Version `0.2.10` is the current DAW-test candidate, not a frozen or officially
+Version `0.2.11` is the current DAW-test candidate, not a frozen or officially
 distributed release. The accepted integration line is now the `main` baseline.
 The canonical public repository contains the reviewed source baseline and all
 subsequent product work.
@@ -59,14 +59,21 @@ Current repository gate:
    review removed a public endpoint literal, added a repository privacy scan,
    corrected V21 documentation, and recorded non-blocking decomposition work
    under #7.
-4. **Completed locally:** the canonical source tree built CLAP and VST3,
+4. **Completed:** #6 is closed after documenting the host-independent CLAP
+   timer lifecycle correction, focused sanitizer/regression coverage, and
+   passing REAPER/Bitwig add-remove and shutdown checks.
+5. **In progress locally:** `0.2.11` replaces automatic server-licence
+   acceptance with bounded, instance-scoped explicit consent. Focused model,
+   bridge lifecycle, controller/editor, and CLAP GUI lifecycle tests pass;
+   controlled-server DAW validation remains required before closing #4.
+6. **Completed locally:** the canonical source tree built CLAP and VST3,
    passed all 30 tests, and passed repository and packaged-artifact privacy
    scans. Run the repository's first cross-platform CI after publication; this
    remains automation evidence rather than DAW validation.
 
 Still requiring product work or broader hands-on evidence:
 
-- explicit server-licence consent (#4);
+- controlled-server DAW validation of explicit server-licence consent (#4);
 - removal of the retired `NinjamPlugin` compatibility and naming surface (#8);
 - the substantive architecture and code-quality audit (#7);
 - representative CLAP/VST3 session and legacy-client interoperability (#5);
@@ -97,11 +104,9 @@ Open at this boundary:
 - archived tracker issue `#9` is complete after the focused `0.2.10`
   first-connection test, and archived tracker issue `#27` is closed after
   reconciliation of its broader host/format criteria;
-- #6 retains the unresolved distinction between a corrected plug-in lifecycle
-  risk and a host-side stale timer, despite positive sanitizer, regression, and
-  DAW evidence; close it only when its bounded investigation criteria are
-  explicitly documented; and
-- #4, #8, #7, and #5 continue after the integration merge rather than
+- #6 is closed with the corrected lifecycle risk and the unresolved status of
+  the earlier allocator signature documented separately; and
+- #4 validation, #8, #7, and #5 continue after the integration merge rather than
   enlarging the current branch stack.
 
 ### Next `0.2.x` milestone — Consent, naming, and controlled sessions
@@ -112,8 +117,9 @@ and then broaden representative session validation.
 
 Work, in order:
 
-1. Implement [#4](https://github.com/mrosenki/MrNinjam/issues/4) with bounded
-   plain-text agreement handling and explicit accept/decline behavior.
+1. Complete controlled-server REAPER and Bitwig validation for
+   [#4](https://github.com/mrosenki/MrNinjam/issues/4). The bounded plain-text,
+   explicit accept/decline implementation is present in `0.2.11`.
 2. Address [#8](https://github.com/mrosenki/MrNinjam/issues/8) in reviewable
    stages informed by [#7](https://github.com/mrosenki/MrNinjam/issues/7),
    preserving permanent plug-in IDs and supported state decoding.

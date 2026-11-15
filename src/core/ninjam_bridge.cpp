@@ -338,18 +338,25 @@ const char* NJStatusName(const int status) {
   }
 }
 
-int AcceptServerLicenseAgreement(void* user_data, const char* license_text) {
-  (void)user_data;
-  const std::size_t text_length =
-      license_text != nullptr ? std::strlen(license_text) : 0U;
-  DebugLogf("bridge",
-            "Server license agreement received (%zu bytes); auto-accept enabled.",
-            text_length);
-  return 1;
-}
 #endif
 
 }  // namespace
+
+int NinjamBridge::ServerLicenseAgreementCallback(void* user_data,
+                                                 const char* agreement_text) {
+  auto* bridge = static_cast<NinjamBridge*>(user_data);
+  return bridge != nullptr ? bridge->HandleServerLicenseAgreement(agreement_text) : 0;
+}
+
+int NinjamBridge::HandleServerLicenseAgreement(const char* agreement_text) {
+  const bool accepted = server_license_consent_.Observe(connection_host_, agreement_text);
+  if (!accepted) {
+    // The upstream callback is synchronous. Stop this connection request so
+    // authentication cannot continue or retry until the UI records a choice.
+    connect_requested_.store(false, std::memory_order_release);
+  }
+  return accepted ? 1 : 0;
+}
 
 void NinjamBridge::ChatMessageCallback(void* user_data,
                                        NJClient* inst,
@@ -687,7 +694,7 @@ bool NinjamBridge::Initialize(const double sample_rate) {
   client_->RemoteChannelAudio_User = this;
   client_->RemoteChannelAudioCallback = &NinjamBridge::RemoteChannelAudioCallback;
   client_->LicenseAgreement_User = this;
-  client_->LicenseAgreementCallback = &AcceptServerLicenseAgreement;
+  client_->LicenseAgreementCallback = &NinjamBridge::ServerLicenseAgreementCallback;
   client_->ChatMessage_User = this;
   client_->ChatMessage_Callback = &NinjamBridge::ChatMessageCallback;
   StartKeepaliveThread();
@@ -1609,6 +1616,9 @@ void NinjamBridge::ApplyConnectionSettings(const ConnectionSettings& settings) {
     return;
   }
 
+  if (connection_host_ != settings.host) {
+    server_license_consent_.ClearForServerChange();
+  }
   connection_host_ = settings.host;
   connection_user_ = settings.user.empty() ? "anonymous" : settings.user;
   connection_pass_ = settings.pass;
@@ -1631,6 +1641,39 @@ void NinjamBridge::ApplyConnectionSettings(const ConnectionSettings& settings) {
             connection_host_.empty() ? 0 : 1,
             connection_user_.empty() ? 0 : 1,
             session_capture_directory_.empty() ? "<default>" : session_capture_directory_.c_str());
+}
+
+ServerLicenseAgreement NinjamBridge::GetPendingServerLicenseAgreement() const {
+  return server_license_consent_.GetPendingAgreement();
+}
+
+bool NinjamBridge::AcceptPendingServerLicenseAgreement() {
+  if (!server_license_consent_.AcceptPendingAgreement()) return false;
+#if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
+  {
+    std::lock_guard<std::mutex> lock(client_mutex_);
+    if (client_ != nullptr) client_->Disconnect();
+  }
+#endif
+  connect_attempt_started_ = false;
+  last_connect_attempt_ms_ = 0;
+  connect_attempt_started_ms_ = 0;
+  connect_timeout_reported_ = false;
+  last_failure_reason_ = kLastFailureNone;
+  disconnect_pending_ = false;
+  disconnect_pending_since_ms_ = 0;
+  connect_requested_.store(true, std::memory_order_release);
+  return true;
+}
+
+void NinjamBridge::DeclinePendingServerLicenseAgreement() {
+  server_license_consent_.DeclinePendingAgreement();
+  SetConnectRequested(false);
+}
+
+void NinjamBridge::DismissPendingServerLicenseAgreement() {
+  server_license_consent_.DismissPendingAgreement();
+  SetConnectRequested(false);
 }
 
 int NinjamBridge::GetConnectionState() const {

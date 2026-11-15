@@ -89,10 +89,13 @@ Run the non-network checks in all four host/format combinations:
 ## Controlled session boundary
 
 Use synthetic identities and a controlled server for initial connection tests.
-The current `0.2.10` DAW test build still auto-accepts a server-provided licence
-agreement; public or third-party server testing that supplies an agreement is
-deferred until [issue #4](https://github.com/mrosenki/MrNinjam/issues/4)
-implements explicit consent.
+The `0.2.11` DAW test build presents a bounded plain-text consent overlay before
+authenticating to a server that supplies a licence agreement. With a controlled
+server, verify Accept reconnects and completes authentication; Decline and
+closing the overlay remain disconnected; reconnecting with identical terms
+uses only the current instance's in-memory decision; and changed terms prompt
+again. Repeat in REAPER and Bitwig and confirm a new plug-in instance has no
+inherited consent. Do not place real credentials or agreement text in reports.
 
 Once that condition is met, follow
 [issue #5](https://github.com/mrosenki/MrNinjam/issues/5) for connection,

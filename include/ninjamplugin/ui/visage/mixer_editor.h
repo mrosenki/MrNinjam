@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ninjamplugin/core/server_license_consent.h"
+
 #include <visage/app.h>
 
 #include <functional>
@@ -138,6 +140,7 @@ struct SessionUiState {
   std::string user = "anonymous";
   std::string password;
   std::string notice_text;
+  ninjamplugin::core::ServerLicenseAgreement server_license_agreement;
   std::string failure_text;
   std::string actual_bpm_text = "120.0";
   std::string actual_bpi_text = "8";
@@ -210,6 +213,9 @@ struct RawExportUiOptions {
 struct MixerUiCallbacks {
   std::function<void(const ConnectionUiDraft&)> on_connect_requested;
   std::function<void()> on_disconnect_requested;
+  std::function<void()> on_server_license_accepted;
+  std::function<void()> on_server_license_declined;
+  std::function<void()> on_server_license_dismissed;
   std::function<void(const ConnectionUiDraft&)> on_save_requested;
   std::function<void()> on_reload_requested;
   std::function<void(bool)> on_diagnostic_logging_changed;

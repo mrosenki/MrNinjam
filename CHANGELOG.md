@@ -6,6 +6,16 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.11 - DAW test build
+
+- Replace silent server-licence acceptance with an explicit, blocking consent
+  flow that identifies the configured server and renders bounded plain text.
+- Scope acceptance to the exact server and agreement text in the current
+  plug-in instance; do not save agreement text or consent in projects,
+  presets, defaults, or diagnostic logs.
+- Treat decline, dismissal, changed terms, and oversized terms as disconnected
+  outcomes, with synthetic state-machine and lifecycle regression coverage.
+
 ## 0.2.10 - DAW test build
 
 - Initialize timing proposals only from an actual server-config notification,

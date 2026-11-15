@@ -135,6 +135,7 @@ struct ConnectionEditorViewState {
   std::string multitrack_status_text;
   std::string detail_text;
   std::string notice_text;
+  ninjamplugin::core::ServerLicenseAgreement server_license_agreement;
   EditorActionCapabilities capabilities;
   std::array<LocalInputPairViewState,
              ninjamplugin::core::NinjamBridge::kMaxLocalInputChannelCount>
@@ -196,6 +197,9 @@ class ConnectionEditorDelegate {
   virtual void ReloadRequested() = 0;
   virtual void ConnectRequested(const ninjamplugin::core::ConnectionSettings& settings) = 0;
   virtual void DisconnectRequested() = 0;
+  virtual void ServerLicenseAccepted() = 0;
+  virtual void ServerLicenseDeclined() = 0;
+  virtual void ServerLicenseDismissed() = 0;
   virtual bool TimingVoteRequested(double bpm, int bpi) = 0;
   virtual void RemoteReturnChanged(double value) = 0;
   virtual void MetronomeLevelChanged(double value) = 0;
