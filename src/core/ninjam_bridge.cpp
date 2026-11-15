@@ -351,9 +351,12 @@ int NinjamBridge::ServerLicenseAgreementCallback(void* user_data,
 int NinjamBridge::HandleServerLicenseAgreement(const char* agreement_text) {
   const bool accepted = server_license_consent_.Observe(connection_host_, agreement_text);
   if (!accepted) {
-    // The upstream callback is synchronous. Stop this connection request so
-    // authentication cannot continue or retry until the UI records a choice.
-    connect_requested_.store(false, std::memory_order_release);
+    // The upstream callback is synchronous and still sends an authentication
+    // reply when consent is withheld. Keep the user's connection intent, but
+    // gate all further network work until the UI records a decision.
+    server_license_connection_stopped_.store(false, std::memory_order_release);
+    server_license_decision_pending_.store(true, std::memory_order_release);
+    DebugLog("bridge", "Server licence decision required");
   }
   return accepted ? 1 : 0;
 }
@@ -887,6 +890,8 @@ void NinjamBridge::MainThreadTick() {
   ServiceRealtimeLifecycleRequests();
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   const bool connect_requested = connect_requested_.load(std::memory_order_acquire);
+  const bool awaiting_server_license =
+      server_license_decision_pending_.load(std::memory_order_acquire);
   const bool was_connected = connected_;
   const int prev_connection_state = connection_state_;
   const std::uint64_t now_ms = MonotonicNowMs();
@@ -915,7 +920,7 @@ void NinjamBridge::MainThreadTick() {
   }
   server_max_local_channels_.store(negotiated_local_channel_limit,
                                    std::memory_order_release);
-  if (connect_requested) {
+  if (connect_requested && !awaiting_server_license) {
     disconnect_pending_ = false;
     disconnect_pending_since_ms_ = 0;
   }
@@ -1007,7 +1012,7 @@ void NinjamBridge::MainThreadTick() {
   } else if (!multitrack_capture_enabled && !wav_stem_export_enabled) {
     multitrack_capture_status_text_ = "Idle";
   }
-  if (!connection_host_.empty() && connect_requested) {
+  if (!connection_host_.empty() && connect_requested && !awaiting_server_license) {
     const bool reconnect_cooldown_elapsed =
         disconnect_completed_ms_ == 0 ||
         (now_ms - disconnect_completed_ms_) >= kReconnectCooldownMs;
@@ -1040,12 +1045,15 @@ void NinjamBridge::MainThreadTick() {
       ++connect_attempt_count_;
       DebugLogf("bridge", "Connect attempt count=%d", connect_attempt_count_);
     }
-  } else {
-    if (!disconnect_pending_) {
+  } else if (!awaiting_server_license) {
+    const bool runtime_needs_disconnect =
+        status != NJClient::NJC_STATUS_DISCONNECTED &&
+        status != NJClient::NJC_STATUS_PRECONNECT;
+    if (runtime_needs_disconnect && !disconnect_pending_) {
       disconnect_pending_ = true;
       disconnect_pending_since_ms_ = now_ms;
       DebugLog("bridge", "Deferred disconnect armed");
-    } else if (disconnect_pending_since_ms_ > 0 &&
+    } else if (runtime_needs_disconnect && disconnect_pending_since_ms_ > 0 &&
                (now_ms - disconnect_pending_since_ms_) >= kDeferredDisconnectDelayMs) {
       {
         std::lock_guard<std::mutex> lock(client_mutex_);
@@ -1060,6 +1068,9 @@ void NinjamBridge::MainThreadTick() {
       applied_local_channel_topology_revision_.store(0, std::memory_order_release);
       ClearSessionFeedState();
       DebugLog("bridge", "Deferred disconnect executed");
+    } else if (!runtime_needs_disconnect) {
+      disconnect_pending_ = false;
+      disconnect_pending_since_ms_ = 0;
     }
     connect_attempt_started_ = false;
     last_connect_attempt_ms_ = 0;
@@ -1161,8 +1172,9 @@ void NinjamBridge::MainThreadTick() {
     }
   }
 
-  if (connect_requested) {
+  if (connect_requested && !awaiting_server_license) {
     for (int i = 0; i < 4; ++i) {
+      if (server_license_decision_pending_.load(std::memory_order_acquire)) break;
       bool yielded = false;
       {
         std::lock_guard<std::mutex> lock(client_mutex_);
@@ -1174,6 +1186,16 @@ void NinjamBridge::MainThreadTick() {
         break;
       }
     }
+  }
+
+  if (server_license_decision_pending_.load(std::memory_order_acquire) &&
+      !server_license_connection_stopped_.exchange(true, std::memory_order_acq_rel)) {
+    std::lock_guard<std::mutex> lock(client_mutex_);
+    if (client_ != nullptr) client_->Disconnect();
+    status = NJClient::NJC_STATUS_PRECONNECT;
+    disconnect_pending_ = false;
+    disconnect_pending_since_ms_ = 0;
+    DebugLog("bridge", "Connection paused for server licence decision");
   }
 
   {
@@ -1196,9 +1218,13 @@ void NinjamBridge::MainThreadTick() {
               NJStatusName(status),
               connect_requested ? 1 : 0);
   }
-  connected_ = connect_requested && !connection_host_.empty() && status == NJClient::NJC_STATUS_OK;
+  const bool license_decision_pending =
+      server_license_decision_pending_.load(std::memory_order_acquire);
+  connected_ = connect_requested && !license_decision_pending &&
+               !connection_host_.empty() && status == NJClient::NJC_STATUS_OK;
   const bool timed_out_preconnect =
-      connect_requested && connect_attempt_started_ && connect_attempt_started_ms_ > 0 &&
+      connect_requested && !license_decision_pending && connect_attempt_started_ &&
+      connect_attempt_started_ms_ > 0 &&
       status == NJClient::NJC_STATUS_PRECONNECT &&
       now_ms >= connect_attempt_started_ms_ &&
       (now_ms - connect_attempt_started_ms_) >= kConnectAttemptTimeoutMs;
@@ -1212,6 +1238,8 @@ void NinjamBridge::MainThreadTick() {
     connection_state_ = kConnectionStateUnavailable;
   } else if (!connect_requested) {
     connection_state_ = kConnectionStateDisconnected;
+  } else if (license_decision_pending) {
+    connection_state_ = kConnectionStateConnecting;
   } else if (status == NJClient::NJC_STATUS_OK) {
     connection_state_ = kConnectionStateConnected;
   } else if (status == NJClient::NJC_STATUS_PRECONNECT) {
@@ -1225,7 +1253,7 @@ void NinjamBridge::MainThreadTick() {
   }
 
   const int prev_last_failure_reason = last_failure_reason_;
-  if (!connect_requested || !IsRuntimeConnectionAvailable()) {
+  if (!connect_requested || license_decision_pending || !IsRuntimeConnectionAvailable()) {
     last_failure_reason_ = kLastFailureNone;
   } else if (status == NJClient::NJC_STATUS_OK) {
     last_failure_reason_ = kLastFailureNone;
@@ -1618,6 +1646,8 @@ void NinjamBridge::ApplyConnectionSettings(const ConnectionSettings& settings) {
 
   if (connection_host_ != settings.host) {
     server_license_consent_.ClearForServerChange();
+    server_license_decision_pending_.store(false, std::memory_order_release);
+    server_license_connection_stopped_.store(false, std::memory_order_release);
   }
   connection_host_ = settings.host;
   connection_user_ = settings.user.empty() ? "anonymous" : settings.user;
@@ -1649,6 +1679,8 @@ ServerLicenseAgreement NinjamBridge::GetPendingServerLicenseAgreement() const {
 
 bool NinjamBridge::AcceptPendingServerLicenseAgreement() {
   if (!server_license_consent_.AcceptPendingAgreement()) return false;
+  server_license_decision_pending_.store(false, std::memory_order_release);
+  server_license_connection_stopped_.store(false, std::memory_order_release);
 #if NINJAMPLUGIN_HAS_NJCLIENT_RUNTIME
   {
     std::lock_guard<std::mutex> lock(client_mutex_);
@@ -1668,11 +1700,15 @@ bool NinjamBridge::AcceptPendingServerLicenseAgreement() {
 
 void NinjamBridge::DeclinePendingServerLicenseAgreement() {
   server_license_consent_.DeclinePendingAgreement();
+  server_license_decision_pending_.store(false, std::memory_order_release);
+  server_license_connection_stopped_.store(false, std::memory_order_release);
   SetConnectRequested(false);
 }
 
 void NinjamBridge::DismissPendingServerLicenseAgreement() {
   server_license_consent_.DismissPendingAgreement();
+  server_license_decision_pending_.store(false, std::memory_order_release);
+  server_license_connection_stopped_.store(false, std::memory_order_release);
   SetConnectRequested(false);
 }
 

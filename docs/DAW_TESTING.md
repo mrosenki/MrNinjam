@@ -89,7 +89,7 @@ Run the non-network checks in all four host/format combinations:
 ## Controlled session boundary
 
 Use synthetic identities and a controlled server for initial connection tests.
-The `0.2.11` DAW test build presents a bounded plain-text consent overlay before
+The `0.2.12` DAW test build presents a bounded plain-text consent overlay before
 authenticating to a server that supplies a licence agreement. With a controlled
 server, verify Accept reconnects and completes authentication; Decline and
 closing the overlay remain disconnected; reconnecting with identical terms

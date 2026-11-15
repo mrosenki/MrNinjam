@@ -10,6 +10,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <string>
 #include <vector>
@@ -121,6 +122,9 @@ struct NinjamPluginInstance {
   ninjamplugin::format::clap::AudioProcessingHeartbeat audio_processing_heartbeat;
   std::atomic_bool keep_main_thread_pumping{false};
   std::atomic_bool main_thread_callback_pending{false};
+  std::mutex pending_connection_settings_mutex;
+  ninjamplugin::core::ConnectionSettings pending_connection_settings;
+  std::atomic_bool pending_connection_settings_dirty{false};
   std::atomic_bool pending_connect_requested_dirty{false};
   std::atomic_bool pending_connect_requested{false};
   std::atomic_bool pending_target_session_bpm_dirty{false};
@@ -298,6 +302,20 @@ void QueueConnectRequestedOnMainThread(NinjamPluginInstance* instance, const boo
   RequestHostMainThreadCallback(instance, true);
 }
 
+void QueueConnectionSettingsOnMainThread(
+    NinjamPluginInstance* instance,
+    const ninjamplugin::core::ConnectionSettings& settings) {
+  if (instance == nullptr) {
+    return;
+  }
+  {
+    const std::lock_guard<std::mutex> lock(instance->pending_connection_settings_mutex);
+    instance->pending_connection_settings = settings;
+  }
+  instance->pending_connection_settings_dirty.store(true, std::memory_order_release);
+  RequestHostMainThreadCallback(instance, true);
+}
+
 void QueueTargetSessionBpmOnMainThread(NinjamPluginInstance* instance, const double value) {
   if (instance == nullptr) {
     return;
@@ -388,6 +406,20 @@ void QueueTransmitBitrateOnMainThread(NinjamPluginInstance* instance, const doub
 void ApplyPendingRuntimeControlUpdatesOnMainThread(NinjamPluginInstance* instance) {
   if (instance == nullptr) {
     return;
+  }
+  // Connection settings and the connect command are intentionally consumed in
+  // this order. The UI may submit both during one button click; applying the
+  // immutable settings snapshot first prevents a host callback from starting
+  // an attempt with credentials from the previous draft.
+  if (instance->pending_connection_settings_dirty.exchange(false,
+                                                            std::memory_order_acq_rel)) {
+    ninjamplugin::core::ConnectionSettings settings;
+    {
+      const std::lock_guard<std::mutex> lock(instance->pending_connection_settings_mutex);
+      settings = instance->pending_connection_settings;
+    }
+    instance->runtime.ApplyConnectionSettings(settings);
+    ninjamplugin::core::DebugLog("clap", "ApplyPending ConnectionSettings");
   }
   if (instance->pending_connect_requested_dirty.exchange(false, std::memory_order_acq_rel)) {
     const bool requested = instance->pending_connect_requested.load(std::memory_order_acquire);
@@ -854,9 +886,7 @@ class ClapConnectionEditorHost final : public ninjamplugin::ui::ConnectionEditor
   }
 
   void ApplyConnectionSettings(const ninjamplugin::core::ConnectionSettings& settings) override {
-    if (instance_ != nullptr) {
-      instance_->runtime.ApplyConnectionSettings(settings);
-    }
+    ::QueueConnectionSettingsOnMainThread(instance_, settings);
   }
 
   ninjamplugin::core::SessionOverview GetSessionOverview() const override {

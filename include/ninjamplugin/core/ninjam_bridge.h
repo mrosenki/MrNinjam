@@ -488,6 +488,8 @@ class NinjamBridge {
   std::string connection_pass_;
   std::string session_capture_directory_;
   ServerLicenseConsent server_license_consent_;
+  std::atomic_bool server_license_decision_pending_{false};
+  std::atomic_bool server_license_connection_stopped_{false};
   NinjamPluginNJClient* client_ = nullptr;
   int last_nj_status_ = 9999;
   bool connect_attempt_started_ = false;
