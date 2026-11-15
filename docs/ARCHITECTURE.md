@@ -63,6 +63,48 @@ behavior must remain testable without constructing Visage widgets. Dead
 alternate views and duplicate command paths should be removed rather than kept
 in parallel.
 
+### Dependency direction and ownership audit
+
+The November 2026 Issue #7 audit verified the intended dependency direction:
+
+```text
+CLAP / clap-wrapper adapter
+  -> editor controller and shell
+  -> NINJAM bridge
+      -> project-owned core state and DSP
+      -> patched NINJAM runtime and protocol
+      -> recording and export workers
+
+Visage widgets -> editor delegate -> editor controller -> adapter host contract
+```
+
+The Visage layer does not own or call the session runtime. `MrNinjamInstance`
+owns one parameter model, one `NinjamBridge`, and the optional editor shell and
+controller for the lifetime of a plug-in instance. `NinjamBridge` owns its
+NJClient, routing snapshots, connection state, capture recorders, export
+worker, and keepalive worker. Worker destructors and bridge teardown join their
+threads before their owning instance is destroyed.
+
+The same audit classified the principal architectural exceptions:
+
+| Classification | Evidence | Disposition |
+| --- | --- | --- |
+| Justified | Process-global diagnostic logging serializes one shared log file and suppresses every real-time entry before locking or file access. | Retain; keep the real-time diagnostic regression. |
+| Justified | The only host-name check selects a REAPER-specific text-entry hint and does not change audio, timer, connection, or lifecycle behaviour. | Retain as view-only compatibility text. |
+| Justified | Routing uses three reader-pinned snapshots so the audio callback never waits for control-thread publication. | Retain; the unusual memory ordering is contract-driven and covered by stress tests. |
+| Unverified | WAV stem exports are serialized across instances by a process-global mutex. No source comment establishes whether this protects a codec/global dependency or merely reflects an earlier conservative design. | Investigate with recording/export reliability work before changing concurrency. |
+| Needs remediation | `clap_entry.cpp` combines format lifecycle, parameters, saved state, GUI extensions, host pumping, and a large set of main/audio-thread handoff atomics. | Extract behaviour-preserving adapter components behind the existing CLAP callbacks. |
+| Needs remediation | `ConnectionEditorControllerHost` is a single broad interface and UI headers depend directly on `NinjamBridge` constants and runtime value types. | Split the contract by connection, routing, recording, and session capabilities; move shared view types out of the concrete bridge. |
+| Needs remediation | `NinjamBridge` orchestrates connection state, protocol callbacks, routing, recording, export, and lifecycle workers in one class and translation unit. | Extract owned subsystems incrementally, preserving the public bridge facade and real-time tests. |
+| Needs remediation | `mixer_editor.cpp` contains all major panels in one translation unit. | Decompose by existing panel ownership while implementing the compact mixer work; do not redesign audio or controller semantics at the same time. |
+
+These are review-cost and change-isolation findings, not evidence of current
+user-visible failure. They must be addressed in focused patches with unchanged
+plug-in IDs, parameter IDs, current state schema, host behaviour, and real-time
+invariants. Raw pointer ownership of NJClient is local, paired, and teardown
+safe, but converting it to explicit RAII is appropriate when that bridge
+boundary is extracted rather than as an unrelated churn-only patch.
+
 ## Threading boundaries
 
 - CLAP `init`, `activate`, `deactivate`, `destroy`, and `on_main_thread` run on
