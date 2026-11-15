@@ -212,7 +212,7 @@ and compatibility.
 Public and release-candidate binaries must not contain or depend on the source
 checkout path. They must never write logs, settings, recordings, exports,
 temporary files, recovery data, or UI preferences into either the active source
-repository or the archived private repository.
+repository or another development checkout.
 
 The runtime repository-path fallbacks have been removed. Release builds also
 remap compiler source paths to avoid leaking the developer checkout through

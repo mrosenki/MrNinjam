@@ -6,19 +6,17 @@ VST3 through clap-wrapper.
 
 The canonical repository is <https://github.com/mrosenki/MrNinjam>.
 
-The current DAW test build is version `0.2.10`. The independent Git
-history began with the reviewed `0.1.132` migration snapshot; that historical
-baseline remains preserved in the initial commit. Version `0.2.10` is a
-development-stage source-code preview, not a production-ready release. The
-GPL-licensed source is available for inspection, building, testing, and
-contribution, but the project does not provide official CLAP or VST3 binaries.
-Binary packaging, representative host testing, release notices, reproducible
-codec resolution, signing, and final release certification remain open.
+The current DAW test build is version `0.2.10`. It is a development-stage
+source-code preview, not a production-ready release. The GPL-licensed source is
+available for inspection, building, testing, and contribution, but the project
+does not provide official CLAP or VST3 binaries. Binary packaging,
+representative host testing, release notices, reproducible codec resolution,
+signing, and final release certification remain open.
 
 Current product milestones and issue order are maintained in the
-[active development roadmap](docs/DEVELOPMENT_ROADMAP.md). The older
-[publication roadmap](docs/public_release_roadmap.md) is retained for source
-publication history and the separate official-binary gates.
+[active development roadmap](docs/DEVELOPMENT_ROADMAP.md). Packaging and
+distribution gates are maintained separately in the
+[binary release roadmap](docs/public_release_roadmap.md).
 
 ## Implemented product
 
@@ -47,7 +45,7 @@ scope. See [Product Scope](docs/PRODUCT_SCOPE.md).
 - `cmake/` — build helpers, including build-owned dependency patch staging.
 - `patches/` — reviewed NINJAM and Visage integration patches.
 - `scripts/` — dependency preparation, builds, tests, and artifact checks.
-- `docs/` — architecture, build, migration, licensing, validation, and roadmap.
+- `docs/` — architecture, build, licensing, validation, and roadmap.
 - `third_party/licenses/` — retained third-party licence texts and notices.
 
 Dependency source checkouts and build products are intentionally absent from
@@ -95,9 +93,8 @@ projects using the former ID require host-specific migration or manual
 replacement. Hosts that first resolve either format by its bundle filename or
 cached installation path may also require a rescan or manual substitution.
 
-The old development history and private test artifacts are deliberately not
-part of this tree. Verified historical conclusions and the limitations of the
-new-tree validation are summarized in [Validation](docs/VALIDATION.md).
+Current automated, validator, and hands-on evidence is summarized in
+[Validation](docs/VALIDATION.md).
 
 ## Licence
 
@@ -112,4 +109,4 @@ applicable third-party terms. No official binary release is provided. Anyone
 distributing compiled CLAP or VST3 packages must satisfy the applicable licence
 and Corresponding Source obligations; the project's own binary distribution
 remains deferred until the package gates in the
-[Public release roadmap](docs/public_release_roadmap.md) are complete.
+[Binary release roadmap](docs/public_release_roadmap.md) are complete.

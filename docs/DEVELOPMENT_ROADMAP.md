@@ -7,8 +7,7 @@ development. The immediate goal is a repeatable development build that can be
 installed in REAPER and Bitwig, used in real NINJAM sessions, and improved from
 observed behaviour toward `1.0.0`.
 
-This is the living product roadmap. The completed publication history and the
-separate official-binary gates remain in
+This is the living product roadmap. Separate official-binary gates remain in
 [`public_release_roadmap.md`](public_release_roadmap.md).
 
 ## Status language
@@ -26,8 +25,8 @@ official binary release.
 
 Version `0.2.10` is the current DAW-test candidate, not a frozen or officially
 distributed release. The accepted integration line is now the `main` baseline.
-The replacement public repository starts from a sanitized source snapshot with
-no ancestry relationship to the retired private development history.
+The canonical public repository contains the reviewed source baseline and all
+subsequent product work.
 
 Implemented, automated, and already DAW validated in the integration line:
 
@@ -60,10 +59,10 @@ Current repository gate:
    review removed a public endpoint literal, added a repository privacy scan,
    corrected V21 documentation, and recorded non-blocking decomposition work
    under #7.
-4. **Completed locally:** the sanitized replacement tree built CLAP and VST3,
+4. **Completed locally:** the canonical source tree built CLAP and VST3,
    passed all 30 tests, and passed repository and packaged-artifact privacy
-   scans. Run the replacement repository's first cross-platform CI after it is
-   public; this remains automation evidence rather than DAW validation.
+   scans. Run the repository's first cross-platform CI after publication; this
+   remains automation evidence rather than DAW validation.
 
 Still requiring product work or broader hands-on evidence:
 
