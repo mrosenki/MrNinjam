@@ -6,6 +6,14 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.14 - DAW test build
+
+- Recompute RECEIVE participant layout before clamping its scroll extent so a
+  collapsed participant cannot leave stale row-sized spacing.
+- Add multi-participant collapse/scroll regression coverage.
+- Classify authentication rejections in diagnostics without recording server
+  messages, credentials, endpoints, or identities.
+
 ## 0.2.13 - DAW test build
 
 - Remove retired pre-publication settings, layout, saved-state, bundle, and

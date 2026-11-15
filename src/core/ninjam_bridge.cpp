@@ -338,6 +338,17 @@ const char* NJStatusName(const int status) {
   }
 }
 
+const char* NJAuthErrorCategory(const char* error_text) {
+  if (error_text == nullptr || error_text[0] == '\0') return "unspecified";
+  const std::string error(error_text);
+  if (error == "invalid login/password") return "credentials";
+  if (error == "license not agreed to") return "licence";
+  if (error == "server full") return "capacity";
+  if (error == "incorrect client version") return "protocol-version";
+  if (error == "invalid authorization reply") return "protocol-reply";
+  return "server-defined";
+}
+
 #endif
 
 }  // namespace
@@ -1217,6 +1228,15 @@ void NinjamBridge::MainThreadTick() {
               "NJ status=%s connect_requested=%d",
               NJStatusName(status),
               connect_requested ? 1 : 0);
+    if (status == NJClient::NJC_STATUS_INVALIDAUTH) {
+      const char* category = "unspecified";
+      {
+        std::lock_guard<std::mutex> lock(client_mutex_);
+        if (client_ != nullptr)
+          category = NJAuthErrorCategory(client_->GetErrorStr());
+      }
+      DebugLogf("bridge", "NJ authentication rejection category=%s", category);
+    }
   }
   const bool license_decision_pending =
       server_license_decision_pending_.load(std::memory_order_acquire);

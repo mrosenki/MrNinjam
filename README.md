@@ -6,7 +6,7 @@ VST3 through clap-wrapper.
 
 The canonical repository is <https://github.com/mrosenki/MrNinjam>.
 
-The current DAW test build is version `0.2.13`. It is a development-stage
+The current DAW test build is version `0.2.14`. It is a development-stage
 source-code preview, not a production-ready release. The GPL-licensed source is
 available for inspection, building, testing, and contribution, but the project
 does not provide official CLAP or VST3 binaries. Binary packaging,

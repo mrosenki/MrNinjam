@@ -2448,6 +2448,7 @@ public:
           row->layout().setMarginBottom(collapsed ? 0_px : 10_px);
           row->setVisible(!collapsed);
         }
+        scroll_.computeLayout();
         updateRemoteScrollableHeight();
         scroll_.computeLayout();
         scroll_.redraw();
@@ -2567,6 +2568,7 @@ public:
     event.button_state = visage::kMouseButtonLeft;
     event.position = { 12.0f, 12.0f };
     const float expanded_content_height = scroll_.scrollableHeight();
+    scroll_.setYPosition(std::max(0.0f, expanded_content_height - scroll_.height()));
     group->header->mouseDown(event);
     if (!group->header->collapsed())
       errors.emplace_back("remote participant header did not collapse");
@@ -2577,6 +2579,16 @@ public:
     if (!group->rows.empty() &&
         scroll_.scrollableHeight() >= expanded_content_height - 100.0f)
       errors.emplace_back("collapsed participant rows did not release their scroll spacing");
+    const float collapsed_max_scroll =
+        std::max(0.0f, scroll_.scrollableHeight() - scroll_.height());
+    if (scroll_.yPosition() > collapsed_max_scroll + 1.0f)
+      errors.emplace_back("participant collapse did not clamp the receive scroll position");
+    if (remote_groups_.size() > 1) {
+      const ParticipantGroup* next_group = remote_groups_[1].get();
+      const float expected_next_top = group->header->y() + group->header->height() + 6.0f;
+      if (std::fabs(next_group->header->y() - expected_next_top) > 1.0f)
+        errors.emplace_back("collapsed participant left stale spacing before the next participant");
+    }
     group->header->mouseDown(event);
     if (group->header->collapsed())
       errors.emplace_back("remote participant header did not expand");
