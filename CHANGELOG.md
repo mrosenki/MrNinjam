@@ -6,6 +6,16 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.15 - DAW test build
+
+- Preserve collapsed RECEIVE channel heights across continuous remote-state
+  refreshes so invisible rows cannot reopen blank layout space on redraw,
+  scrolling, or resizing.
+- Extend participant collapse coverage through the live-state refresh that
+  exposed the DAW-only regression.
+- Keep the repeatable first-reconnect authentication failure under
+  investigation; this build does not mask it with an automatic retry.
+
 ## 0.2.14 - DAW test build
 
 - Recompute RECEIVE participant layout before clamping its scroll extent so a

@@ -549,7 +549,6 @@ public:
     meter_right_.Push(state.activity_right);
     monitor_meter_left_.Push(state.monitor_activity_left);
     monitor_meter_right_.Push(state.monitor_activity_right);
-    layout().setHeight(178_px);
     redraw();
   }
 
@@ -2575,6 +2574,20 @@ public:
     for (const ChannelStrip* row : group->rows) {
       if (row->isVisible())
         errors.emplace_back(row->name() + " remains visible after participant collapse");
+    }
+    // Remote state is refreshed continuously while connected. A refresh must
+    // not restore the normal row height while the participant remains
+    // collapsed, otherwise the invisible rows reopen a large layout gap on
+    // the next redraw, resize, or scroll event.
+    for (ChannelStrip* row : group->rows)
+      row->setRemoteState(RemoteChannelState{});
+    scroll_.computeLayout();
+    updateRemoteScrollableHeight();
+    scroll_.computeLayout();
+    for (const ChannelStrip* row : group->rows) {
+      if (row->height() > 1.0f)
+        errors.emplace_back(row->name() +
+                            " restored hidden spacing after remote state refresh");
     }
     if (!group->rows.empty() &&
         scroll_.scrollableHeight() >= expanded_content_height - 100.0f)

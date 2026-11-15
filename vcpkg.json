@@ -1,6 +1,6 @@
 {
   "name": "mrninjam",
-  "version-string": "0.2.14",
+  "version-string": "0.2.15",
   "license": "GPL-3.0-or-later",
   "dependencies": [
     "libogg",
