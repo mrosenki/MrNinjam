@@ -68,19 +68,18 @@ Homebrew libogg/libvorbis macOS 14-to-11 deployment-target linker warnings.
 Windows and Linux were not built locally in this macOS workspace. GitHub
 Actions was intentionally not enabled or triggered for this change.
 
-## Verified historical baseline
+## Earlier validation baseline
 
-The final private `0.1.132` validation established that:
+The `0.1.132` validation established that:
 
 - Visage CLAP and wrapped VST3 products built on macOS;
 - the focused Visage editor shell smoke test passed; and
 - the packaged VST3 passed all 47 Steinberg validator tests.
 
-These are retained conclusions from the Phase 129 evidence. Private paths,
-host details, logs, and other environment-specific material were not copied.
-They do not substitute for validation of this new tree.
+These retained conclusions do not substitute for validation of the current
+source tree.
 
-## New-tree checks performed
+## Source snapshot checks performed
 
 On macOS, using AppleClang 16 and CMake against the independently fetched
 sources:
@@ -205,29 +204,22 @@ public-server transition coverage. Direct C allocation interposition also
 remains macOS-specific; Windows and Linux retain the connected behavioral and
 source regressions.
 
-The initial migration completion review confirmed:
+The repository privacy review confirmed:
 
 - the independent Git history contains no imported historical commits;
 - the non-generated source tree contains no historical absolute path, private
   tutorial/repository reference, symbolic link, `.DS_Store`, plugin binary,
   recording, crash artifact, or file larger than 5 MiB;
 - credential-like matches are field names and synthetic test values rather
-  than migrated connection data; and
+  than real connection data; and
 - project C/C++ differences from the baseline are limited to dependency-path
   indirection needed for build-owned patched sources.
 
-The public-source readiness audit at
-`f351f1261819ecb9715862eed906f851c9dce60e` rechecked all 38 reachable commits,
-all remote branch tips, tracked source, commit metadata, PR and issue text, and
-all 26 completed workflow logs. It found no committed credential, private key,
+The current repository scan found no committed credential, private key,
 personal machine path, real connection configuration, recording, compiled
-plug-in, archive, or other non-text blob. Historical compiled workflow
-artifacts remain an external repository-cleanup item before visibility changes;
-the publication-hardening workflow no longer uploads future plug-in packages.
-
-The historical checkout remained at its recorded baseline with its pre-existing
-dirty state intact. This document makes no claim that representative DAW hosts
-or final release packages have been validated.
+plug-in, archive, or other unexpected binary. The workflow does not upload
+compiled plug-in packages. This document makes no claim that representative DAW
+hosts or final release packages have been fully validated.
 
 ## Remaining official binary-release validation
 

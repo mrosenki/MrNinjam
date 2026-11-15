@@ -83,9 +83,8 @@ release commitments.
 - Treat NINJAM runtime user and channel indices as reusable slots; peer-scoped
   state must be cleared or re-keyed when identity changes.
 
-## Product boundary after repository cutover
+## Development repository boundary
 
-The clean public repository becomes the sole active development repository.
-The existing private repository becomes a read-only historical reference. No
-installed plugin, test build, script, or configuration may use the archived
-repository as a runtime destination.
+The canonical public repository is the sole active development line. No
+installed plugin, test build, script, or configuration may use a source
+checkout as a runtime destination.
