@@ -338,9 +338,11 @@ bool SessionCaptureRecorder::Start(const double sample_rate,
                                    const int bits_per_sample,
                                    const std::string& file_name_prefix) {
   Stop();
+  state_.store(SessionCaptureState::kStarting, std::memory_order_release);
   if (!(sample_rate > 0.0)) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     status_text_ = "Recording unavailable: invalid sample rate.";
+    state_.store(SessionCaptureState::kFailed, std::memory_order_release);
     return false;
   }
   try {
@@ -349,11 +351,13 @@ bool SessionCaptureRecorder::Start(const double sample_rate,
   } catch (const std::bad_alloc&) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     status_text_ = "Recording unavailable: cannot allocate capture buffer.";
+    state_.store(SessionCaptureState::kFailed, std::memory_order_release);
     return false;
   }
   bits_per_sample_ = bits_per_sample == 16 || bits_per_sample == 24 ? bits_per_sample : 32;
   if (!OpenOutputFile(sample_rate, directory, host_name, user_name,
                       file_name_prefix)) {
+    state_.store(SessionCaptureState::kFailed, std::memory_order_release);
     return false;
   }
 
@@ -366,6 +370,7 @@ bool SessionCaptureRecorder::Start(const double sample_rate,
   write_failed_ = false;
   stop_requested_.store(false, std::memory_order_release);
   active_.store(true, std::memory_order_release);
+  state_.store(SessionCaptureState::kRecording, std::memory_order_release);
   writer_thread_ = std::thread(&SessionCaptureRecorder::WriterThreadLoop, this);
 
   std::lock_guard<std::mutex> lock(state_mutex_);
@@ -396,10 +401,20 @@ void SessionCaptureRecorder::RequestStop() {
   // worker while it finalizes.
   stop_requested_.store(true, std::memory_order_release);
   active_.store(false, std::memory_order_release);
+  const SessionCaptureState state = state_.load(std::memory_order_acquire);
+  if (writer_thread_.joinable() &&
+      (state == SessionCaptureState::kStarting ||
+       state == SessionCaptureState::kRecording)) {
+    state_.store(SessionCaptureState::kFinalizing, std::memory_order_release);
+  }
 }
 
 bool SessionCaptureRecorder::IsActive() const {
   return active_.load(std::memory_order_acquire);
+}
+
+SessionCaptureState SessionCaptureRecorder::GetState() const {
+  return state_.load(std::memory_order_acquire);
 }
 
 bool SessionCaptureRecorder::NeedsCleanup() const {
@@ -676,8 +691,10 @@ void SessionCaptureRecorder::FinalizeOutputFile() {
   if (!write_failed_) {
     active_file_path_ = final_file_path_;
     status_text_ = "Saved " + path.filename().string();
+    state_.store(SessionCaptureState::kCompleted, std::memory_order_release);
   } else {
     status_text_ = "Recording incomplete; kept " + path.filename().string();
+    state_.store(SessionCaptureState::kRecoverable, std::memory_order_release);
   }
   if (dropped > 0) {
     status_text_ += " (" + std::to_string(dropped) + " dropped frames)";

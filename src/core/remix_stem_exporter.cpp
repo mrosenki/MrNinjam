@@ -502,8 +502,8 @@ bool LoadTrackDefinitions(const fs::path& session_directory,
                   " could not be parsed.");
     }
 
-    const int record_type =
-        parser.gettoken_enum(0, "interval\0local\0user\0end\0chat\0");
+    const int record_type = parser.gettoken_enum(
+        0, "interval\0local\0user\0end\0chat\0sessionlog\0localsessionlog\0");
     if (record_type < 0) {
       const std::string unsupported_type = parser.gettoken_str(0);
       std::fclose(logfile);
@@ -588,6 +588,39 @@ bool LoadTrackDefinitions(const fs::path& session_directory,
                       " has an invalid chat record.");
         }
         break;
+      case 5:
+      case 6: {
+        if (parser.getnumtokens() != 7) {
+          std::fclose(logfile);
+          return fail("clipsort.log line " + std::to_string(line_number) +
+                      " has an invalid session record.");
+        }
+        const std::string guid = parser.gettoken_str(1);
+        const std::string username = parser.gettoken_str(2);
+        const int channel_index = parser.gettoken_int(3);
+        const std::string channel_name = parser.gettoken_str(4);
+        const double position_ms = parser.gettoken_float(5) * 1000.0;
+        const double length_ms = parser.gettoken_float(6) * 1000.0;
+        const bool is_local = record_type == 6;
+        const std::string key = is_local
+            ? "local:" + std::to_string(channel_index)
+            : "user:" + username + ":" + std::to_string(channel_index);
+        const auto [it, inserted] =
+            track_index_by_key.emplace(key, out_tracks->size());
+        if (inserted) {
+          TrackDefinition definition;
+          definition.key = key;
+          definition.display_name = is_local
+              ? BuildLocalTrackName(channel_index)
+              : BuildRemoteTrackName(username, channel_index, channel_name);
+          definition.is_local = is_local;
+          out_tracks->push_back(std::move(definition));
+        }
+        out_tracks->at(it->second).clips.push_back({guid, position_ms});
+        if (out_duration_ms != nullptr)
+          *out_duration_ms = std::max(*out_duration_ms, position_ms + length_ms);
+        break;
+      }
     }
   }
 
@@ -600,9 +633,9 @@ bool LoadTrackDefinitions(const fs::path& session_directory,
                                  : std::string()));
   }
   std::fclose(logfile);
-  if (out_duration_ms != nullptr) {
-    *out_duration_ms = current_position_ms + current_interval_length_ms;
-  }
+  if (out_duration_ms != nullptr)
+    *out_duration_ms = std::max(*out_duration_ms,
+        current_position_ms + current_interval_length_ms);
   if (out_tracks->empty()) {
     return fail("No exportable track records were found in clipsort.log.");
   }
@@ -667,7 +700,7 @@ ExportSummary ExportTracksToDirectory(const fs::path& session_directory,
   }
 
   std::unordered_map<std::string, int> filename_counts;
-  int track_number = 1;
+  int track_number = std::max(0, options.track_number_offset) + 1;
   for (const auto& track : selected_tracks) {
     progress.current_track_name = track.display_name;
     progress.status_text = "Exporting " + track.display_name;
@@ -687,7 +720,18 @@ ExportSummary ExportTracksToDirectory(const fs::path& session_directory,
 
     char numbered_name[64];
     std::snprintf(numbered_name, sizeof(numbered_name), "%02d_", track_number++);
-    const fs::path output_path = output_directory / (std::string(numbered_name) + base_name + ".wav");
+    std::string file_name = numbered_name;
+    if (!options.filename_scope.empty()) {
+      file_name += SanitizeToken(options.filename_scope, "stem") + "-";
+    }
+    if (!options.filename_timestamp.empty()) {
+      file_name += SanitizeToken(options.filename_timestamp, "capture") + "-";
+    }
+    file_name += base_name + ".wav";
+    const fs::path output_path = output_directory / file_name;
+    const fs::path partial_output_path = fs::path(output_path.string() + ".partial");
+    std::error_code stale_partial_error;
+    fs::remove(partial_output_path, stale_partial_error);
 
     int sample_rate = 0;
     int channels = 0;
@@ -737,11 +781,11 @@ ExportSummary ExportTracksToDirectory(const fs::path& session_directory,
         sample_rate = clip_sample_rate;
         channels = clip_channels;
         writer = std::make_unique<StemWaveWriter>(
-            output_path, options.bits_per_sample, channels, sample_rate);
+            partial_output_path, options.bits_per_sample, channels, sample_rate);
         if (!writer->Status()) {
           DebugLogf("remix-export",
                     "Failed to open output path=%s",
-                    output_path.string().c_str());
+                    partial_output_path.string().c_str());
           return summary;
         }
       }
@@ -797,17 +841,30 @@ ExportSummary ExportTracksToDirectory(const fs::path& session_directory,
     if (!writer_finalized) {
       summary.partial = true;
       std::error_code remove_error;
-      fs::remove(output_path, remove_error);
+      fs::remove(partial_output_path, remove_error);
       ++progress.tracks_completed;
       report_progress(progress);
       continue;
     }
     if (track_wrote_audio) {
-      summary.success = true;
-      ++summary.written_track_count;
+      std::error_code promote_error;
+      fs::rename(partial_output_path, output_path, promote_error);
+      if (promote_error) {
+        DebugLogf("remix-export",
+                  "Failed to promote output partial=%s final=%s error=%s",
+                  partial_output_path.string().c_str(),
+                  output_path.string().c_str(),
+                  promote_error.message().c_str());
+        summary.partial = true;
+        std::error_code remove_error;
+        fs::remove(partial_output_path, remove_error);
+      } else {
+        summary.success = true;
+        ++summary.written_track_count;
+      }
     } else {
       std::error_code remove_error;
-      fs::remove(output_path, remove_error);
+      fs::remove(partial_output_path, remove_error);
     }
     ++progress.tracks_completed;
     report_progress(progress);
@@ -997,8 +1054,9 @@ void RemixStemExporter::UpdateProgress(const RemixStemExportProgress& progress) 
 void RemixStemExporter::WorkerThreadLoop(const std::string session_directory,
                                          const RemixStemExportOptions options) {
   const fs::path session_path(session_directory);
-  const fs::path requested_output =
-      options.output_directory.empty()
+  const fs::path requested_output = options.use_output_directory_directly
+      ? fs::path(options.output_directory)
+      : options.output_directory.empty()
           ? (options.preserve_session_directory
                  ? (session_path / "wav-stems")
                  : (session_path.parent_path() /
@@ -1006,10 +1064,12 @@ void RemixStemExporter::WorkerThreadLoop(const std::string session_directory,
           : (fs::path(options.output_directory) /
              BuildWavStemDirectoryName(session_path));
   fs::path output_directory = requested_output;
-  for (int suffix = 2; fs::exists(output_directory); ++suffix) {
-    output_directory =
-        requested_output.parent_path() /
-        (requested_output.filename().string() + "-" + std::to_string(suffix));
+  if (!options.use_output_directory_directly) {
+    for (int suffix = 2; fs::exists(output_directory); ++suffix) {
+      output_directory =
+          requested_output.parent_path() /
+          (requested_output.filename().string() + "-" + std::to_string(suffix));
+    }
   }
   const auto started_at = std::chrono::steady_clock::now();
   auto report_progress = [&](RemixStemExportProgress progress) {
@@ -1037,7 +1097,9 @@ void RemixStemExporter::WorkerThreadLoop(const std::string session_directory,
               session_path.string().c_str(),
               output_directory.string().c_str());
     std::error_code cleanup_error;
-    fs::remove_all(output_directory, cleanup_error);
+    if (!options.use_output_directory_directly) {
+      fs::remove_all(output_directory, cleanup_error);
+    }
     {
       std::lock_guard<std::mutex> lock(state_mutex_);
       output_directory_.clear();

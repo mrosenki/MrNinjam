@@ -313,6 +313,19 @@ std::string CreateWavStemCaptureDirectory(const std::string& recordings_root) {
   return {};
 }
 
+std::string CaptureTimestampFromStemDirectory(const std::string& directory) {
+  const std::string name = std::filesystem::path(directory).filename().string();
+  constexpr std::string_view prefix = "wav-stems-";
+  constexpr std::string_view suffix = "-local";
+  if (name.size() <= prefix.size() + suffix.size() ||
+      name.rfind(prefix, 0) != 0 ||
+      name.compare(name.size() - suffix.size(), suffix.size(), suffix) != 0) {
+    return {};
+  }
+  return name.substr(prefix.size(),
+                     name.size() - prefix.size() - suffix.size());
+}
+
 std::string ChatParam(const char** parms, const int nparms, const int index) {
   if (parms == nullptr || index < 0 || index >= nparms || parms[index] == nullptr) {
     return {};
@@ -1001,9 +1014,21 @@ void NinjamBridge::MainThreadTick() {
     if (wav_stem_export_enabled && !completed_multitrack_directory.empty()) {
       RemixStemExportOptions options;
       options.output_directory = local_stem_capture_directory_;
+      options.filename_scope = "remote";
+      options.filename_timestamp =
+          CaptureTimestampFromStemDirectory(local_stem_capture_directory_);
       options.include_local_tracks = false;
       options.include_remote_tracks = true;
       options.preserve_session_directory = preserve_multitrack_directory;
+      options.use_output_directory_directly = true;
+      options.track_number_offset = 0;
+      for (int route_index = 0; route_index < kMaxSupportedLocalInputPairs;
+           ++route_index) {
+        const auto route = GetLocalInputRouteConfig(route_index);
+        if (route.configured && route.enabled) {
+          ++options.track_number_offset;
+        }
+      }
       options.bits_per_sample =
           session_capture_bits_per_sample_.load(std::memory_order_acquire);
       if (remix_stem_exporter_.Start(completed_multitrack_directory, options)) {
@@ -1435,7 +1460,9 @@ void NinjamBridge::ServiceSessionCaptureRecorder() {
   const bool should_record =
       recording_requested_.load(std::memory_order_acquire) &&
       session_capture_enabled_.load(std::memory_order_acquire) && IsProcessing();
-  if (should_record && !session_capture_recorder_.IsActive()) {
+  if (should_record && !session_capture_recorder_.IsActive() &&
+      !session_capture_start_attempted_) {
+    session_capture_start_attempted_ = true;
     const std::string recordings_dir =
         session_capture_directory_.empty() ? GetDefaultSessionCaptureDirectory()
                                            : session_capture_directory_;
@@ -1457,6 +1484,9 @@ void NinjamBridge::ServiceSessionCaptureRecorder() {
     DebugLogf("bridge", "Session capture stopping status=%s",
               session_capture_recorder_.GetStatusText().c_str());
     session_capture_recorder_.Stop();
+  }
+  if (!should_record) {
+    session_capture_start_attempted_ = false;
   }
 }
 
@@ -1531,6 +1561,8 @@ void NinjamBridge::ServiceLocalStemCaptureRecorders() {
   }
 
   bool started_any = false;
+  int stem_number = 0;
+  const auto connection_settings = GetConnectionSettings();
   for (int route_index = 0; route_index < kMaxSupportedLocalInputPairs;
        ++route_index) {
     const auto& route = routes[static_cast<std::size_t>(route_index)];
@@ -1540,12 +1572,14 @@ void NinjamBridge::ServiceLocalStemCaptureRecorders() {
     const std::string route_name =
         route.name.empty() ? "input-" + std::to_string(route_index + 1)
                            : route.name;
-    const std::string prefix =
-        "local-stem-" + std::to_string(route_index + 1) + "-" + route_name;
+    char numbered_scope[32];
+    std::snprintf(numbered_scope, sizeof(numbered_scope), "%02d-local",
+                  ++stem_number);
     if (local_stem_recorders_[static_cast<std::size_t>(route_index)].Start(
-            sample_rate_, local_stem_capture_directory_, "local", route_name,
+            sample_rate_, local_stem_capture_directory_, route_name,
+            connection_settings.user,
             session_capture_bits_per_sample_.load(std::memory_order_acquire),
-            prefix)) {
+            numbered_scope)) {
       started_any = true;
     }
   }
@@ -1677,6 +1711,9 @@ void NinjamBridge::ApplyConnectionSettings(const ConnectionSettings& settings) {
     server_license_consent_.ClearForServerChange();
     server_license_decision_pending_.store(false, std::memory_order_release);
     server_license_connection_stopped_.store(false, std::memory_order_release);
+  }
+  if (session_capture_directory_ != settings.recordings_path) {
+    session_capture_start_attempted_ = false;
   }
   connection_host_ = settings.host;
   connection_user_ = settings.user.empty() ? "anonymous" : settings.user;
@@ -2297,6 +2334,7 @@ double NinjamBridge::GetRemoteUserChannelMonitorPeakLevel(
 
 void NinjamBridge::SetSessionCaptureEnabled(const bool value) {
   session_capture_enabled_.store(value, std::memory_order_release);
+  session_capture_start_attempted_ = false;
   if (!value) {
     session_capture_recorder_.Stop();
   }
@@ -2322,6 +2360,10 @@ bool NinjamBridge::IsSessionCaptureActive() const {
   return session_capture_recorder_.IsActive();
 }
 
+SessionCaptureState NinjamBridge::GetSessionCaptureState() const {
+  return session_capture_recorder_.GetState();
+}
+
 std::string NinjamBridge::GetSessionCaptureStatusText() const {
   return session_capture_recorder_.GetStatusText();
 }
@@ -2341,6 +2383,7 @@ void NinjamBridge::SetRecordingRequested(const bool value) {
     return;
   }
   recording_requested_.store(value, std::memory_order_release);
+  session_capture_start_attempted_ = false;
   local_stem_capture_start_attempted_ = false;
   if (!value) {
     session_capture_recorder_.Stop();

@@ -6,9 +6,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <new>
+#include <string>
 #include <system_error>
 #include <thread>
 
@@ -568,6 +571,11 @@ int main() {
   double session_peak = 0.0;
   int first_voice_block = -1;
   int voice_source_block_at_first_output = -1;
+  int consecutive_normal_silence = 0;
+  int longest_normal_silence = 0;
+  bool normal_continuity_armed = false;
+  int normal_silence_start_block = -1;
+  int longest_normal_silence_block = -1;
   constexpr std::array<int, 6> kVariableFrames = {1, 64, 127, 128, 257, 512};
   report_phase("audio-start");
   for (int block = 0; block < 2500; ++block) {
@@ -613,6 +621,21 @@ int main() {
       std::cerr << "connected audio block failed\n";
       return 4;
     }
+    if (block >= 400 && block < 1000) {
+      for (int frame = 0; frame < block_frames; ++frame) {
+        if (std::fabs(output_left[static_cast<std::size_t>(frame)]) <= 1.0e-7F) {
+          if (!normal_continuity_armed) continue;
+          if (consecutive_normal_silence == 0) normal_silence_start_block = block;
+          longest_normal_silence =
+              std::max(longest_normal_silence, ++consecutive_normal_silence);
+          if (longest_normal_silence == consecutive_normal_silence)
+            longest_normal_silence_block = normal_silence_start_block;
+        } else {
+          normal_continuity_armed = true;
+          consecutive_normal_silence = 0;
+        }
+      }
+    }
     position += static_cast<double>(block_frames) / 48000.0;
     // Deliberately stall the codec worker long enough to saturate the prepared
     // local SPSC ring while the protocol/network service remains connected.
@@ -631,6 +654,8 @@ int main() {
       first_voice_block = block;
       voice_source_block_at_first_output = server.latest_voice_upload_block();
     }
+    if (block >= 400 && block < 1000)
+      std::this_thread::sleep_for(std::chrono::milliseconds(3));
     CooperativeSchedule(block);
   }
   report_phase("audio-complete");
@@ -837,7 +862,16 @@ int main() {
   for (const auto& entry : std::filesystem::recursive_directory_iterator(recordings_root))
     if (entry.is_regular_file()) ++recorded_file_count;
 
+  const std::filesystem::path completed_multitrack =
+      bridge.GetMultitrackCaptureDirectory();
   bridge.SetRecordingRequested(false);
+  bridge.MainThreadTick();
+  std::ifstream clipsort(completed_multitrack / "clipsort.log");
+  const std::string clipsort_text{
+      std::istreambuf_iterator<char>(clipsort), std::istreambuf_iterator<char>()};
+  const bool clipsort_has_interval = clipsort_text.find("interval ") != std::string::npos;
+  const bool clipsort_has_remote = clipsort_text.find("user ") != std::string::npos ||
+      clipsort_text.find("sessionlog ") != std::string::npos;
   bridge.SetConnectRequested(false);
   secondary_bridge.SetConnectRequested(false);
   const bool final_disconnect = WaitFor(std::chrono::seconds(3), [&] {
@@ -915,6 +949,17 @@ int main() {
     std::cerr << "missing decoded return normal=" << normal_peak
               << " voice=" << voice_peak
               << " voice2=" << second_voice_peak << '\n';
+    return 7;
+  }
+  if (longest_normal_silence >= 64) {
+    std::cerr << "normal return contained an interval-boundary gap frames="
+              << longest_normal_silence << " block="
+              << longest_normal_silence_block << '\n';
+    return 7;
+  }
+  if (!clipsort_has_interval || !clipsort_has_remote) {
+    std::cerr << "clipsort metadata omitted interval or remote records path="
+              << completed_multitrack.string() << '\n';
     return 7;
   }
   if (session_peak <= 0.0 || server.session_messages() == 0 || recorded_file_count == 0U) {

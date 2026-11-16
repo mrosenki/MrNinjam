@@ -127,9 +127,8 @@ int main() {
     std::cerr << "Multi-input ProcessAudio failed\n";
     return EXIT_FAILURE;
   }
-  if (!BufferEquals(SumBuffers(in_left, aux_left), out_left) ||
-      !BufferEquals(SumBuffers(in_right, aux_right), out_right)) {
-    std::cerr << "Default multi-input dry path mismatch\n";
+  if (!BufferEquals(in_left, out_left) || !BufferEquals(in_right, out_right)) {
+    std::cerr << "Single-route default dry path mismatch\n";
     return EXIT_FAILURE;
   }
 

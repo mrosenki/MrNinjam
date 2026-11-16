@@ -25,9 +25,13 @@ struct RemixSessionPreflight {
 
 struct RemixStemExportOptions {
   std::string output_directory;
+  std::string filename_scope;
+  std::string filename_timestamp;
   bool include_local_tracks = true;
   bool include_remote_tracks = true;
   bool preserve_session_directory = true;
+  bool use_output_directory_directly = false;
+  int track_number_offset = 0;
   int bits_per_sample = 32;
 };
 

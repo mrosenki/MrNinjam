@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdlib>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -30,10 +31,39 @@ int main() {
 
   std::vector<float> left(512, 0.25f);
   std::vector<float> right(512, -0.25f);
+  {
+    mrninjam::core::SessionCaptureRecorder recorder;
+    if (recorder.GetState() != mrninjam::core::SessionCaptureState::kIdle) {
+      std::cerr << "Recorder did not begin idle\n";
+      return EXIT_FAILURE;
+    }
+    if (recorder.Start(0.0, test_dir.string(), "invalid.host", "tester") ||
+        recorder.GetState() != mrninjam::core::SessionCaptureState::kFailed ||
+        recorder.GetStatusText().find("invalid sample rate") == std::string::npos) {
+      std::cerr << "Invalid sample rate did not produce a stable failure state\n";
+      return EXIT_FAILURE;
+    }
+
+    const fs::path path_blocker = test_dir / "not-a-directory";
+    std::ofstream(path_blocker) << "fixture";
+    if (recorder.Start(48000.0, (path_blocker / "capture").string(),
+                       "invalid.host", "tester") ||
+        recorder.GetState() != mrninjam::core::SessionCaptureState::kFailed ||
+        recorder.GetStatusText().find("cannot create recordings folder") ==
+            std::string::npos) {
+      std::cerr << "Invalid output location did not produce a stable failure state\n";
+      return EXIT_FAILURE;
+    }
+  }
   for (const int bits : {16, 24, 32}) {
     mrninjam::core::SessionCaptureRecorder recorder;
     if (!recorder.Start(48000.0, test_dir.string(), "test.host", "tester", bits)) {
       std::cerr << "Recorder failed to start: " << recorder.GetStatusText() << "\n";
+      return EXIT_FAILURE;
+    }
+    if (recorder.GetState() !=
+        mrninjam::core::SessionCaptureState::kRecording) {
+      std::cerr << "Started recorder did not publish the recording state\n";
       return EXIT_FAILURE;
     }
     recorder.Push(left.data(), right.data(), left.size());
@@ -45,6 +75,11 @@ int main() {
       return EXIT_FAILURE;
     }
     recorder.Stop();
+    if (recorder.GetState() !=
+        mrninjam::core::SessionCaptureState::kCompleted) {
+      std::cerr << "Clean stop did not publish the completed state\n";
+      return EXIT_FAILURE;
+    }
     const std::string file_path = recorder.GetActiveFilePath();
     if (file_path.empty() || !fs::exists(file_path) || fs::file_size(file_path) <= 44) {
       std::cerr << "Expected " << bits << "-bit WAV output was not created\n";
@@ -88,6 +123,12 @@ int main() {
       std::cerr << "Asynchronous stop did not close the capture input gate\n";
       return EXIT_FAILURE;
     }
+    const auto stop_state = recorder.GetState();
+    if (stop_state != mrninjam::core::SessionCaptureState::kFinalizing &&
+        stop_state != mrninjam::core::SessionCaptureState::kCompleted) {
+      std::cerr << "Asynchronous stop did not publish finalization progress\n";
+      return EXIT_FAILURE;
+    }
     for (int attempt = 0;
          recorder.GetActiveFilePath() == partial_file_path && attempt < 500;
          ++attempt) {
@@ -108,6 +149,11 @@ int main() {
     recorder.Stop();
     if (recorder.NeedsCleanup()) {
       std::cerr << "Stop did not reap the asynchronously finalized writer\n";
+      return EXIT_FAILURE;
+    }
+    if (recorder.GetState() !=
+        mrninjam::core::SessionCaptureState::kCompleted) {
+      std::cerr << "Asynchronous finalization did not publish completion\n";
       return EXIT_FAILURE;
     }
   }
@@ -324,6 +370,27 @@ int main() {
         preflight.estimated_duration_seconds != 4.0 ||
         !fs::exists(raw_session / "clipsort.log")) {
       std::cerr << "RAW NINJAM session preflight returned bad data\n";
+      return EXIT_FAILURE;
+    }
+
+    const fs::path session_mode_raw = test_dir / "session-mode-raw";
+    fs::create_directories(session_mode_raw, error);
+    {
+      std::ofstream clipsort(session_mode_raw / "clipsort.log");
+      clipsort
+          << "sessionlog cccccccccccccccccccccccccccccccc Musician 1 Voice 1.5 2.25\n"
+          << "localsessionlog dddddddddddddddddddddddddddddddd local 0 Guitar 0.25 4.0\n";
+    }
+    const auto session_mode_preflight =
+        mrninjam::core::InspectRemixSession(session_mode_raw.string());
+    if (!session_mode_preflight.valid ||
+        session_mode_preflight.track_count != 2 ||
+        session_mode_preflight.clip_count != 2 ||
+        session_mode_preflight.local_track_names.size() != 1 ||
+        session_mode_preflight.remote_track_names.size() != 1 ||
+        std::fabs(session_mode_preflight.estimated_duration_seconds - 4.25) >
+            0.001) {
+      std::cerr << "Session-mode clipsort records were not imported\n";
       return EXIT_FAILURE;
     }
 

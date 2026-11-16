@@ -249,6 +249,7 @@ class NinjamBridge {
   int GetSessionCaptureBitsPerSample() const;
   bool IsSessionCaptureEnabled() const;
   bool IsSessionCaptureActive() const;
+  SessionCaptureState GetSessionCaptureState() const;
   std::string GetSessionCaptureStatusText() const;
   std::string GetSessionCaptureDirectory() const;
   void SetRecordingRequested(bool value);
@@ -529,13 +530,6 @@ class NinjamBridge {
                                       kLocalInputSendLevelDefault,
                                       kLocalInputMonitorLevelDefault,
                                       0, 0, 2, {}};
-    routes[1] = LocalInputRouteConfig{true,
-                                      false,
-                                      true,
-                                      1,
-                                      kLocalInputSendLevelDefault,
-                                      kLocalInputMonitorLevelDefault,
-                                      0, 2, 2, {}};
     return routes;
   }();
   std::array<LocalInputRouteConfig, kMaxSupportedLocalInputPairs> applied_local_input_routes_ = [] {
@@ -547,13 +541,6 @@ class NinjamBridge {
                                       kLocalInputSendLevelDefault,
                                       kLocalInputMonitorLevelDefault,
                                       0, 0, 2, {}};
-    routes[1] = LocalInputRouteConfig{true,
-                                      false,
-                                      true,
-                                      1,
-                                      kLocalInputSendLevelDefault,
-                                      kLocalInputMonitorLevelDefault,
-                                      0, 2, 2, {}};
     return routes;
   }();
   mutable std::mutex local_input_routes_mutex_;
@@ -615,6 +602,8 @@ class NinjamBridge {
   std::atomic_bool wav_stem_export_enabled_{false};
   std::atomic_bool multitrack_wav_clips_enabled_{false};
   mutable SessionCaptureRecorder session_capture_recorder_;
+  // Main-thread policy latch: one start attempt per explicit request/config.
+  bool session_capture_start_attempted_ = false;
   mutable std::array<SessionCaptureRecorder, kMaxSupportedLocalInputPairs>
       local_stem_recorders_{};
   mutable RemixStemExporter remix_stem_exporter_;

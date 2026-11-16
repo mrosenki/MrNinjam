@@ -257,11 +257,16 @@ int main() {
     return EXIT_FAILURE;
   }
   bridge.MainThreadTick();
+  if (bridge.GetLocalInputRouteCount() != 1 ||
+      bridge.GetLocalInputRouteConfig(0).source_pair_index != 0) {
+    std::cerr << "New instances should expose only Input 1/2 by default\n";
+    return EXIT_FAILURE;
+  }
   if (bridge.AddLocalInputRoute() < 0 || bridge.AddLocalInputRoute() < 0) {
     std::cerr << "Dynamic local input routes could not be added\n";
     return EXIT_FAILURE;
   }
-  if (bridge.GetLocalInputRouteCount() < 4) {
+  if (bridge.GetLocalInputRouteCount() != 3) {
     std::cerr << "Local input route layout did not expand after Add requests\n";
     return EXIT_FAILURE;
   }

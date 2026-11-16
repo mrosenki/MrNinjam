@@ -6,6 +6,27 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.17 - DAW test build
+
+- Publish explicit Session Mix WAV starting, recording, finalizing, completed,
+  recoverable, and failed states.
+- Attempt Session Mix WAV startup once per user request so invalid destinations
+  and writer failures remain visible instead of being retried continuously.
+- Render server topic, join, and leave notices in muted UI grey so participant
+  chat colours remain visually distinct.
+- Prepare decoded remote audio for the next interval before its BPI boundary,
+  avoiding a host-block gap and crackle at interval rollover.
+- Restore interval and remote-track records in RAW-session `clipsort.log` files
+  and accept session-mode records during WAV-stem export and RAW import.
+- Keep remote WAV stems under `.partial` names until their writers finalize,
+  and report Exporting until all selected recording outputs are actually done.
+- Restore saved DAW projects disconnected because passwords and live connection
+  requests are intentionally transient rather than project state.
+- Place local and remote WAV stems in one capture folder with sortable scope,
+  timestamp, participant, and channel names suited to direct DAW import.
+- Show only Input 1/2 on new instances; additional inputs remain available
+  through Add and saved projects retain their explicit route layouts.
+
 ## 0.2.16 - DAW test build
 
 - Prepare the local channel topology before opening a connection so reconnect

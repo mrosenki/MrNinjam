@@ -947,8 +947,13 @@ void MrNinjamNJClient::AudioProc(
   }
 }
 
-void MrNinjamNJClient::BeginWorkerInterval(std::uint64_t generation) {
+void MrNinjamNJClient::BeginWorkerInterval(const std::uint64_t generation,
+                                           const int cursor) {
   auto& state = *realtime_;
+  writeLog("interval %llu %.2f %d\n",
+      static_cast<unsigned long long>(generation),
+      static_cast<double>(state.pending_bpm.load(std::memory_order_acquire)),
+      state.pending_bpi.load(std::memory_order_acquire));
   m_users_cs.Enter();
   for (int user_index = 0; user_index < m_remoteusers.GetSize(); ++user_index) {
     RemoteUser* user = m_remoteusers.Get(user_index);
@@ -966,12 +971,15 @@ void MrNinjamNJClient::BeginWorkerInterval(std::uint64_t generation) {
       else delete channel.next_ds[0];
       channel.next_ds[0] = channel.next_ds[1];
       channel.next_ds[1] = nullptr;
-      if (channel.ds) channel.ds->applyOverlap(&fade);
+      if (channel.ds) {
+        channel.ds->applyOverlap(&fade);
+        writeUserChanLog("", user, &channel, channel_index);
+      }
     }
   }
   m_users_cs.Leave();
   state.worker_interval_generation = generation;
-  state.normal_cursor = state.published_position.load(std::memory_order_acquire);
+  state.normal_cursor = cursor;
 }
 
 void MrNinjamNJClient::ProcessLocalHandoff() {
@@ -1204,48 +1212,67 @@ void MrNinjamNJClient::RenderLiveRemote() {
       std::min<std::size_t>(state.maximum_frames * 2U, 8192U)));
   std::lock_guard<std::mutex> pipeline(state.pipeline_mutex);
   m_srate = sample_rate;
-  if (generation != state.worker_interval_generation) BeginWorkerInterval(generation);
-  state.normal_cursor = std::max(state.normal_cursor, audio_position);
-  const int render_end = std::min(interval_length, audio_position + lookahead);
+  if (state.worker_interval_generation < generation ||
+      state.worker_interval_generation > generation + 1U) {
+    BeginWorkerInterval(generation, audio_position);
+  }
+  if (state.worker_interval_generation == generation)
+    state.normal_cursor = std::max(state.normal_cursor, audio_position);
   const auto topology = state.topology_generation.load(std::memory_order_acquire);
 
   m_users_cs.Enter();
-  while (state.normal_cursor < render_end) {
-    const int count = std::min(kPacketFrames, render_end - state.normal_cursor);
-    for (int user_index = 0; user_index < m_remoteusers.GetSize(); ++user_index) {
-      RemoteUser* user = m_remoteusers.Get(user_index);
-      if (user == nullptr) continue;
-      for (int channel_index = 0; channel_index < MAX_USER_CHANNELS; ++channel_index) {
-        const int mask = 1 << channel_index;
-        auto& channel = user->channels[channel_index];
-        if ((user->chanpresentmask & user->submask & mask) == 0 ||
-            (channel.flags & (2 | 4)) != 0) continue;
-        state.scratch_left.fill(0.0F);
-        state.scratch_right.fill(0.0F);
-        float* destination[2] = {state.scratch_left.data(), state.scratch_right.data()};
-        mixInChannel(user, user_index, channel_index, false, 1.0F, 0.0F,
-            destination, 0, count, sample_rate, 2, 0, 1.0, true, false, -1.0);
-        if (!HasSignal(state.scratch_left.data(), state.scratch_right.data(), count)) continue;
-        RemotePacket packet;
-        packet.topology_generation = topology;
-        packet.time_generation = generation;
-        packet.timeline = state.normal_cursor;
-        packet.user = user_index;
-        packet.channel = channel_index;
-        packet.frames = count;
-        packet.channels = channel.ds && channel.ds->decode_codec &&
-            channel.ds->decode_codec->GetNumChannels() > 1 ? 2 : 1;
-        packet.output = channel.out_chan_index + m_remote_chanoffs;
-        packet.volume = user->volume * channel.volume;
-        packet.pan = std::clamp(user->pan + channel.pan, -1.0F, 1.0F);
-        packet.muted = user->muted || (user->mutedmask & mask) != 0;
-        std::copy_n(state.scratch_left.data(), count, packet.left.data());
-        std::copy_n(state.scratch_right.data(), count, packet.right.data());
-        if (!state.normal.Push(packet))
-          state.normal_overflow.fetch_add(1U, std::memory_order_relaxed);
+  for (int interval = 0; interval < 2; ++interval) {
+    const bool preparing_next = state.worker_interval_generation == generation + 1U;
+    const int render_end = preparing_next
+        ? std::min(interval_length, lookahead)
+        : std::min(interval_length, audio_position + lookahead);
+    while (state.normal_cursor < render_end) {
+      const int count = std::min(kPacketFrames, render_end - state.normal_cursor);
+      for (int user_index = 0; user_index < m_remoteusers.GetSize(); ++user_index) {
+        RemoteUser* user = m_remoteusers.Get(user_index);
+        if (user == nullptr) continue;
+        for (int channel_index = 0; channel_index < MAX_USER_CHANNELS; ++channel_index) {
+          const int mask = 1 << channel_index;
+          auto& channel = user->channels[channel_index];
+          if ((user->chanpresentmask & user->submask & mask) == 0 ||
+              (channel.flags & (2 | 4)) != 0) continue;
+          state.scratch_left.fill(0.0F);
+          state.scratch_right.fill(0.0F);
+          float* destination[2] = {
+              state.scratch_left.data(), state.scratch_right.data()};
+          mixInChannel(user, user_index, channel_index, false, 1.0F, 0.0F,
+              destination, 0, count, sample_rate, 2, 0, 1.0, true, false, -1.0);
+          if (!HasSignal(state.scratch_left.data(), state.scratch_right.data(), count))
+            continue;
+          RemotePacket packet;
+          packet.topology_generation = topology;
+          packet.time_generation = state.worker_interval_generation;
+          packet.timeline = state.normal_cursor;
+          packet.user = user_index;
+          packet.channel = channel_index;
+          packet.frames = count;
+          packet.channels = channel.ds && channel.ds->decode_codec &&
+              channel.ds->decode_codec->GetNumChannels() > 1 ? 2 : 1;
+          packet.output = channel.out_chan_index + m_remote_chanoffs;
+          packet.volume = user->volume * channel.volume;
+          packet.pan = std::clamp(user->pan + channel.pan, -1.0F, 1.0F);
+          packet.muted = user->muted || (user->mutedmask & mask) != 0;
+          std::copy_n(state.scratch_left.data(), count, packet.left.data());
+          std::copy_n(state.scratch_right.data(), count, packet.right.data());
+          if (!state.normal.Push(packet))
+            state.normal_overflow.fetch_add(1U, std::memory_order_relaxed);
+        }
       }
+      state.normal_cursor += count;
     }
-    state.normal_cursor += count;
+    if (preparing_next || state.normal_cursor < interval_length) break;
+
+    // Decode the start of the next interval before the audio callback reaches
+    // its boundary. Waiting for the published generation to change leaves one
+    // host block empty because decoder promotion belongs to this worker.
+    m_users_cs.Leave();
+    BeginWorkerInterval(generation + 1U, 0);
+    m_users_cs.Enter();
   }
 
   const auto active_voice_channels = static_cast<std::size_t>(
