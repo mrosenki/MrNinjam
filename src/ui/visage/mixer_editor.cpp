@@ -2894,7 +2894,8 @@ public:
                                     16.0f, 1.5f);
     }
     DrawText(canvas, "LIVE SESSION", 10.0f, kCyan, 18.0f, 14.0f, 120.0f, 18.0f);
-    DrawButton(canvas, "LOGS", width() - 68.0f, 10.0f, 50.0f, 24.0f);
+    DrawButton(canvas, "LOGS", width() - 68.0f, 10.0f, 50.0f, 24.0f,
+               state_.diagnostic_logging_enabled, kCyan);
     DrawText(canvas, state_.connection_state_text, 22.0f, kText,
              18.0f, 36.0f, width() - 36.0f, 30.0f);
     DrawText(canvas, state_.session_identity_text, 11.0f, kTextMuted,

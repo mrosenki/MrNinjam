@@ -1023,40 +1023,7 @@ void NinjamBridge::MainThreadTick() {
   } else if (!multitrack_capture_enabled && !wav_stem_export_enabled) {
     multitrack_capture_status_text_ = "Idle";
   }
-  if (!connection_host_.empty() && connect_requested && !awaiting_server_license) {
-    const bool reconnect_cooldown_elapsed =
-        disconnect_completed_ms_ == 0 ||
-        (now_ms - disconnect_completed_ms_) >= kReconnectCooldownMs;
-    const bool disconnected_retry_due =
-        status == NJClient::NJC_STATUS_DISCONNECTED &&
-        (last_connect_attempt_ms_ == 0 ||
-         (now_ms - last_connect_attempt_ms_) >= kReconnectRetryIntervalMs);
-    const bool initial_attempt_due =
-        !connect_attempt_started_ &&
-        (status == NJClient::NJC_STATUS_DISCONNECTED ||
-         status == NJClient::NJC_STATUS_PRECONNECT);
-    if (reconnect_cooldown_elapsed &&
-        (initial_attempt_due || disconnected_retry_due)) {
-      DebugLogf("bridge",
-                "Connect attempt prev_status=%s attempt_started=%d",
-                NJStatusName(status),
-                connect_attempt_started_ ? 1 : 0);
-      {
-        std::lock_guard<std::mutex> lock(client_mutex_);
-        if (client_ != nullptr) {
-          client_->Connect(connection_host_.data(),
-                           connection_user_.data(),
-                           connection_pass_.data());
-        }
-      }
-      connect_attempt_started_ = true;
-      last_connect_attempt_ms_ = now_ms;
-      connect_attempt_started_ms_ = now_ms;
-      connect_timeout_reported_ = false;
-      ++connect_attempt_count_;
-      DebugLogf("bridge", "Connect attempt count=%d", connect_attempt_count_);
-    }
-  } else if (!awaiting_server_license) {
+  if ((connection_host_.empty() || !connect_requested) && !awaiting_server_license) {
     const bool runtime_needs_disconnect =
         status != NJClient::NJC_STATUS_DISCONNECTED &&
         status != NJClient::NJC_STATUS_PRECONNECT;
@@ -1180,6 +1147,48 @@ void NinjamBridge::MainThreadTick() {
                 GetLocalInputChannelConfig(1).enabled ? 1 : 0,
                 transmit_channel_index,
                 (connect_requested && status == NJClient::NJC_STATUS_OK) ? 1 : 0);
+    }
+  }
+
+  // Build the local channel topology before opening a new socket. Upstream
+  // DeleteLocalChannel() automatically queues a channel-info message whenever
+  // a socket exists. Rebuilding immediately after Connect() therefore placed
+  // that message ahead of the required authentication reply on reconnect, and
+  // the server correctly rejected the malformed sequence as an invalid
+  // authorization reply. NJClient publishes the prepared topology itself once
+  // authentication succeeds.
+  if (!connection_host_.empty() && connect_requested && !awaiting_server_license) {
+    const bool reconnect_cooldown_elapsed =
+        disconnect_completed_ms_ == 0 ||
+        (now_ms - disconnect_completed_ms_) >= kReconnectCooldownMs;
+    const bool disconnected_retry_due =
+        status == NJClient::NJC_STATUS_DISCONNECTED &&
+        (last_connect_attempt_ms_ == 0 ||
+         (now_ms - last_connect_attempt_ms_) >= kReconnectRetryIntervalMs);
+    const bool initial_attempt_due =
+        !connect_attempt_started_ &&
+        (status == NJClient::NJC_STATUS_DISCONNECTED ||
+         status == NJClient::NJC_STATUS_PRECONNECT);
+    if (reconnect_cooldown_elapsed &&
+        (initial_attempt_due || disconnected_retry_due)) {
+      DebugLogf("bridge",
+                "Connect attempt prev_status=%s attempt_started=%d",
+                NJStatusName(status),
+                connect_attempt_started_ ? 1 : 0);
+      {
+        std::lock_guard<std::mutex> lock(client_mutex_);
+        if (client_ != nullptr) {
+          client_->Connect(connection_host_.data(),
+                           connection_user_.data(),
+                           connection_pass_.data());
+        }
+      }
+      connect_attempt_started_ = true;
+      last_connect_attempt_ms_ = now_ms;
+      connect_attempt_started_ms_ = now_ms;
+      connect_timeout_reported_ = false;
+      ++connect_attempt_count_;
+      DebugLogf("bridge", "Connect attempt count=%d", connect_attempt_count_);
     }
   }
 

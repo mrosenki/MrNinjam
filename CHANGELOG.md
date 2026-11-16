@@ -6,6 +6,15 @@ behaviour while patch versions contain compatible fixes and refinements. Host
 identity, parameter identity, and saved-state compatibility are maintained
 independently of the package version.
 
+## 0.2.16 - DAW test build
+
+- Prepare the local channel topology before opening a connection so reconnect
+  authentication remains the first protocol exchange and cannot be preceded by
+  stale channel information.
+- Highlight the LOGS button while privacy-safe diagnostic logging is enabled.
+- Retain regression coverage for receive layout refresh and the connected
+  real-time pipeline while correcting reconnect packet ordering.
+
 ## 0.2.15 - DAW test build
 
 - Preserve collapsed RECEIVE channel heights across continuous remote-state
