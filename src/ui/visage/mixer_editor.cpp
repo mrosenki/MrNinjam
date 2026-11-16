@@ -549,7 +549,6 @@ public:
     meter_right_.Push(state.activity_right);
     monitor_meter_left_.Push(state.monitor_activity_left);
     monitor_meter_right_.Push(state.monitor_activity_right);
-    layout().setHeight(178_px);
     redraw();
   }
 
@@ -2448,6 +2447,7 @@ public:
           row->layout().setMarginBottom(collapsed ? 0_px : 10_px);
           row->setVisible(!collapsed);
         }
+        scroll_.computeLayout();
         updateRemoteScrollableHeight();
         scroll_.computeLayout();
         scroll_.redraw();
@@ -2567,6 +2567,7 @@ public:
     event.button_state = visage::kMouseButtonLeft;
     event.position = { 12.0f, 12.0f };
     const float expanded_content_height = scroll_.scrollableHeight();
+    scroll_.setYPosition(std::max(0.0f, expanded_content_height - scroll_.height()));
     group->header->mouseDown(event);
     if (!group->header->collapsed())
       errors.emplace_back("remote participant header did not collapse");
@@ -2574,9 +2575,33 @@ public:
       if (row->isVisible())
         errors.emplace_back(row->name() + " remains visible after participant collapse");
     }
+    // Remote state is refreshed continuously while connected. A refresh must
+    // not restore the normal row height while the participant remains
+    // collapsed, otherwise the invisible rows reopen a large layout gap on
+    // the next redraw, resize, or scroll event.
+    for (ChannelStrip* row : group->rows)
+      row->setRemoteState(RemoteChannelState{});
+    scroll_.computeLayout();
+    updateRemoteScrollableHeight();
+    scroll_.computeLayout();
+    for (const ChannelStrip* row : group->rows) {
+      if (row->height() > 1.0f)
+        errors.emplace_back(row->name() +
+                            " restored hidden spacing after remote state refresh");
+    }
     if (!group->rows.empty() &&
         scroll_.scrollableHeight() >= expanded_content_height - 100.0f)
       errors.emplace_back("collapsed participant rows did not release their scroll spacing");
+    const float collapsed_max_scroll =
+        std::max(0.0f, scroll_.scrollableHeight() - scroll_.height());
+    if (scroll_.yPosition() > collapsed_max_scroll + 1.0f)
+      errors.emplace_back("participant collapse did not clamp the receive scroll position");
+    if (remote_groups_.size() > 1) {
+      const ParticipantGroup* next_group = remote_groups_[1].get();
+      const float expected_next_top = group->header->y() + group->header->height() + 6.0f;
+      if (std::fabs(next_group->header->y() - expected_next_top) > 1.0f)
+        errors.emplace_back("collapsed participant left stale spacing before the next participant");
+    }
     group->header->mouseDown(event);
     if (group->header->collapsed())
       errors.emplace_back("remote participant header did not expand");
@@ -2869,7 +2894,8 @@ public:
                                     16.0f, 1.5f);
     }
     DrawText(canvas, "LIVE SESSION", 10.0f, kCyan, 18.0f, 14.0f, 120.0f, 18.0f);
-    DrawButton(canvas, "LOGS", width() - 68.0f, 10.0f, 50.0f, 24.0f);
+    DrawButton(canvas, "LOGS", width() - 68.0f, 10.0f, 50.0f, 24.0f,
+               state_.diagnostic_logging_enabled, kCyan);
     DrawText(canvas, state_.connection_state_text, 22.0f, kText,
              18.0f, 36.0f, width() - 36.0f, 30.0f);
     DrawText(canvas, state_.session_identity_text, 11.0f, kTextMuted,

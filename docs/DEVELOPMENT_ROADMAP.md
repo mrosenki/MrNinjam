@@ -28,6 +28,11 @@ officially distributed release. Its MrNinjam-only naming and compatibility
 cleanup passed focused REAPER and Bitwig validation in CLAP and VST3, followed
 by Linux, Windows, and macOS CI on the merged commit.
 
+Version `0.2.16` is the current DAW-validated integration candidate. Its
+collapsed RECEIVE layout and reconnect authentication-order corrections pass
+focused Bitwig CLAP and REAPER VST3 testing; cross-platform CI and merge remain
+the gates before it replaces `0.2.13` as the accepted `main` baseline.
+
 Implemented, automated, and already DAW validated in the integration line:
 
 - permanent CLAP and VST3 identities, one Visage production editor, and
@@ -75,10 +80,22 @@ Current repository gate:
    focused REAPER and Bitwig checks, branch CI, and post-merge `main` CI pass.
    The hosts covered load, connection/consent/reconnect, recall, audio, meters,
    monitoring, WAV recording, instance lifecycle, and shutdown.
+8. **Completed:** the architecture audit in #7 documented ownership and
+   lifecycle boundaries and created focused follow-up issues #15, #16, and #17
+   instead of beginning an unbounded rewrite.
+9. **DAW validated; integration pending:** `0.2.15` resolves #20 by preserving
+   collapsed RECEIVE layout through live-state refresh, scrolling, and resize.
+   The correction passes focused Bitwig CLAP and REAPER VST3 checks.
+10. **DAW validated; integration pending:** `0.2.16` resolves #19 by preparing
+    local channel topology before opening the reconnect socket, keeping the
+    authentication reply first in the protocol exchange. First-attempt
+    reconnect and active LOGS highlighting pass in Bitwig CLAP and REAPER VST3;
+    all 31 local tests pass.
 
 Still requiring product work or broader hands-on evidence:
 
-- the substantive architecture and code-quality audit (#7);
+- focused architecture follow-ups for the CLAP adapter, editor controller, and
+  NINJAM bridge (#15, #16, and #17);
 - representative CLAP/VST3 session and legacy-client interoperability (#5);
 - recording eligibility, failure reporting, finalisation, recovery, and
   exported-content validation (#1);
@@ -112,21 +129,24 @@ Open at this boundary:
 - #8, #7, and #5 continue after the integration merge rather than
   enlarging the current branch stack.
 
-### Next `0.2.x` milestone — Consent, naming, and controlled sessions
+### Next `0.2.x` milestone — Controlled sessions and focused decomposition
 
-Objective: require explicit consent for server terms, remove unsupported
-pre-release compatibility debt, complete the high-risk architecture review,
-and then broaden representative session validation.
+Objective: broaden representative session validation from the stable `0.2.16`
+candidate, then reduce structural risk through the focused ownership boundaries
+identified by the completed architecture audit.
 
 Work, in order:
 
-1. Complete the evidence-driven architecture audit in
-   [#7](https://github.com/mrosenki/MrNinjam/issues/7), beginning with a
-   component/ownership map and focused decomposition issues rather than a
-   broad rewrite.
+1. Finish integration of the DAW-validated `0.2.16` RECEIVE-layout and
+   reconnect corrections after cross-platform CI.
 2. Run the controlled matrix in
    [#5](https://github.com/mrosenki/MrNinjam/issues/5) across both hosts and
    formats, creating focused issues for reproducible findings.
+3. Schedule the bounded decomposition issues
+   [#15](https://github.com/mrosenki/MrNinjam/issues/15),
+   [#16](https://github.com/mrosenki/MrNinjam/issues/16), and
+   [#17](https://github.com/mrosenki/MrNinjam/issues/17) around validated
+   product work; preserve behaviour and avoid a simultaneous broad rewrite.
 
 ### Recording and recovery reliability
 
@@ -198,9 +218,9 @@ testing unless it exposes a direct safety or compatibility problem.
 ## Issue hygiene and change safeguards
 
 - Keep one focused issue and PR per unrelated change.
-- Use [#7](https://github.com/mrosenki/MrNinjam/issues/7) as the continuing
-  architecture and code-quality review track; observed symptoms still receive
-  focused issues and regression tests rather than accumulating local patches.
+- Use #15, #16, and #17 as the bounded architecture follow-ups from the
+  completed #7 audit; observed symptoms still receive focused issues and
+  regression tests rather than accumulating local patches.
 - Record whether evidence is automated, controlled-fixture, or hands-on DAW
   testing.
 - Turn reproducible DAW/session findings into focused issues; do not commit
