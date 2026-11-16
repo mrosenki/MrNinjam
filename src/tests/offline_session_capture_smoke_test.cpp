@@ -161,9 +161,9 @@ int main() {
   for (const auto& entry : fs::directory_iterator(stem_directory)) {
     if (entry.path().extension() == ".wav") {
       const std::string name = entry.path().filename().string();
-      if (name.find("local-stem-1") != std::string::npos) {
+      if (name.rfind("01-local-", 0) == 0) {
         first_stem_path = entry.path();
-      } else if (name.find("local-stem-2") != std::string::npos) {
+      } else if (name.rfind("02-local-", 0) == 0) {
         second_stem_path = entry.path();
       }
     }

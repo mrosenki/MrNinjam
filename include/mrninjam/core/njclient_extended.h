@@ -94,7 +94,7 @@ class MrNinjamNJClient final : public NJClient {
   void CodecWorkerLoop();
   void SessionWorkerLoop();
   void PublishControlSnapshot();
-  void BeginWorkerInterval(std::uint64_t generation);
+  void BeginWorkerInterval(std::uint64_t generation, int cursor);
   void ProcessLocalHandoff();
   void RenderLiveRemote();
   void RenderSessionRemote();

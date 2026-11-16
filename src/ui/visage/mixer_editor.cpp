@@ -4217,7 +4217,7 @@ private:
 
   static unsigned int ParticipantColor(const std::string& line) {
     if (IsServerMessage(line))
-      return BlendColor(kTextMuted, kAmber, 0.55f);
+      return kTextMuted;
     const std::size_t separator = line.find(':');
     if (separator == std::string::npos || separator == 0)
       return kTextMuted;

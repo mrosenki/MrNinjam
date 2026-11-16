@@ -65,6 +65,8 @@ std::string BuildEditorRecordingStatusText(const bool session_mix_selected,
                                            const bool recording_requested,
                                            const bool any_active,
                                            const bool wav_stem_export_active,
+                                           const mrninjam::core::SessionCaptureState
+                                               session_capture_state,
                                            const std::string& session_status_text,
                                            const std::string& wav_stem_status_text,
                                            const std::string& remix_status_text) {
@@ -74,8 +76,34 @@ std::string BuildEditorRecordingStatusText(const bool session_mix_selected,
   if (any_active) {
     return "Recording";
   }
+  // Remote WAV stems are finalized asynchronously after RAW capture stops.
+  // Do not let an already-completed Session Mix WAV make the combined status
+  // claim that every selected output has been saved.
   if (wav_stem_export_active) {
     return "Exporting";
+  }
+  if (session_mix_selected) {
+    if (session_capture_state ==
+        mrninjam::core::SessionCaptureState::kStarting) {
+      return "Starting";
+    }
+    if (session_capture_state ==
+        mrninjam::core::SessionCaptureState::kFinalizing) {
+      return "Finalizing";
+    }
+    if (session_capture_state ==
+        mrninjam::core::SessionCaptureState::kRecoverable) {
+      return "Recording incomplete";
+    }
+    if (session_capture_state ==
+        mrninjam::core::SessionCaptureState::kFailed) {
+      return "Recorder unavailable";
+    }
+    if (!recording_requested &&
+        session_capture_state ==
+            mrninjam::core::SessionCaptureState::kCompleted) {
+      return "Saved";
+    }
   }
   if ((session_mix_selected &&
        session_status_text.rfind("Recording unavailable:", 0) == 0) ||
@@ -784,6 +812,7 @@ mrninjam::ui::ConnectionEditorRuntimeSnapshot BuildConnectionEditorRuntimeSnapsh
                                      snapshot.session_capture_active ||
                                          snapshot.multitrack_capture_active,
                                      snapshot.wav_stem_export_active,
+                                     instance->runtime.GetSessionCaptureState(),
                                      instance->runtime.GetSessionCaptureStatusText(),
                                      snapshot.wav_stem_export_status_text,
                                      instance->runtime.GetMultitrackCaptureStatusText());
@@ -2175,9 +2204,10 @@ bool CLAP_ABI StateSave(const clap_plugin_t* plugin, const clap_ostream_t* strea
   state.connection_user = connection_settings.user;
   state.recordings_path = connection_settings.recordings_path;
   state.gain = instance->params.GetGain();
-  state.connect_requested = instance->pending_connect_requested_dirty.load(std::memory_order_acquire)
-                                ? instance->pending_connect_requested.load(std::memory_order_acquire)
-                                : instance->runtime.IsConnectRequested();
+  // A live connection request is transient runtime state. Passwords are
+  // intentionally excluded from host state, so restoring this flag would
+  // attempt an incomplete login whenever a DAW project is opened.
+  state.connect_requested = false;
   state.session_bpm = instance->pending_target_session_bpm_dirty.load(std::memory_order_acquire)
                           ? instance->pending_target_session_bpm.load(std::memory_order_acquire)
                           : instance->runtime.GetSessionBpm();
@@ -2318,7 +2348,10 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
     restored_settings.recordings_path = state.recordings_path;
     instance->runtime.ApplyConnectionSettings(restored_settings);
   }
-  instance->runtime.SetConnectRequested(state.connect_requested);
+  // Restoring a project must not initiate network activity. The endpoint,
+  // identity, and non-secret settings are restored above; the user can supply
+  // the password and explicitly connect when ready.
+  instance->runtime.SetConnectRequested(false);
   instance->runtime.SetSessionBpm(state.session_bpm);
   instance->runtime.SetSessionBpi(state.session_bpi);
   instance->runtime.SetMonitorMix(state.monitor_mix);
@@ -2369,7 +2402,7 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   }
   instance->runtime.ReplaceLocalInputRoutes(restored_routes);
   instance->runtime.SetRecordingRequested(false);
-  instance->pending_connect_requested.store(state.connect_requested, std::memory_order_relaxed);
+  instance->pending_connect_requested.store(false, std::memory_order_relaxed);
   instance->pending_connect_requested_dirty.store(false, std::memory_order_release);
   instance->pending_target_session_bpm.store(
       mrninjam::core::NinjamBridge::ClampSessionBpm(state.session_bpm), std::memory_order_relaxed);
@@ -2410,7 +2443,7 @@ bool CLAP_ABI StateLoad(const clap_plugin_t* plugin, const clap_istream_t* strea
   mrninjam::core::DebugLogf("clap",
                                 "StateLoad gain=%.3f connect=%d bpm=%.2f bpi=%d remote_return=%.3f metronome=%.3f tx_mode=%d tx_bitrate=%d capture=%d multitrack=%d",
                                 state.gain,
-                                state.connect_requested ? 1 : 0,
+                                0,
                                 state.session_bpm,
                                 state.session_bpi,
                                 state.monitor_mix,

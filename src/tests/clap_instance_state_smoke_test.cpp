@@ -124,7 +124,8 @@ bool MatchesInstance(const std::string& blob, const std::string_view host,
   mrninjam::core::PersistedPluginState state;
   return mrninjam::core::PluginStateCodec::Deserialize(blob, &state) &&
          state.has_instance_connection_settings && state.connection_host == host &&
-         state.connection_user == user && state.recordings_path == recordings_path;
+         state.connection_user == user && state.recordings_path == recordings_path &&
+         !state.connect_requested;
 }
 
 }  // namespace
@@ -168,10 +169,12 @@ int main() {
     return 1;
   }
 
-  const auto first_state = MakeState("first.example.test:2049", "first-user",
-                                     "/recordings/reaper-instance");
-  const auto second_state = MakeState("second.example.test:2050", "second-user",
-                                      "/recordings/bitwig-instance");
+  auto first_state = MakeState("first.example.test:2049", "first-user",
+                               "/recordings/reaper-instance");
+  auto second_state = MakeState("second.example.test:2050", "second-user",
+                                "/recordings/bitwig-instance");
+  first_state.connect_requested = true;
+  second_state.connect_requested = true;
   const std::string first_input =
       mrninjam::core::PluginStateCodec::Serialize(first_state);
   const std::string second_input =

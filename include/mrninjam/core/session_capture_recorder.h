@@ -12,6 +12,16 @@ namespace mrninjam::core {
 
 std::string GetDefaultSessionCaptureDirectory();
 
+enum class SessionCaptureState : std::uint8_t {
+  kIdle,
+  kStarting,
+  kRecording,
+  kFinalizing,
+  kCompleted,
+  kRecoverable,
+  kFailed,
+};
+
 struct IncompleteSessionCaptureInfo {
   std::string partial_file_path;
   std::string metadata_file_path;
@@ -69,6 +79,7 @@ class SessionCaptureRecorder {
   void Stop();
 
   bool IsActive() const;
+  SessionCaptureState GetState() const;
   // Non-real-time ownership query. A true result means Stop() must eventually
   // join the writer, even if asynchronous finalization has already completed.
   bool NeedsCleanup() const;
@@ -103,6 +114,7 @@ class SessionCaptureRecorder {
   std::thread writer_thread_;
   std::atomic_bool stop_requested_{false};
   std::atomic_bool active_{false};
+  std::atomic<SessionCaptureState> state_{SessionCaptureState::kIdle};
 
   std::vector<float> ring_buffer_;
   std::vector<float> drain_buffer_;
