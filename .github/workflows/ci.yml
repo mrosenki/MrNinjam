@@ -129,3 +129,39 @@ jobs:
       - name: Re-check locked dependencies
         shell: bash
         run: ./scripts/check_submodule_clean.sh
+
+      - name: Stage Windows test package
+        if: matrix.os == 'windows-latest'
+        id: windows-package
+        shell: pwsh
+        run: |
+          $VersionMatch = Select-String -Path CMakeLists.txt `
+            -Pattern 'project\(MrNinjam VERSION ([0-9]+\.[0-9]+\.[0-9]+)'
+          if (-not $VersionMatch) {
+            throw 'Could not read the MrNinjam version from CMakeLists.txt.'
+          }
+          $Version = $VersionMatch.Matches[0].Groups[1].Value
+          "version=$Version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+          $Clap = Get-ChildItem -Path build/plugin -Recurse `
+            -Filter MrNinjam.clap | Select-Object -First 1
+          $Vst3 = Get-ChildItem -Path build/plugin -Recurse `
+            -Filter MrNinjam.vst3 | Select-Object -First 1
+          if (-not $Clap -or -not $Vst3) {
+            throw 'Validated Windows CLAP and VST3 bundles were not both found.'
+          }
+
+          New-Item -ItemType Directory -Path package -Force | Out-Null
+          Copy-Item -LiteralPath $Clap.FullName -Destination package -Recurse
+          Copy-Item -LiteralPath $Vst3.FullName -Destination package -Recurse
+          Copy-Item -LiteralPath docs/WINDOWS_TEST_BUILD.md `
+            -Destination package/INSTALL.md
+
+      - name: Upload Windows test package
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: MrNinjam-${{ steps.windows-package.outputs.version }}-Windows-x64-test-${{ github.run_number }}
+          path: package
+          if-no-files-found: error
+          retention-days: 30
